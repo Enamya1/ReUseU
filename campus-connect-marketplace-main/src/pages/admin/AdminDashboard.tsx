@@ -14,7 +14,7 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-display font-bold mb-2">Welcome back, Admin</h2>
-        <p className="text-muted-foreground">Here's what's happening on SafeGate today.</p>
+        <p className="text-muted-foreground">Here's what's happening on SCU today.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

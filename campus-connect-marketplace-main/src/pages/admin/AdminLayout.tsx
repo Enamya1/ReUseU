@@ -47,7 +47,7 @@ const AdminLayout: React.FC = () => {
                 <ShoppingBag className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <span className="font-display text-lg font-bold text-white">SafeGate</span>
+                <span className="font-display text-lg font-bold text-white">SCU</span>
                 <span className="block text-xs text-white/60">Admin Console</span>
               </div>
             </Link>

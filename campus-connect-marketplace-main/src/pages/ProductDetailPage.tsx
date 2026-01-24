@@ -67,7 +67,7 @@ const ProductDetailPage: React.FC = () => {
     try {
       await navigator.share({
         title: product.title,
-        text: `Check out ${product.title} on SafeGate!`,
+        text: `Check out ${product.title} on SCU!`,
         url: window.location.href,
       });
     } catch {

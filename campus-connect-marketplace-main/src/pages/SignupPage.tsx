@@ -71,7 +71,7 @@ const SignupPage: React.FC = () => {
       if (success) {
         toast({
           title: "Account created!",
-          description: "Welcome to SafeGate",
+          description: "Welcome to SCU",
         });
         navigate('/');
       }
@@ -130,7 +130,7 @@ const SignupPage: React.FC = () => {
                 <ShoppingBag className="w-6 h-6 text-primary-foreground" />
               </div>
               <span className="font-display text-2xl font-bold text-foreground">
-                SafeGate
+                SCU
               </span>
             </Link>
             <h1 className="text-3xl font-display font-bold text-foreground">

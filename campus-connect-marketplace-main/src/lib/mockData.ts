@@ -1,4 +1,4 @@
-// Mock data for SafeGate Campus Trading App
+// Mock data for SCU Campus Trading App
 
 export interface User {
   id: number;
@@ -187,7 +187,7 @@ export const mockUsers: User[] = [
     id: 4,
     full_name: 'Admin User',
     username: 'admin',
-    email: 'admin@safegate.edu',
+    email: 'admin@SCU.edu',
     role: 'admin',
     status: 'active',
   },

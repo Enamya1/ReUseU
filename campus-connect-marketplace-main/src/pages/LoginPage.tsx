@@ -67,7 +67,7 @@ const LoginPage: React.FC = () => {
                 <ShoppingBag className="w-6 h-6 text-primary-foreground" />
               </div>
               <span className="font-display text-2xl font-bold text-foreground">
-                SafeGate
+                SCU
               </span>
             </Link>
             <h1 className="text-3xl font-display font-bold text-foreground">
@@ -146,7 +146,7 @@ const LoginPage: React.FC = () => {
           {/* Demo Note */}
           <div className="p-4 rounded-lg bg-muted/50 border border-border">
             <p className="text-sm text-muted-foreground text-center">
-              <strong>Demo:</strong> Enter any email and password to log in
+              Uses your REST API credentials to log in
             </p>
           </div>
         </div>

@@ -108,7 +108,7 @@ const CreateListingPage: React.FC = () => {
     
     toast({
       title: "Listing created!",
-      description: "Your item is now live on SafeGate",
+      description: "Your item is now live on SCU",
     });
     
     navigate('/my-listings');

@@ -1,0 +1,95 @@
+PROJECT: Campus Connect Marketplace (Vite + React + TypeScript + Tailwind + shadcn-ui)
+
+GOAL / PRODUCT
+- A campus marketplace web app UI for students to buy/sell/trade items within a university/dormitory context.
+- Current repo is a frontend/demo-first implementation; auth now supports a real login endpoint, but most data is still mock/in-memory.
+
+TECH STACK
+- Vite + React 18 + TypeScript
+- Tailwind CSS (class-based dark mode)
+- shadcn-ui (Radix UI primitives + Tailwind styling) in src/components/ui
+- TanStack React Query is installed and provided at app root, but most data is mock/in-memory
+- Testing: Vitest + Testing Library (jsdom)
+
+HOW TO RUN
+- npm run dev (Vite dev server; configured for port 8080 but will auto-pick another if in use)
+- npm run lint (eslint)
+- npm run build (vite build)
+- npm run test (vitest run)
+
+REPO LAYOUT (HIGH SIGNAL)
+- index.html: Vite entry HTML. Dark mode is enabled by default via <html class="dark">.
+- .env.local: Local environment values (ignored by git). Includes VITE_API_BASE_URL for API requests.
+- src/main.tsx: React entry; imports src/index.css.
+- src/App.tsx: App composition (providers + router).
+- src/index.css: Global CSS variables + Tailwind layers + theme tokens (light + .dark).
+- src/components/ui: shadcn-ui components (Button, Input, Dialog, etc.).
+- src/components/layout: Header/Footer/MainLayout shell components.
+- src/pages: Route-level pages (Home, Login, Signup, ProductDetail, Favorites, MyListings, CreateListing, Profile, NotFound).
+- src/pages/admin: Admin login + AdminLayout + AdminDashboard placeholder.
+- src/contexts: AuthContext and FavoritesContext (in-memory state).
+- src/lib/api.ts: Central API base URL + apiUrl(endpoint) helper to build full URLs.
+- src/lib/mockData.ts: All mock entities (users/products/categories/etc.) + helpers.
+- public/logo.png: Project logo asset (not guaranteed wired into UI).
+
+ROUTING
+- Defined in src/App.tsx:
+  - Public: /, /login, /signup, /product/:id
+  - User pages: /favorites, /my-listings, /create-listing, /profile
+  - Admin: /admin/login and nested under /admin (dashboard/users/universities/dormitories/categories/conditions)
+  - Catch-all: *
+- Note: Some navigation links may point to routes not defined in App.tsx (e.g. /search, /browse, /featured). If you implement those, add matching <Route> entries.
+
+DATA MODEL (MOCKED)
+- src/lib/mockData.ts exports TypeScript interfaces for:
+  - User, University, Dormitory, Category, ConditionLevel, Tag, ProductImage, Product
+- Exports mock arrays (mockUsers, mockProducts, etc.) and helper functions (e.g. formatting, get-by-id).
+- No HTTP/axios clients are currently used for CRUD; pages read and mutate local state only.
+
+STATE / CONTEXT
+- Auth: src/contexts/AuthContext.tsx
+  - User login calls POST /api/user/login with JSON { email, password }
+  - Expects JSON { message, access_token, token_type } and stores token in localStorage
+    - Keys: auth.access_token, auth.token_type, auth.user
+  - user is currently derived from the login email (until a /me endpoint is wired)
+  - Profile update calls PATCH /api/user/settings (auth:sanctum via Authorization: Bearer <token>)
+    - Request body fields are optional (full_name, username, email, phone_number, dormitory_id, profile_picture, student_id, bio, date_of_birth, gender, language, timezone)
+    - Response 200 returns { message, user }, and AuthContext replaces stored user with the response user
+    - Response 422 returns { message, errors }, and the UI displays per-field errors
+  - signup remains mock/in-memory (does not issue a token)
+- Favorites: src/contexts/FavoritesContext.tsx
+  - favorites is a number[] of product ids stored in React state
+  - provides isFavorite/toggleFavorite/addFavorite/removeFavorite
+
+API BASE URL
+- Configure the server host once via VITE_API_BASE_URL in .env.local (Vite requires restart after env changes).
+- Build URLs using src/lib/api.ts:
+  - API_BASE_URL: normalized base (no trailing slash)
+  - apiUrl("/api/user/login") => "${VITE_API_BASE_URL}/api/user/login"
+  - apiUrl("https://example.com/x") returns the absolute URL unchanged
+
+UI / DESIGN SYSTEM
+- Tailwind theme is driven by CSS variables in src/index.css.
+- Dark mode is class-based (.dark) and enabled by default at the HTML root (index.html).
+- Key color palette (kept consistent across themes):
+  - Primary: #F63049, Secondary: #D02752, Tertiary: #8A244B, Navy/Dark: #111F35
+- In dark mode, background is intentionally very dark and surfaces (card/muted) are brighter for contrast.
+- Utility classes defined in src/index.css include:
+  - bg-gradient-primary, bg-gradient-hero, text-gradient-primary
+  - shadow-card, shadow-card-hover
+
+ADMIN AREA
+- Uses its own layout: src/pages/admin/AdminLayout.tsx with sidebar and top bar.
+- Most admin routes currently render AdminDashboard as a placeholder.
+
+ASSETS / BRANDING
+- public/logo.png exists as a brand asset.
+- Header/Admin currently use a Lucide icon for the “logo” area unless replaced with an <img src="/logo.png" ...>.
+
+RECENT UI DECISIONS (BEHAVIORAL NOTES)
+- Featured item image cards on Home should avoid dark gradient overlays (“glow” overlays removed).
+
+CONVENTIONS FOR CHANGES
+- Prefer Tailwind tokens (bg-background, text-foreground, bg-card, text-muted-foreground, border-border) instead of hardcoded colors.
+- Update UI spec in ui.txt when making UI/theme decisions.
+- After UI changes, run: npm run lint, npx tsc -p tsconfig.json --noEmit, npm run build.

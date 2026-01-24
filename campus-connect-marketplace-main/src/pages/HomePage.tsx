@@ -135,7 +135,6 @@ const HomePage: React.FC = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/20 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                     <p className="text-lg font-bold">${product.price}</p>
                     <p className="text-sm text-white/80 line-clamp-1">{product.title}</p>
@@ -187,7 +186,7 @@ const HomePage: React.FC = () => {
                 Ready to start trading?
               </h2>
               <p className="text-lg opacity-80 mb-8">
-                Join thousands of students already using SafeGate to buy and sell on campus.
+                Join thousands of students already using SCU to buy and sell on campus.
               </p>
               <Button variant="secondary" size="xl" asChild>
                 <Link to="/signup">

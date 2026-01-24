@@ -1,0 +1,21 @@
+{
+  "bookmarks": [
+    {
+      "title": "base_url",
+      "description": "VITE_API_BASE_URL=http://localhost:8000",
+      "filePath": "campus-connect-marketplace-main/.env.local",
+      "line": 0,
+      "column": 0,
+      "tags": [],
+      "id": "da248c79672b9304d1d750562ea9c27e",
+      "createdAt": "2026-01-24T10:12:22.767Z",
+      "updatedAt": "2026-01-24T10:12:22.767Z"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "workspacePath": "",
+    "totalBookmarks": 1,
+    "lastModified": "2026-01-24T10:12:22.768Z"
+  }
+}

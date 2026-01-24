@@ -1,4 +1,4 @@
-SafeGate UI Description Prompt
+SCU UI Description Prompt
 
 Overview
 - Backend architecture: Laravel API (PHP 8, Sanctum) with FastAPI microservice for recommendations.
@@ -289,11 +289,18 @@ Color Palette Implementation
   - Secondary: #D02752 (secondary buttons and highlights)
   - Tertiary: #8A244B (accents and decorative elements)
   - Dark: #111F35 (dark UI elements, text contrast, neutral base)
+- Default Theme (Dark Mode)
+  - The website ships in dark mode by default (class-based), keeping the same Primary/Secondary/Tertiary colors.
+  - Core dark tokens (CSS variables)
+    - Background: hsl(215 54% 8%)
+    - Card/Popover: hsl(215 50% 14%)
+    - Muted surface: hsl(215 40% 20%)
+    - Border/Input: hsl(215 35% 25%)
 - Text Colors (WCAG AA guidance)
   - On Primary (#F63049): use #000000 for normal-size text (contrast ≈5.4:1); #FFFFFF only for large text (≥18pt semibold or ≥24pt regular) or when using a darkened primary variant.
   - On Secondary (#D02752): use #FFFFFF for all text (contrast ≈5.1:1).
   - On Tertiary (#8A244B): use #FFFFFF for all text (contrast ≈8.6:1).
-  - On Dark (#111F35): use #FFFFFF for headings/body; use #E6EAF2 for secondary text; #C9D1E8 for disabled text to maintain legibility.
+  - On Dark (#111F35) / Dark Surfaces: use #FFFFFF for headings/body; use #E6EAF2–#C9D1E8 for secondary/disabled text to maintain legibility.
 - Interactive States (recommended variants)
   - Primary Button (filled)
     - Default: background #F63049; text #000000; border none; shadow subtle.
@@ -312,15 +319,17 @@ Color Palette Implementation
     - Active: background color-mix 75% #FFFFFF + 25% #8A244B; text #6B1B3B.
   - Links
     - Default: color #D02752; hover underline + darken; active maintain darkened color.
-- Surfaces & Neutrals (derived from Dark)
-  - Surface-1: color-mix 90% #111F35 + 10% #FFFFFF (e.g., ~#16223F)
-  - Surface-2: color-mix 80% #111F35 + 20% #FFFFFF (e.g., ~#1C2A4A)
-  - Borders: use 30–40% mix toward #FFFFFF on dark surfaces; toward #111F35 on light surfaces.
+- Surfaces & Neutrals (dark-first)
+  - Background: use the dark Background token; keep large areas uncluttered.
+  - Elevated surfaces: use Card/Muted tokens so components read brighter than the background.
+  - Borders/Inputs: use the Border/Input token (slightly brighter than cards) for separation.
+- Media Overlays
+  - Featured product cards: avoid dark gradient overlays on images (no glow effect); keep content clean.
 - Color Usage Guidelines
   - Hierarchy: Primary for main CTAs, destructive confirmations only with explicit text; Secondary for alternate actions; Tertiary for labels/chips and decorative accents.
   - Accessibility: Always verify 4.5:1 for body text; prefer darkened fills when pairing with white text; reserve white text on Primary for large text or use the Alt style.
   - Consistency: Keep hover/active darkening consistent across components (~8–10% hover, ~14–16% active).
-  - Backgrounds: Use Dark-derived surfaces for headers/footers and panels; ensure component shadows retain visibility on dark surfaces.
+  - Backgrounds: Default to dark backgrounds; keep cards/controls brighter; ensure component shadows remain visible on dark surfaces.
   - States: Disabled components reduce opacity to 40–50% and remove shadows; focus states use high-contrast outlines.
   - Data Visualization: Use Tertiary for category/tag accents; Secondary for highlighted metrics; avoid overuse of Primary in charts to preserve CTA salience.
   - Theming: Maintain palette integrity across platforms; for mobile, ensure touch feedback (ripple/press) uses the active variant with sufficient contrast.

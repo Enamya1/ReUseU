@@ -12,7 +12,7 @@ const AdminLoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { adminLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,14 +30,19 @@ const AdminLoginPage: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // For demo, use admin email
-      const success = await login('admin@safegate.edu', password);
+      const success = await adminLogin(email, password);
       if (success) {
         toast({
           title: "Welcome, Admin!",
           description: "You've successfully logged in",
         });
         navigate('/admin/dashboard');
+      } else {
+        toast({
+          title: "Login failed",
+          description: "Invalid email or password",
+          variant: "destructive",
+        });
       }
     } catch {
       toast({
@@ -63,7 +68,7 @@ const AdminLoginPage: React.FC = () => {
               Admin Console
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Sign in to manage SafeGate
+              Sign in to manage SCU
             </p>
           </div>
 
@@ -74,7 +79,7 @@ const AdminLoginPage: React.FC = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@safegate.edu"
+                placeholder="admin@SCU.edu"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-12"
@@ -117,14 +122,14 @@ const AdminLoginPage: React.FC = () => {
           {/* Demo Note */}
           <div className="p-4 rounded-lg bg-muted border border-border">
             <p className="text-sm text-muted-foreground text-center">
-              <strong>Demo:</strong> Enter any email and password to access admin panel
+              Use your admin API credentials to access the console
             </p>
           </div>
 
           {/* Back Link */}
           <p className="text-center text-sm text-muted-foreground">
             <Link to="/" className="text-primary hover:underline">
-              ← Back to SafeGate
+              ← Back to SCU
             </Link>
           </p>
         </div>

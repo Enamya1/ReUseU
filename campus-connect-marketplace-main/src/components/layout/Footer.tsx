@@ -14,7 +14,7 @@ const Footer: React.FC = () => {
                 <ShoppingBag className="w-5 h-5 text-primary-foreground" />
               </div>
               <span className="font-display text-xl font-bold text-foreground">
-                SafeGate
+                SCU
               </span>
             </Link>
             <p className="text-sm text-muted-foreground">
@@ -84,7 +84,7 @@ const Footer: React.FC = () => {
 
         <div className="mt-8 pt-8 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} SafeGate. All rights reserved.
+            © {new Date().getFullYear()} SCU. All rights reserved.
           </p>
           <p className="text-sm text-muted-foreground">
             Made with ❤️ for campus communities

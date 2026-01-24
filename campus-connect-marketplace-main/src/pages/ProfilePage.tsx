@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Camera, ArrowLeft, Save } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -17,40 +17,100 @@ const ProfilePage: React.FC = () => {
   const { user, isAuthenticated, updateProfile } = useAuth();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   
   const [formData, setFormData] = useState({
     full_name: user?.full_name || '',
     username: user?.username || '',
     email: user?.email || '',
     phone_number: user?.phone_number || '',
+    profile_picture: user?.profile_picture || '',
     bio: user?.bio || '',
     dormitory_id: user?.dormitory_id?.toString() || '',
     student_id: user?.student_id || '',
+    date_of_birth: user?.date_of_birth || '',
+    gender: user?.gender || '',
+    language: user?.language || '',
+    timezone: user?.timezone || '',
   });
+
+  useEffect(() => {
+    if (!user) return;
+    setFormData({
+      full_name: user.full_name || '',
+      username: user.username || '',
+      email: user.email || '',
+      phone_number: user.phone_number || '',
+      profile_picture: user.profile_picture || '',
+      bio: user.bio || '',
+      dormitory_id: user.dormitory_id?.toString() || '',
+      student_id: user.student_id || '',
+      date_of_birth: user.date_of_birth || '',
+      gender: user.gender || '',
+      language: user.language || '',
+      timezone: user.timezone || '',
+    });
+  }, [user]);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setFieldErrors(prev => {
+      if (!prev[field]) return prev;
+      const { [field]: _removed, ...rest } = prev;
+      return rest;
+    });
   };
+
+  const firstError = useMemo(() => {
+    const get = (field: string) => fieldErrors[field]?.[0] || "";
+    return { get };
+  }, [fieldErrors]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setFieldErrors({});
     
     try {
-      await updateProfile({
-        full_name: formData.full_name,
-        username: formData.username,
-        phone_number: formData.phone_number || undefined,
-        bio: formData.bio || undefined,
+      const success = await updateProfile({
+        full_name: formData.full_name.trim() || undefined,
+        username: formData.username.trim() || undefined,
+        email: formData.email.trim() || undefined,
+        phone_number: formData.phone_number.trim() || undefined,
+        profile_picture: formData.profile_picture.trim() || undefined,
+        bio: formData.bio.trim() || undefined,
         dormitory_id: formData.dormitory_id ? parseInt(formData.dormitory_id) : undefined,
-        student_id: formData.student_id || undefined,
+        student_id: formData.student_id.trim() || undefined,
+        date_of_birth: formData.date_of_birth || undefined,
+        gender: formData.gender.trim() || undefined,
+        language: formData.language.trim() || undefined,
+        timezone: formData.timezone.trim() || undefined,
       });
+
+      if (!success) {
+        toast({
+          title: "Error",
+          description: "Failed to update profile",
+          variant: "destructive",
+        });
+        return;
+      }
       
       toast({
         title: "Profile updated",
         description: "Your changes have been saved",
       });
-    } catch {
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      if (maybe?.errors) {
+        setFieldErrors(maybe.errors);
+        toast({
+          title: maybe.message || "Validation error",
+          description: "Please review the highlighted fields",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: "Error",
         description: "Failed to update profile",
@@ -138,6 +198,9 @@ const ProfilePage: React.FC = () => {
                     onChange={(e) => handleChange('full_name', e.target.value)}
                     className="h-11"
                   />
+                  {firstError.get("full_name") ? (
+                    <p className="text-xs text-destructive">{firstError.get("full_name")}</p>
+                  ) : null}
                 </div>
 
                 <div className="space-y-2">
@@ -148,6 +211,9 @@ const ProfilePage: React.FC = () => {
                     onChange={(e) => handleChange('username', e.target.value)}
                     className="h-11"
                   />
+                  {firstError.get("username") ? (
+                    <p className="text-xs text-destructive">{firstError.get("username")}</p>
+                  ) : null}
                 </div>
               </div>
 
@@ -157,12 +223,12 @@ const ProfilePage: React.FC = () => {
                   id="email"
                   type="email"
                   value={formData.email}
-                  disabled
-                  className="h-11 bg-muted"
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  className="h-11"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Email cannot be changed
-                </p>
+                {firstError.get("email") ? (
+                  <p className="text-xs text-destructive">{firstError.get("email")}</p>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -176,6 +242,9 @@ const ProfilePage: React.FC = () => {
                     placeholder="+1 (555) 000-0000"
                     className="h-11"
                   />
+                  {firstError.get("phone_number") ? (
+                    <p className="text-xs text-destructive">{firstError.get("phone_number")}</p>
+                  ) : null}
                 </div>
 
                 <div className="space-y-2">
@@ -187,7 +256,24 @@ const ProfilePage: React.FC = () => {
                     placeholder="e.g., STU2024001"
                     className="h-11"
                   />
+                  {firstError.get("student_id") ? (
+                    <p className="text-xs text-destructive">{firstError.get("student_id")}</p>
+                  ) : null}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile_picture">Profile Picture URL</Label>
+                <Input
+                  id="profile_picture"
+                  value={formData.profile_picture}
+                  onChange={(e) => handleChange('profile_picture', e.target.value)}
+                  placeholder="https://..."
+                  className="h-11"
+                />
+                {firstError.get("profile_picture") ? (
+                  <p className="text-xs text-destructive">{firstError.get("profile_picture")}</p>
+                ) : null}
               </div>
 
               <div className="space-y-2">
@@ -207,6 +293,67 @@ const ProfilePage: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {firstError.get("dormitory_id") ? (
+                  <p className="text-xs text-destructive">{firstError.get("dormitory_id")}</p>
+                ) : null}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="date_of_birth">Date of Birth</Label>
+                  <Input
+                    id="date_of_birth"
+                    type="date"
+                    value={formData.date_of_birth}
+                    onChange={(e) => handleChange('date_of_birth', e.target.value)}
+                    className="h-11"
+                  />
+                  {firstError.get("date_of_birth") ? (
+                    <p className="text-xs text-destructive">{firstError.get("date_of_birth")}</p>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select value={formData.gender} onValueChange={(value) => handleChange('gender', value)}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {firstError.get("gender") ? <p className="text-xs text-destructive">{firstError.get("gender")}</p> : null}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="language">Language</Label>
+                  <Input
+                    id="language"
+                    value={formData.language}
+                    onChange={(e) => handleChange('language', e.target.value)}
+                    placeholder="e.g., en"
+                    className="h-11"
+                  />
+                  {firstError.get("language") ? <p className="text-xs text-destructive">{firstError.get("language")}</p> : null}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Input
+                    id="timezone"
+                    value={formData.timezone}
+                    onChange={(e) => handleChange('timezone', e.target.value)}
+                    placeholder="e.g., UTC, America/Los_Angeles"
+                    className="h-11"
+                  />
+                  {firstError.get("timezone") ? <p className="text-xs text-destructive">{firstError.get("timezone")}</p> : null}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -218,6 +365,7 @@ const ProfilePage: React.FC = () => {
                   placeholder="Tell other students a bit about yourself..."
                   rows={4}
                 />
+                {firstError.get("bio") ? <p className="text-xs text-destructive">{firstError.get("bio")}</p> : null}
               </div>
             </div>
 
