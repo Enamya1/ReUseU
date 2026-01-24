@@ -9,9 +9,10 @@ import { cn } from '@/lib/utils';
 interface ProductCardProps {
   product: Product;
   className?: string;
+  linkTo?: string;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, className }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo }) => {
   const { isFavorite, toggleFavorite } = useFavorites();
   const favorite = isFavorite(product.id);
 
@@ -25,7 +26,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className }) => {
 
   return (
     <Link
-      to={`/product/${product.id}`}
+      to={linkTo || `/product/${product.id}`}
       className={cn(
         "group block bg-card rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 animate-fade-in",
         className

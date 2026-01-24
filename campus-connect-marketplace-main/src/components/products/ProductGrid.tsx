@@ -7,12 +7,14 @@ interface ProductGridProps {
   products: Product[];
   className?: string;
   emptyMessage?: string;
+  getProductLink?: (product: Product) => string;
 }
 
 const ProductGrid: React.FC<ProductGridProps> = ({ 
   products, 
   className,
-  emptyMessage = "No products found" 
+  emptyMessage = "No products found",
+  getProductLink
 }) => {
   if (products.length === 0) {
     return (
@@ -36,6 +38,7 @@ const ProductGrid: React.FC<ProductGridProps> = ({
         <ProductCard
           key={product.id}
           product={product}
+          linkTo={getProductLink ? getProductLink(product) : undefined}
         />
       ))}
     </div>

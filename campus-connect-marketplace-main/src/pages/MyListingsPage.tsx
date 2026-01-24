@@ -209,7 +209,10 @@ const MyListingsPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            <ProductGrid products={products} />
+            <ProductGrid
+              products={products}
+              getProductLink={(product) => `/my-listings/${product.id}`}
+            />
 
             {totalPages > 1 ? (
               <Pagination>

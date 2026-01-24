@@ -13,6 +13,7 @@ import SignupPage from "./pages/SignupPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import MyListingsPage from "./pages/MyListingsPage";
+import MyListingDetailPage from "./pages/MyListingDetailPage";
 import CreateListingPage from "./pages/CreateListingPage";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
@@ -42,6 +43,7 @@ const App = () => (
               {/* Protected User Routes */}
               <Route path="/favorites" element={<FavoritesPage />} />
               <Route path="/my-listings" element={<MyListingsPage />} />
+              <Route path="/my-listings/:id" element={<MyListingDetailPage />} />
               <Route path="/create-listing" element={<CreateListingPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               

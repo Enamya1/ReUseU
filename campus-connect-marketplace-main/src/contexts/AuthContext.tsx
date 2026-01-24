@@ -17,6 +17,9 @@ interface AuthContextType {
   getDormitoriesByUniversity: () => Promise<DormitoriesByUniversityResponseBody>;
   getMyProductCards: (params?: { page?: number; page_size?: number }) => Promise<MyProductCardsResponseBody>;
   createProduct: (data: CreateProductInput) => Promise<CreateProductResponseBody>;
+  getProductForEdit: (productId: number) => Promise<GetProductForEditResponseBody>;
+  updateProduct: (productId: number, data: UpdateProductInput) => Promise<UpdateProductResponseBody>;
+  markProductSold: (productId: number) => Promise<MarkProductSoldResponseBody>;
 }
 
 interface SignupData {
@@ -143,6 +146,61 @@ type CreateProductResponseBody = {
   product?: unknown;
   images?: unknown[];
   tag_ids?: number[];
+  errors?: Record<string, string[]>;
+};
+
+type ProductImage = {
+  id: number;
+  product_id: number;
+  image_url: string;
+  image_thumbnail_url?: string | null;
+  is_primary: boolean;
+};
+
+type EditableProduct = {
+  id: number;
+  seller_id?: number;
+  dormitory_id?: number | null;
+  dormitory?: DormitoryOption;
+  category_id: number;
+  category?: MetaCategoryOption & { parent_id?: number | null };
+  condition_level_id: number;
+  condition_level?: MetaConditionLevelOption;
+  title: string;
+  description?: string | null;
+  price: number;
+  status: "available" | "sold" | "reserved";
+  created_at?: string;
+  images?: ProductImage[];
+  tags?: MetaTagOption[];
+  tag_ids?: number[];
+};
+
+type GetProductForEditResponseBody = {
+  message?: string;
+  product?: EditableProduct;
+  errors?: Record<string, string[]>;
+};
+
+type UpdateProductInput = {
+  title: string;
+  description?: string | null;
+  price: number;
+  category_id: number;
+  condition_level_id: number;
+  dormitory_id?: number | null;
+  tag_ids?: number[] | null;
+};
+
+type UpdateProductResponseBody = {
+  message?: string;
+  product?: EditableProduct;
+  errors?: Record<string, string[]>;
+};
+
+type MarkProductSoldResponseBody = {
+  message?: string;
+  product?: { id: number; status: "sold" | "available" | "reserved" };
   errors?: Record<string, string[]>;
 };
 
@@ -608,6 +666,147 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user],
   );
 
+  const getProductForEdit = useCallback(
+    async (productId: number): Promise<GetProductForEditResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as GetProductForEditResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as GetProductForEditResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/user/products/${productId}/edit`), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as GetProductForEditResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as GetProductForEditResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as GetProductForEditResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Product not found." } as GetProductForEditResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const updateProduct = useCallback(
+    async (productId: number, data: UpdateProductInput): Promise<UpdateProductResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as UpdateProductResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as UpdateProductResponseBody;
+      }
+
+      const payload = removeUndefined({
+        title: data.title,
+        description: data.description ?? null,
+        price: data.price,
+        category_id: data.category_id,
+        condition_level_id: data.condition_level_id,
+        dormitory_id: data.dormitory_id ?? null,
+        tag_ids: data.tag_ids ?? null,
+      });
+
+      const response = await fetch(apiUrl(`/api/user/products/${productId}`), {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as UpdateProductResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as UpdateProductResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as UpdateProductResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Product not found." } as UpdateProductResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const markProductSold = useCallback(
+    async (productId: number): Promise<MarkProductSoldResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as MarkProductSoldResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MarkProductSoldResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/user/products/${productId}/mark-sold`), {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as MarkProductSoldResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as MarkProductSoldResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MarkProductSoldResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Product not found." } as MarkProductSoldResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
   const getDormitoriesByUniversity = useCallback(async (): Promise<DormitoriesByUniversityResponseBody> => {
     if (!accessToken) {
       throw { message: "Unauthenticated." } as DormitoriesByUniversityResponseBody;
@@ -664,6 +863,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getDormitoriesByUniversity,
         getMyProductCards,
         createProduct,
+        getProductForEdit,
+        updateProduct,
+        markProductSold,
       }}
     >
       {children}
