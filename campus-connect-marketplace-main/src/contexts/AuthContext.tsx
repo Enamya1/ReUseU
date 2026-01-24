@@ -11,6 +11,12 @@ interface AuthContextType {
   signup: (data: SignupData) => Promise<boolean>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<boolean>;
+  getUniversityOptions: (universityId?: number) => Promise<UniversityOptionsResponseBody>;
+  updateUniversitySettings: (data: { university_id: number; dormitory_id: number }) => Promise<boolean>;
+  getMetaOptions: () => Promise<MetaOptionsResponseBody>;
+  getDormitoriesByUniversity: () => Promise<DormitoriesByUniversityResponseBody>;
+  getMyProductCards: (params?: { page?: number; page_size?: number }) => Promise<MyProductCardsResponseBody>;
+  createProduct: (data: CreateProductInput) => Promise<CreateProductResponseBody>;
 }
 
 interface SignupData {
@@ -33,6 +39,110 @@ type LoginResponse = {
 type UpdateProfileResponse = {
   message?: string;
   user?: User;
+  errors?: Record<string, string[]>;
+};
+
+type UniversityOption = {
+  id: number;
+  name: string;
+};
+
+type DormitoryOption = {
+  id: number;
+  dormitory_name: string;
+  is_active?: boolean;
+  university_id?: number;
+};
+
+type UniversityOptionsResponseBody = {
+  message?: string;
+  current?: { university_id?: number | null; dormitory_id?: number | null };
+  universities?: UniversityOption[];
+  dormitories?: DormitoryOption[];
+  errors?: Record<string, string[]>;
+};
+
+type UpdateUniversitySettingsResponseBody = {
+  message?: string;
+  user?: { id: number; dormitory_id?: number | null };
+  university?: UniversityOption;
+  dormitory?: DormitoryOption;
+  errors?: Record<string, string[]>;
+};
+
+type MetaCategoryOption = {
+  id: number;
+  name: string;
+  icon?: string | null;
+};
+
+type MetaConditionLevelOption = {
+  id: number;
+  name: string;
+  description?: string | null;
+  sort_order?: number | null;
+};
+
+type MetaTagOption = {
+  id: number;
+  name: string;
+};
+
+type MetaOptionsResponseBody = {
+  message?: string;
+  categories?: MetaCategoryOption[];
+  condition_levels?: MetaConditionLevelOption[];
+  tags?: MetaTagOption[];
+  errors?: Record<string, string[]>;
+};
+
+type MyProductCard = {
+  id: number;
+  title: string;
+  price: number;
+  status: "available" | "sold" | "reserved";
+  created_at: string;
+  image_thumbnail_url?: string | null;
+  dormitory?: DormitoryOption & { university_id?: number };
+  category?: { id: number; name: string; parent_id?: number | null };
+  condition_level?: MetaConditionLevelOption;
+};
+
+type MyProductCardsResponseBody = {
+  message?: string;
+  page?: number;
+  page_size?: number;
+  total?: number;
+  total_pages?: number;
+  products?: MyProductCard[];
+  errors?: Record<string, string[]>;
+};
+
+type DormitoriesByUniversityResponseBody = {
+  message?: string;
+  university_id?: number;
+  dormitories?: DormitoryOption[];
+  errors?: Record<string, string[]>;
+};
+
+type CreateProductInput = {
+  category_id: number;
+  condition_level_id: number;
+  title: string;
+  description?: string | null;
+  price: number;
+  dormitory_id?: number | null;
+  tag_ids?: number[] | null;
+  primary_image_index?: number | null;
+  images?: File[] | null;
+  image_urls?: string[] | null;
+};
+
+type CreateProductResponseBody = {
+  message?: string;
+  product?: unknown;
+  images?: unknown[];
+  tag_ids?: number[];
   errors?: Record<string, string[]>;
 };
 
@@ -227,6 +337,316 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return true;
   }, [accessToken, tokenType]);
 
+  const getUniversityOptions = useCallback(
+    async (universityId?: number): Promise<UniversityOptionsResponseBody> => {
+      if (!accessToken) {
+        return { message: "Unauthenticated." };
+      }
+
+      const url = new URL(apiUrl("/api/user/settings/university-options"));
+      if (typeof universityId === "number" && Number.isFinite(universityId)) {
+        url.searchParams.set("university_id", String(universityId));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as UniversityOptionsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) {
+          throw responseBody;
+        }
+        if (response.status === 401) {
+          throw responseBody;
+        }
+        if (response.status === 403) {
+          throw responseBody;
+        }
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) {
+        throw { message: "Unauthenticated." } as UniversityOptionsResponseBody;
+      }
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as UniversityOptionsResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType],
+  );
+
+  const updateUniversitySettings = useCallback(
+    async (data: { university_id: number; dormitory_id: number }): Promise<boolean> => {
+      if (!accessToken) return false;
+
+      const response = await fetch(apiUrl("/api/user/settings/university"), {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as UpdateUniversitySettingsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) {
+          throw responseBody;
+        }
+        if (response.status === 401) {
+          throw responseBody;
+        }
+        if (response.status === 403) {
+          throw responseBody;
+        }
+        if (response.status === 404) {
+          throw responseBody;
+        }
+      }
+
+      if (response.status === 401) {
+        throw { message: "Unauthenticated." } as UpdateUniversitySettingsResponseBody;
+      }
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as UpdateUniversitySettingsResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Dormitory not found for the selected university." } as UpdateUniversitySettingsResponseBody;
+      }
+      if (!response.ok) return false;
+
+      const nextDormitoryId = responseBody?.user?.dormitory_id ?? undefined;
+      if (user && typeof nextDormitoryId === "number") {
+        const nextUser = { ...user, dormitory_id: nextDormitoryId };
+        setUser(nextUser);
+        writeStorage(STORAGE_KEYS.user, JSON.stringify(nextUser));
+      }
+
+      return true;
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const createProduct = useCallback(
+    async (data: CreateProductInput): Promise<CreateProductResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as CreateProductResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreateProductResponseBody;
+      }
+
+      const hasFiles = (data.images?.length || 0) > 0;
+      const url = apiUrl("/api/user/products");
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: hasFiles
+          ? {
+              Accept: "application/json",
+              Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+            }
+          : {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+            },
+        body: hasFiles
+          ? (() => {
+              const form = new FormData();
+              form.set("category_id", String(data.category_id));
+              form.set("condition_level_id", String(data.condition_level_id));
+              form.set("title", data.title);
+              form.set("price", String(data.price));
+              if (data.description) form.set("description", data.description);
+              if (typeof data.dormitory_id === "number") form.set("dormitory_id", String(data.dormitory_id));
+              if (typeof data.primary_image_index === "number") {
+                form.set("primary_image_index", String(data.primary_image_index));
+              }
+              if (Array.isArray(data.tag_ids)) {
+                data.tag_ids.forEach((id) => form.append("tag_ids[]", String(id)));
+              }
+              if (Array.isArray(data.image_urls)) {
+                data.image_urls.forEach((imageUrl) => form.append("image_urls[]", imageUrl));
+              }
+              (data.images || []).forEach((file) => form.append("images[]", file));
+              return form;
+            })()
+          : JSON.stringify(
+              removeUndefined({
+                category_id: data.category_id,
+                condition_level_id: data.condition_level_id,
+                title: data.title,
+                description: data.description || undefined,
+                price: data.price,
+                dormitory_id: typeof data.dormitory_id === "number" ? data.dormitory_id : undefined,
+                tag_ids: Array.isArray(data.tag_ids) ? data.tag_ids : undefined,
+                primary_image_index:
+                  typeof data.primary_image_index === "number" ? data.primary_image_index : undefined,
+                image_urls: Array.isArray(data.image_urls) ? data.image_urls : undefined,
+              }),
+            ),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as CreateProductResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as CreateProductResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreateProductResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const getMetaOptions = useCallback(async (): Promise<MetaOptionsResponseBody> => {
+    if (!accessToken) {
+      throw { message: "Unauthenticated." } as MetaOptionsResponseBody;
+    }
+    if (user?.role && user.role !== "user") {
+      throw { message: "Unauthorized: Only users can access this endpoint." } as MetaOptionsResponseBody;
+    }
+
+    const response = await fetch(apiUrl("/api/user/meta/options"), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+      },
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const responseBody = contentType.includes("application/json")
+      ? ((await response.json()) as MetaOptionsResponseBody)
+      : null;
+
+    if (responseBody) {
+      if (response.status === 401) throw responseBody;
+      if (response.status === 403) throw responseBody;
+      if (!response.ok) return responseBody;
+      return responseBody;
+    }
+
+    if (response.status === 401) throw { message: "Unauthenticated." } as MetaOptionsResponseBody;
+    if (response.status === 403) {
+      throw { message: "Unauthorized: Only users can access this endpoint." } as MetaOptionsResponseBody;
+    }
+    return { message: "Request failed" };
+  }, [accessToken, tokenType, user]);
+
+  const getMyProductCards = useCallback(
+    async (params?: { page?: number; page_size?: number }): Promise<MyProductCardsResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as MyProductCardsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MyProductCardsResponseBody;
+      }
+
+      const url = new URL(apiUrl("/api/user/products/cards"));
+      if (typeof params?.page === "number" && Number.isFinite(params.page)) {
+        url.searchParams.set("page", String(params.page));
+      }
+      if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
+        url.searchParams.set("page_size", String(params.page_size));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as MyProductCardsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as MyProductCardsResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MyProductCardsResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const getDormitoriesByUniversity = useCallback(async (): Promise<DormitoriesByUniversityResponseBody> => {
+    if (!accessToken) {
+      throw { message: "Unauthenticated." } as DormitoriesByUniversityResponseBody;
+    }
+    if (user?.role && user.role !== "user") {
+      throw { message: "Unauthorized: Only users can access this endpoint." } as DormitoriesByUniversityResponseBody;
+    }
+
+    const response = await fetch(apiUrl("/api/user/meta/dormitories/by-university"), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+      },
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const responseBody = contentType.includes("application/json")
+      ? ((await response.json()) as DormitoriesByUniversityResponseBody)
+      : null;
+
+    if (responseBody) {
+      if (response.status === 401) throw responseBody;
+      if (response.status === 403) throw responseBody;
+      if (response.status === 404) throw responseBody;
+      if (!response.ok) return responseBody;
+      return responseBody;
+    }
+
+    if (response.status === 401) throw { message: "Unauthenticated." } as DormitoriesByUniversityResponseBody;
+    if (response.status === 403) {
+      throw { message: "Unauthorized: Only users can access this endpoint." } as DormitoriesByUniversityResponseBody;
+    }
+    if (response.status === 404) {
+      throw { message: "Dormitory not found for the user." } as DormitoriesByUniversityResponseBody;
+    }
+    return { message: "Request failed" };
+  }, [accessToken, tokenType, user]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -238,6 +658,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signup,
         logout,
         updateProfile,
+        getUniversityOptions,
+        updateUniversitySettings,
+        getMetaOptions,
+        getDormitoriesByUniversity,
+        getMyProductCards,
+        createProduct,
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Upload, X, Plus, ImageIcon } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -8,19 +8,39 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { mockCategories, mockConditionLevels, mockTags, mockDormitories } from '@/lib/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 type Step = 'details' | 'media' | 'tags' | 'review';
 
+type MediaItem =
+  | { kind: 'file'; file: File; previewUrl: string }
+  | { kind: 'url'; url: string };
+
+type CategoryOption = { id: number; name: string; icon?: string | null };
+type ConditionLevelOption = { id: number; name: string; description?: string | null; sort_order?: number | null };
+type TagOption = { id: number; name: string };
+type DormitoryOption = { id: number; dormitory_name: string; is_active?: boolean; university_id?: number };
+
 const CreateListingPage: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, createProduct, getMetaOptions, getDormitoriesByUniversity } = useAuth();
   const navigate = useNavigate();
   
   const [currentStep, setCurrentStep] = useState<Step>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMetaLoading, setIsMetaLoading] = useState(false);
+  const [isDormitoriesLoading, setIsDormitoriesLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
+  const [imageUrlDraft, setImageUrlDraft] = useState('');
+  const mediaRef = useRef<MediaItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [conditionLevels, setConditionLevels] = useState<ConditionLevelOption[]>([]);
+  const [tags, setTags] = useState<TagOption[]>([]);
+  const [dormitories, setDormitories] = useState<DormitoryOption[]>([]);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -30,8 +50,88 @@ const CreateListingPage: React.FC = () => {
     condition_level_id: '',
     dormitory_id: user?.dormitory_id?.toString() || '',
     tags: [] as number[],
-    images: [] as string[],
   });
+
+  useEffect(() => {
+    mediaRef.current = media;
+  }, [media]);
+
+  useEffect(() => {
+    return () => {
+      mediaRef.current.forEach((item) => {
+        if (item.kind === 'file') URL.revokeObjectURL(item.previewUrl);
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    const run = async () => {
+      setIsMetaLoading(true);
+      try {
+        const data = await getMetaOptions();
+        if (cancelled) return;
+        setCategories(data.categories || []);
+        setConditionLevels(data.condition_levels || []);
+        setTags(data.tags || []);
+      } catch (error) {
+        if (cancelled) return;
+        const maybe = error as { message?: string } | undefined;
+        toast({
+          title: "Error",
+          description: maybe?.message || "Failed to load listing options",
+          variant: "destructive",
+        });
+      } finally {
+        if (!cancelled) setIsMetaLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getMetaOptions, isAuthenticated]);
+
+  useEffect(() => {
+    if (!user?.dormitory_id) return;
+    setFormData((prev) => {
+      if (prev.dormitory_id) return prev;
+      return { ...prev, dormitory_id: String(user.dormitory_id) };
+    });
+  }, [user?.dormitory_id]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    const run = async () => {
+      setIsDormitoriesLoading(true);
+      try {
+        const data = await getDormitoriesByUniversity();
+        if (cancelled) return;
+        setDormitories(data.dormitories || []);
+      } catch (error) {
+        if (cancelled) return;
+        setDormitories([]);
+        const maybe = error as { message?: string } | undefined;
+        toast({
+          title: "Error",
+          description: maybe?.message || "Failed to load dormitories",
+          variant: "destructive",
+        });
+      } finally {
+        if (!cancelled) setIsDormitoriesLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getDormitoriesByUniversity, isAuthenticated]);
 
   const steps: { id: Step; label: string }[] = [
     { id: 'details', label: 'Details' },
@@ -44,6 +144,11 @@ const CreateListingPage: React.FC = () => {
 
   const updateField = (field: string, value: string | number[] | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setFieldErrors(prev => {
+      if (!prev[field]) return prev;
+      const { [field]: _removed, ...rest } = prev;
+      return rest;
+    });
   };
 
   const toggleTag = (tagId: number) => {
@@ -53,32 +158,94 @@ const CreateListingPage: React.FC = () => {
         ? prev.tags.filter(id => id !== tagId)
         : [...prev.tags, tagId],
     }));
+    setFieldErrors(prev => {
+      if (!prev.tag_ids) return prev;
+      const { tag_ids: _removed, ...rest } = prev;
+      return rest;
+    });
   };
 
-  const addImage = () => {
-    // Demo: add placeholder images
-    const demoImages = [
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop',
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop',
-      'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=600&h=400&fit=crop',
-    ];
-    
-    if (formData.images.length < 6) {
-      const nextImage = demoImages[formData.images.length % demoImages.length];
-      updateField('images', [...formData.images, nextImage]);
-    }
+  const addFiles = (files: FileList | null) => {
+    if (!files) return;
+
+    const candidates: File[] = [];
+    Array.from(files).forEach((file) => {
+      const type = file.type.toLowerCase();
+      const allowed =
+        type === 'image/jpeg' ||
+        type === 'image/jpg' ||
+        type === 'image/png' ||
+        type === 'image/webp';
+      if (!allowed) return;
+      candidates.push(file);
+    });
+
+    setMedia(prev => {
+      const remaining = Math.max(0, 6 - prev.length);
+      const slice = candidates.slice(0, remaining);
+      const nextItems: MediaItem[] = slice.map((file) => ({
+        kind: 'file',
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }));
+      return [...prev, ...nextItems];
+    });
+    setFieldErrors(prev => {
+      if (!prev.images) return prev;
+      const { images: _removed, ...rest } = prev;
+      return rest;
+    });
   };
 
-  const removeImage = (index: number) => {
-    updateField('images', formData.images.filter((_, i) => i !== index));
+  const addImageUrl = () => {
+    const url = imageUrlDraft.trim();
+    if (!url) return;
+    setMedia(prev => {
+      if (prev.length >= 6) return prev;
+      return [...prev, { kind: 'url', url }];
+    });
+    setImageUrlDraft('');
+    setFieldErrors(prev => {
+      if (!prev.image_urls) return prev;
+      const { image_urls: _removed, ...rest } = prev;
+      return rest;
+    });
   };
+
+  const removeMedia = (index: number) => {
+    setMedia(prev => {
+      const target = prev[index];
+      if (target?.kind === 'file') URL.revokeObjectURL(target.previewUrl);
+
+      const next = prev.filter((_, i) => i !== index);
+      setPrimaryImageIndex((prevPrimary) => {
+        if (prevPrimary >= next.length) return Math.max(0, next.length - 1);
+        if (index < prevPrimary) return Math.max(0, prevPrimary - 1);
+        if (index === prevPrimary) return Math.min(prevPrimary, Math.max(0, next.length - 1));
+        return prevPrimary;
+      });
+      return next;
+    });
+  };
+
+  const dormitoryRequired = !user?.dormitory_id;
+  const mediaPreviewUrls = useMemo(() => {
+    return media.map((item) => (item.kind === 'file' ? item.previewUrl : item.url));
+  }, [media]);
 
   const canProceed = (): boolean => {
     switch (currentStep) {
       case 'details':
-        return !!(formData.title && formData.price && formData.category_id && formData.condition_level_id);
+        return !!(
+          formData.title &&
+          formData.price &&
+          Number.parseFloat(formData.price) >= 0.01 &&
+          formData.category_id &&
+          formData.condition_level_id &&
+          (!dormitoryRequired || !!formData.dormitory_id)
+        );
       case 'media':
-        return formData.images.length > 0;
+        return media.length > 0;
       case 'tags':
         return true;
       case 'review':
@@ -102,16 +269,82 @@ const CreateListingPage: React.FC = () => {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setFieldErrors({});
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Listing created!",
-      description: "Your item is now live on SCU",
-    });
-    
-    navigate('/my-listings');
+    try {
+      const categoryId = Number(formData.category_id);
+      const conditionLevelId = Number(formData.condition_level_id);
+      const price = Number.parseFloat(formData.price);
+      const dormitoryId = formData.dormitory_id
+        ? Number(formData.dormitory_id)
+        : typeof user?.dormitory_id === 'number'
+          ? user.dormitory_id
+          : undefined;
+
+      if (!Number.isFinite(categoryId) || !Number.isFinite(conditionLevelId) || !Number.isFinite(price)) {
+        toast({ title: "Missing fields", description: "Please fill the required fields", variant: "destructive" });
+        setCurrentStep('details');
+        return;
+      }
+      if (price < 0.01) {
+        toast({ title: "Invalid price", description: "Price must be at least 0.01", variant: "destructive" });
+        setCurrentStep('details');
+        return;
+      }
+      if (dormitoryRequired && !Number.isFinite(dormitoryId)) {
+        toast({ title: "Missing location", description: "Please select your dormitory", variant: "destructive" });
+        setCurrentStep('details');
+        return;
+      }
+
+      const files = media
+        .filter((item): item is Extract<MediaItem, { kind: 'file' }> => item.kind === 'file')
+        .map((item) => item.file);
+      const urls = media
+        .filter((item): item is Extract<MediaItem, { kind: 'url' }> => item.kind === 'url')
+        .map((item) => item.url);
+
+      const result = await createProduct({
+        category_id: categoryId,
+        condition_level_id: conditionLevelId,
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        price,
+        dormitory_id: Number.isFinite(dormitoryId) ? dormitoryId : undefined,
+        tag_ids: formData.tags.length ? formData.tags : null,
+        primary_image_index: media.length ? primaryImageIndex : null,
+        images: files.length ? files : null,
+        image_urls: urls.length ? urls : null,
+      });
+
+      toast({
+        title: "Listing created!",
+        description: result.message || "Your item is now live on SCU",
+      });
+      navigate('/my-listings');
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      if (maybe?.errors) {
+        setFieldErrors(maybe.errors);
+        const errorKeys = Object.keys(maybe.errors);
+        if (errorKeys.some((k) => k.includes('image'))) setCurrentStep('media');
+        else setCurrentStep('details');
+        toast({
+          title: maybe.message || "Validation error",
+          description: "Please review the highlighted fields",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Error",
+        description: maybe?.message || "Failed to create listing",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -138,10 +371,11 @@ const CreateListingPage: React.FC = () => {
     );
   }
 
-  const selectedCategory = mockCategories.find(c => c.id.toString() === formData.category_id);
-  const selectedCondition = mockConditionLevels.find(c => c.id.toString() === formData.condition_level_id);
-  const selectedDormitory = mockDormitories.find(d => d.id.toString() === formData.dormitory_id);
-  const selectedTags = mockTags.filter(t => formData.tags.includes(t.id));
+  const selectedCategory = categories.find(c => c.id.toString() === formData.category_id);
+  const selectedCondition = conditionLevels.find(c => c.id.toString() === formData.condition_level_id);
+  const selectedDormitory = dormitories.find(d => d.id.toString() === formData.dormitory_id);
+  const selectedTags = tags.filter(t => formData.tags.includes(t.id));
+  const primaryPreviewUrl = mediaPreviewUrls[primaryImageIndex] || mediaPreviewUrls[0] || '';
 
   return (
     <MainLayout showFooter={false}>
@@ -212,6 +446,7 @@ const CreateListingPage: React.FC = () => {
                       onChange={(e) => updateField('title', e.target.value)}
                       className="h-12"
                     />
+                    {fieldErrors.title?.[0] ? <p className="text-xs text-destructive">{fieldErrors.title[0]}</p> : null}
                   </div>
 
                   <div className="space-y-2">
@@ -223,6 +458,9 @@ const CreateListingPage: React.FC = () => {
                       onChange={(e) => updateField('description', e.target.value)}
                       rows={4}
                     />
+                    {fieldErrors.description?.[0] ? (
+                      <p className="text-xs text-destructive">{fieldErrors.description[0]}</p>
+                    ) : null}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -235,8 +473,10 @@ const CreateListingPage: React.FC = () => {
                         value={formData.price}
                         onChange={(e) => updateField('price', e.target.value)}
                         className="h-12"
-                        min="0"
+                        min="0.01"
+                        step="0.01"
                       />
+                      {fieldErrors.price?.[0] ? <p className="text-xs text-destructive">{fieldErrors.price[0]}</p> : null}
                     </div>
 
                     <div className="space-y-2">
@@ -244,18 +484,22 @@ const CreateListingPage: React.FC = () => {
                       <Select
                         value={formData.category_id}
                         onValueChange={(value) => updateField('category_id', value)}
+                        disabled={isMetaLoading}
                       >
                         <SelectTrigger className="h-12">
-                          <SelectValue placeholder="Select category" />
+                          <SelectValue placeholder={isMetaLoading ? "Loading..." : "Select category"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {mockCategories.map((category) => (
+                          {categories.map((category) => (
                             <SelectItem key={category.id} value={category.id.toString()}>
-                              {category.icon} {category.name}
+                              {category.icon ? `${category.icon} ` : ''}{category.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {fieldErrors.category_id?.[0] ? (
+                        <p className="text-xs text-destructive">{fieldErrors.category_id[0]}</p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -265,37 +509,55 @@ const CreateListingPage: React.FC = () => {
                       <Select
                         value={formData.condition_level_id}
                         onValueChange={(value) => updateField('condition_level_id', value)}
+                        disabled={isMetaLoading}
                       >
                         <SelectTrigger className="h-12">
-                          <SelectValue placeholder="Select condition" />
+                          <SelectValue placeholder={isMetaLoading ? "Loading..." : "Select condition"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {mockConditionLevels.map((level) => (
+                          {conditionLevels.map((level) => (
                             <SelectItem key={level.id} value={level.id.toString()}>
                               {level.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {fieldErrors.condition_level_id?.[0] ? (
+                        <p className="text-xs text-destructive">{fieldErrors.condition_level_id[0]}</p>
+                      ) : null}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="dormitory">Location</Label>
+                      <Label htmlFor="dormitory">Location{dormitoryRequired ? ' *' : ''}</Label>
                       <Select
                         value={formData.dormitory_id}
                         onValueChange={(value) => updateField('dormitory_id', value)}
+                        disabled={isDormitoriesLoading || (dormitoryRequired && dormitories.length === 0)}
                       >
                         <SelectTrigger className="h-12">
-                          <SelectValue placeholder="Select dormitory" />
+                          <SelectValue placeholder={isDormitoriesLoading ? "Loading..." : "Select dormitory"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {mockDormitories.map((dorm) => (
-                            <SelectItem key={dorm.id} value={dorm.id.toString()}>
-                              {dorm.dormitory_name}
+                          {isDormitoriesLoading ? (
+                            <SelectItem value="__loading" disabled>
+                              Loading...
                             </SelectItem>
-                          ))}
+                          ) : dormitories.length ? (
+                            dormitories.map((dorm) => (
+                              <SelectItem key={dorm.id} value={dorm.id.toString()}>
+                                {dorm.dormitory_name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__empty" disabled>
+                              No dormitories available
+                            </SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
+                      {fieldErrors.dormitory_id?.[0] ? (
+                        <p className="text-xs text-destructive">{fieldErrors.dormitory_id[0]}</p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -310,17 +572,59 @@ const CreateListingPage: React.FC = () => {
                   <p className="text-muted-foreground">Add up to 6 photos of your item</p>
                 </div>
 
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="image_files">Upload images</Label>
+                    <Input
+                      id="image_files"
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      multiple
+                      onChange={(e) => addFiles(e.target.files)}
+                      ref={fileInputRef}
+                    />
+                    {fieldErrors.images?.[0] ? <p className="text-xs text-destructive">{fieldErrors.images[0]}</p> : null}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Label htmlFor="image_url" className="sr-only">
+                        Image URL
+                      </Label>
+                      <Input
+                        id="image_url"
+                        placeholder="https://example.com/image.jpg"
+                        value={imageUrlDraft}
+                        onChange={(e) => setImageUrlDraft(e.target.value)}
+                      />
+                    </div>
+                    <Button type="button" variant="outline" onClick={addImageUrl} disabled={media.length >= 6}>
+                      Add URL
+                    </Button>
+                  </div>
+                  {fieldErrors.image_urls?.[0] ? (
+                    <p className="text-xs text-destructive">{fieldErrors.image_urls[0]}</p>
+                  ) : null}
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
-                  {formData.images.map((image, index) => (
+                  {mediaPreviewUrls.map((image, index) => (
                     <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-muted group">
-                      <img src={image} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
                       <button
-                        onClick={() => removeImage(index)}
+                        type="button"
+                        onClick={() => setPrimaryImageIndex(index)}
+                        className="absolute inset-0"
+                      >
+                        <img src={image} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeMedia(index)}
                         className="absolute top-2 right-2 p-1.5 rounded-full bg-foreground/80 text-background opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <X className="w-4 h-4" />
                       </button>
-                      {index === 0 && (
+                      {index === primaryImageIndex && (
                         <Badge className="absolute bottom-2 left-2 bg-primary text-primary-foreground">
                           Primary
                         </Badge>
@@ -328,20 +632,20 @@ const CreateListingPage: React.FC = () => {
                     </div>
                   ))}
                   
-                  {formData.images.length < 6 && (
+                  {media.length < 6 && (
                     <button
-                      onClick={addImage}
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
                       className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary"
                     >
                       <Plus className="w-8 h-8" />
-                      <span className="text-sm font-medium">Add Photo</span>
+                      <span className="text-sm font-medium">Add Photos</span>
                     </button>
                   )}
                 </div>
 
                 <p className="text-sm text-muted-foreground">
-                  <strong>Tip:</strong> The first photo will be your primary image. 
-                  Click "Add Photo" to add demo images.
+                  <strong>Tip:</strong> Click a photo to set it as the primary image.
                 </p>
               </div>
             )}
@@ -355,7 +659,7 @@ const CreateListingPage: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {mockTags.map((tag) => (
+                  {tags.map((tag) => (
                     <button
                       key={tag.id}
                       onClick={() => toggleTag(tag.id)}
@@ -370,6 +674,7 @@ const CreateListingPage: React.FC = () => {
                     </button>
                   ))}
                 </div>
+                {fieldErrors.tag_ids?.[0] ? <p className="text-xs text-destructive">{fieldErrors.tag_ids[0]}</p> : null}
 
                 {formData.tags.length > 0 && (
                   <p className="text-sm text-muted-foreground">
@@ -389,15 +694,15 @@ const CreateListingPage: React.FC = () => {
 
                 {/* Preview Card */}
                 <div className="rounded-2xl border border-border overflow-hidden bg-card">
-                  {formData.images.length > 0 && (
+                  {primaryPreviewUrl ? (
                     <div className="aspect-video bg-muted">
                       <img
-                        src={formData.images[0]}
+                        src={primaryPreviewUrl}
                         alt={formData.title}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                  )}
+                  ) : null}
                   
                   <div className="p-6 space-y-4">
                     <div className="flex items-start justify-between">

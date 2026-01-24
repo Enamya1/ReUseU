@@ -44,7 +44,7 @@ DATA MODEL (MOCKED)
 - src/lib/mockData.ts exports TypeScript interfaces for:
   - User, University, Dormitory, Category, ConditionLevel, Tag, ProductImage, Product
 - Exports mock arrays (mockUsers, mockProducts, etc.) and helper functions (e.g. formatting, get-by-id).
-- No HTTP/axios clients are currently used for CRUD; pages read and mutate local state only.
+- The app still contains mock data, but AuthContext uses fetch() for Sanctum-protected API endpoints.
 
 STATE / CONTEXT
 - Auth: src/contexts/AuthContext.tsx
@@ -56,6 +56,31 @@ STATE / CONTEXT
     - Request body fields are optional (full_name, username, email, phone_number, dormitory_id, profile_picture, student_id, bio, date_of_birth, gender, language, timezone)
     - Response 200 returns { message, user }, and AuthContext replaces stored user with the response user
     - Response 422 returns { message, errors }, and the UI displays per-field errors
+  - University settings:
+    - GET /api/user/settings/university-options (auth:sanctum, role=user)
+      - Optional query: university_id (int)
+      - Returns { message, current, universities, dormitories }
+      - AuthContext throws on 401/403 and throws validation bodies on 422
+    - PATCH /api/user/settings/university (auth:sanctum, role=user)
+      - Required body: { university_id, dormitory_id }
+      - AuthContext throws on 401/403/404 and throws validation bodies on 422
+      - On success, AuthContext updates user.dormitory_id (and persists it)
+  - Product creation:
+    - GET /api/user/meta/options (auth:sanctum, role=user)
+      - Used by CreateListingPage for dropdown/tag options (categories, condition_levels, tags)
+      - AuthContext.getMetaOptions() throws on 401/403
+    - GET /api/user/meta/dormitories/by-university (auth:sanctum, role=user)
+      - Used by CreateListingPage for the dormitory (location) dropdown
+      - AuthContext.getDormitoriesByUniversity() throws on 401/403/404
+    - GET /api/user/products/cards (auth:sanctum, role=user)
+      - Used by MyListingsPage to show user's listings with pagination
+      - Query: page, page_size
+      - AuthContext.getMyProductCards() throws on 401/403 and throws validation bodies on 422
+    - POST /api/user/products (auth:sanctum, role=user)
+      - CreateListingPage calls AuthContext.createProduct()
+      - Sends JSON when using image URLs, or multipart FormData when uploading files
+      - Supports: category_id, condition_level_id, title, description, price, dormitory_id, tag_ids, primary_image_index, images[], image_urls[]
+      - Throws on 401/403 and throws validation bodies on 422
   - signup remains mock/in-memory (does not issue a token)
 - Favorites: src/contexts/FavoritesContext.tsx
   - favorites is a number[] of product ids stored in React state

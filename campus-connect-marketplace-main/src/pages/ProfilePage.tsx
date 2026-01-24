@@ -9,15 +9,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { mockDormitories } from '@/lib/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 
 const ProfilePage: React.FC = () => {
-  const { user, isAuthenticated, updateProfile } = useAuth();
+  const { user, isAuthenticated, updateProfile, getUniversityOptions, updateUniversitySettings } = useAuth();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [isUniversityLoading, setIsUniversityLoading] = useState(false);
+  const [isUniversitySaving, setIsUniversitySaving] = useState(false);
+  const [universityFieldErrors, setUniversityFieldErrors] = useState<Record<string, string[]>>({});
+  const [universities, setUniversities] = useState<Array<{ id: number; name: string }>>([]);
+  const [dormitories, setDormitories] = useState<Array<{ id: number; dormitory_name: string; is_active?: boolean }>>([]);
+  const [selectedUniversityId, setSelectedUniversityId] = useState<string>("");
+  const [selectedDormitoryId, setSelectedDormitoryId] = useState<string>("");
   
   const [formData, setFormData] = useState({
     full_name: user?.full_name || '',
@@ -26,7 +32,6 @@ const ProfilePage: React.FC = () => {
     phone_number: user?.phone_number || '',
     profile_picture: user?.profile_picture || '',
     bio: user?.bio || '',
-    dormitory_id: user?.dormitory_id?.toString() || '',
     student_id: user?.student_id || '',
     date_of_birth: user?.date_of_birth || '',
     gender: user?.gender || '',
@@ -43,7 +48,6 @@ const ProfilePage: React.FC = () => {
       phone_number: user.phone_number || '',
       profile_picture: user.profile_picture || '',
       bio: user.bio || '',
-      dormitory_id: user.dormitory_id?.toString() || '',
       student_id: user.student_id || '',
       date_of_birth: user.date_of_birth || '',
       gender: user.gender || '',
@@ -51,6 +55,150 @@ const ProfilePage: React.FC = () => {
       timezone: user.timezone || '',
     });
   }, [user]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    const run = async () => {
+      setIsUniversityLoading(true);
+      try {
+        const data = await getUniversityOptions();
+        if (cancelled) return;
+
+        setUniversities(data.universities || []);
+        setDormitories(data.dormitories || []);
+
+        const nextUniversityId = data.current?.university_id;
+        const nextDormitoryId = data.current?.dormitory_id;
+        setSelectedUniversityId(typeof nextUniversityId === "number" ? String(nextUniversityId) : "");
+        setSelectedDormitoryId(typeof nextDormitoryId === "number" ? String(nextDormitoryId) : "");
+      } catch {
+        if (!cancelled) {
+          toast({
+            title: "Error",
+            description: "Failed to load university options",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) setIsUniversityLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getUniversityOptions, isAuthenticated]);
+
+  const handleUniversityChange = async (universityId: string) => {
+    setSelectedUniversityId(universityId);
+    setSelectedDormitoryId("");
+    if (!universityId) {
+      setDormitories([]);
+    }
+    setUniversityFieldErrors(prev => {
+      if (!prev.university_id) return prev;
+      const { university_id: _removed, ...rest } = prev;
+      return rest;
+    });
+
+    const parsed = Number(universityId);
+    if (!Number.isFinite(parsed)) return;
+
+    setIsUniversityLoading(true);
+    try {
+      const data = await getUniversityOptions(parsed);
+      setUniversities(data.universities || []);
+      setDormitories(data.dormitories || []);
+
+      const nextDormitoryId = data.current?.dormitory_id;
+      if (typeof nextDormitoryId === "number") {
+        setSelectedDormitoryId(String(nextDormitoryId));
+      }
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      if (maybe?.errors) {
+        setUniversityFieldErrors(maybe.errors);
+        toast({
+          title: maybe.message || "Validation error",
+          description: "Please review your selection",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: maybe?.message || "Failed to load dormitories",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsUniversityLoading(false);
+    }
+  };
+
+  const handleDormitoryChange = (dormitoryId: string) => {
+    setSelectedDormitoryId(dormitoryId);
+    setUniversityFieldErrors(prev => {
+      if (!prev.dormitory_id) return prev;
+      const { dormitory_id: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const handleUniversitySubmit = async () => {
+    setUniversityFieldErrors({});
+
+    const universityId = Number(selectedUniversityId);
+    const dormitoryId = Number(selectedDormitoryId);
+
+    if (!Number.isFinite(universityId) || !Number.isFinite(dormitoryId)) {
+      toast({
+        title: "Missing selection",
+        description: "Please choose both university and dormitory",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUniversitySaving(true);
+    try {
+      const success = await updateUniversitySettings({ university_id: universityId, dormitory_id: dormitoryId });
+      if (!success) {
+        toast({
+          title: "Error",
+          description: "Failed to update university settings",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Updated",
+        description: "University settings updated successfully",
+      });
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      if (maybe?.errors) {
+        setUniversityFieldErrors(maybe.errors);
+        toast({
+          title: maybe.message || "Validation error",
+          description: "Please review the highlighted fields",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Error",
+        description: maybe?.message || "Failed to update university settings",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUniversitySaving(false);
+    }
+  };
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -79,7 +227,6 @@ const ProfilePage: React.FC = () => {
         phone_number: formData.phone_number.trim() || undefined,
         profile_picture: formData.profile_picture.trim() || undefined,
         bio: formData.bio.trim() || undefined,
-        dormitory_id: formData.dormitory_id ? parseInt(formData.dormitory_id) : undefined,
         student_id: formData.student_id.trim() || undefined,
         date_of_birth: formData.date_of_birth || undefined,
         gender: formData.gender.trim() || undefined,
@@ -276,26 +423,60 @@ const ProfilePage: React.FC = () => {
                 ) : null}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="dormitory">Dormitory</Label>
-                <Select
-                  value={formData.dormitory_id}
-                  onValueChange={(value) => handleChange('dormitory_id', value)}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Select your dormitory" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockDormitories.map((dorm) => (
-                      <SelectItem key={dorm.id} value={dorm.id.toString()}>
-                        {dorm.dormitory_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {firstError.get("dormitory_id") ? (
-                  <p className="text-xs text-destructive">{firstError.get("dormitory_id")}</p>
-                ) : null}
+              <div className="space-y-4 p-6 rounded-2xl bg-muted/30 border border-border">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground">University & Dormitory</h3>
+                    <p className="text-sm text-muted-foreground">Used for campus matching and listings</p>
+                  </div>
+                  <Button type="button" onClick={handleUniversitySubmit} disabled={isUniversitySaving || isUniversityLoading}>
+                    {isUniversitySaving ? "Saving..." : "Update"}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>University</Label>
+                    <Select value={selectedUniversityId} onValueChange={handleUniversityChange} disabled={isUniversityLoading}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder={isUniversityLoading ? "Loading..." : "Select university"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {universities.map((u) => (
+                          <SelectItem key={u.id} value={String(u.id)}>
+                            {u.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {universityFieldErrors.university_id?.[0] ? (
+                      <p className="text-xs text-destructive">{universityFieldErrors.university_id[0]}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Dormitory</Label>
+                    <Select
+                      value={selectedDormitoryId}
+                      onValueChange={handleDormitoryChange}
+                      disabled={!selectedUniversityId || isUniversityLoading}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder={isUniversityLoading ? "Loading..." : "Select dormitory"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {dormitories.map((d) => (
+                          <SelectItem key={d.id} value={String(d.id)} disabled={d.is_active === false}>
+                            {d.dormitory_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {universityFieldErrors.dormitory_id?.[0] ? (
+                      <p className="text-xs text-destructive">{universityFieldErrors.dormitory_id[0]}</p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
