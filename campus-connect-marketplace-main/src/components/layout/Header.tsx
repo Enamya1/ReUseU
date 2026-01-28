@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Heart, Plus, User, Menu, X, LogOut, Settings, ShoppingBag } from 'lucide-react';
+import { Search, Heart, Plus, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { normalizeImageUrl } from '@/lib/api';
+import { NavLink } from '@/components/NavLink';
 
 const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -21,6 +22,20 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const primaryNavItems = [
+    { to: '/', label: 'Home' },
+    { to: '/for-you', label: 'For You' },
+    { to: '/messages', label: 'Messages' },
+    { to: '/my-listings', label: 'My Listings' },
+    { to: '/ai', label: 'AI' },
+    { to: '/profile', label: 'Profile' },
+    { to: '/nearby', label: 'Near By' },
+  ];
+  const moreNavItems = [
+    { to: '/favorites', label: 'Favorites' },
+    { to: '/create-listing', label: 'Create Listing' },
+    { to: '/admin/dashboard', label: 'Admin' },
+  ];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,22 +57,52 @@ const Header: React.FC = () => {
           </span>
         </Link>
 
-        {/* Search Bar - Desktop */}
-        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search for items..."
-              className="pl-10 pr-4 h-10 bg-muted/50 border-0 focus-visible:ring-1"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </form>
+        <nav className="hidden lg:flex items-center gap-4">
+          {primaryNavItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
+              activeClassName="text-primary"
+            >
+              {item.label}
+            </NavLink>
+          ))}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors inline-flex items-center gap-1"
+              >
+                <span>More</span>
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              {moreNavItems.map((item) => (
+                <DropdownMenuItem key={item.to} asChild>
+                  <Link to={item.to} className="cursor-pointer">
+                    {item.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </nav>
 
-        {/* Desktop Actions */}
         <nav className="hidden md:flex items-center gap-2">
+          <form onSubmit={handleSearch} className="w-64">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search for items..."
+                className="pl-10 pr-4 h-10 bg-muted/50 border-0 focus-visible:ring-1"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </form>
           {isAuthenticated ? (
             <>
               <Button variant="ghost" size="sm" asChild>
@@ -155,6 +200,40 @@ const Header: React.FC = () => {
                 />
               </div>
             </form>
+
+            <nav className="grid gap-1">
+              {primaryNavItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
+                  activeClassName="text-primary"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
+                  >
+                    <span>More</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {moreNavItems.map((item) => (
+                    <DropdownMenuItem key={item.to} asChild>
+                      <Link to={item.to} className="cursor-pointer" onClick={() => setMobileMenuOpen(false)}>
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </nav>
 
             {isAuthenticated ? (
               <div className="space-y-2">
