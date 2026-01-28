@@ -12,3 +12,28 @@ export const apiUrl = (endpoint: string): string => {
   return `${base}${path}`;
 };
 
+const normalizeLocalhostImageUrl = (value: string): string => {
+  if (!API_BASE_URL) return value;
+  try {
+    const parsed = new URL(value);
+    const apiBase = new URL(API_BASE_URL);
+    const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+    const isDefaultPort = parsed.port === "" || parsed.port === "80";
+    if (isLocalhost && isDefaultPort) {
+      return new URL(`${parsed.pathname}${parsed.search}${parsed.hash}`, apiBase).toString();
+    }
+    return value;
+  } catch {
+    return value;
+  }
+};
+
+export const normalizeImageUrl = (value?: string | null): string | undefined => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (/^(data:|blob:)/i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return normalizeLocalhostImageUrl(trimmed);
+  return apiUrl(trimmed);
+};
+

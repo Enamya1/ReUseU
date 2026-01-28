@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { normalizeImageUrl } from '@/lib/api';
 
 type Step = 'details' | 'media' | 'tags' | 'review';
 
@@ -615,7 +616,7 @@ const CreateListingPage: React.FC = () => {
                         onClick={() => setPrimaryImageIndex(index)}
                         className="absolute inset-0"
                       >
-                        <img src={image} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                        <img src={normalizeImageUrl(image)} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
                       </button>
                       <button
                         type="button"
@@ -697,7 +698,7 @@ const CreateListingPage: React.FC = () => {
                   {primaryPreviewUrl ? (
                     <div className="aspect-video bg-muted">
                       <img
-                        src={primaryPreviewUrl}
+                        src={normalizeImageUrl(primaryPreviewUrl)}
                         alt={formData.title}
                         className="w-full h-full object-cover"
                       />

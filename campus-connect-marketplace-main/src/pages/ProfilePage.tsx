@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { normalizeImageUrl } from '@/lib/api';
 
 const ProfilePage: React.FC = () => {
   const { user, isAuthenticated, updateProfile, getUniversityOptions, updateUniversitySettings } = useAuth();
@@ -38,47 +39,6 @@ const ProfilePage: React.FC = () => {
     language: user?.language || '',
     timezone: user?.timezone || '',
   });
-
-  const handleProfileImageUpload = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    const type = file.type.toLowerCase();
-    const allowed =
-      type === 'image/jpeg' ||
-      type === 'image/jpg' ||
-      type === 'image/png' ||
-      type === 'image/webp';
-    if (!allowed) {
-      toast({
-        title: "Unsupported file",
-        description: "Please upload a JPG, PNG, or WebP image.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      if (!result) {
-        toast({
-          title: "Upload failed",
-          description: "Could not read the selected file.",
-          variant: "destructive",
-        });
-        return;
-      }
-      handleChange('profile_picture', result);
-    };
-    reader.onerror = () => {
-      toast({
-        title: "Upload failed",
-        description: "Could not read the selected file.",
-        variant: "destructive",
-      });
-    };
-    reader.readAsDataURL(file);
-  };
 
   useEffect(() => {
     if (!user) return;
@@ -354,17 +314,17 @@ const ProfilePage: React.FC = () => {
             <div className="flex items-center gap-6 p-6 rounded-2xl bg-muted/50 border border-border">
               <div className="relative">
                 <Avatar className="w-24 h-24">
-                  <AvatarImage src={formData.profile_picture || user.profile_picture} alt={user.full_name} />
+                  <AvatarImage src={normalizeImageUrl(user.profile_picture)} alt={user.full_name} />
                   <AvatarFallback className="bg-tertiary text-tertiary-foreground text-2xl">
                     {user.full_name?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <Label
-                  htmlFor="profile_picture_upload"
-                  className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground shadow-lg cursor-pointer"
+                <button
+                  type="button"
+                  className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground shadow-lg"
                 >
                   <Camera className="w-4 h-4" />
-                </Label>
+                </button>
               </div>
               <div>
                 <h2 className="text-xl font-semibold">{user.full_name}</h2>
@@ -377,16 +337,6 @@ const ProfilePage: React.FC = () => {
 
             {/* Form Fields */}
             <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="profile_picture_upload">Upload Profile Photo</Label>
-                <Input
-                  id="profile_picture_upload"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(e) => handleProfileImageUpload(e.target.files)}
-                  className="h-11 file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground"
-                />
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="full_name">Full Name</Label>
@@ -458,6 +408,20 @@ const ProfilePage: React.FC = () => {
                     <p className="text-xs text-destructive">{firstError.get("student_id")}</p>
                   ) : null}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile_picture">Profile Picture URL</Label>
+                <Input
+                  id="profile_picture"
+                  value={formData.profile_picture}
+                  onChange={(e) => handleChange('profile_picture', e.target.value)}
+                  placeholder="https://..."
+                  className="h-11"
+                />
+                {firstError.get("profile_picture") ? (
+                  <p className="text-xs text-destructive">{firstError.get("profile_picture")}</p>
+                ) : null}
               </div>
 
               <div className="space-y-4 p-6 rounded-2xl bg-muted/30 border border-border">

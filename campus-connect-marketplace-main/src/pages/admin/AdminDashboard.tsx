@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users, Package, TrendingUp, DollarSign } from 'lucide-react';
 import { mockProducts, mockUsers } from '@/lib/mockData';
+import { normalizeImageUrl } from '@/lib/api';
 
 const AdminDashboard: React.FC = () => {
   const stats = [
@@ -55,7 +56,7 @@ const AdminDashboard: React.FC = () => {
           <div className="space-y-3">
             {mockProducts.slice(0, 4).map(product => (
               <div key={product.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <img src={product.images[0]?.image_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                <img src={normalizeImageUrl(product.images[0]?.image_url)} alt="" className="w-12 h-12 rounded-lg object-cover" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{product.title}</p>
                   <p className="text-sm text-muted-foreground">${product.price}</p>

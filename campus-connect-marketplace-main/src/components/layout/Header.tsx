@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
+import { normalizeImageUrl } from '@/lib/api';
 
 const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -81,7 +82,7 @@ const Header: React.FC = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
                     <Avatar className="w-8 h-8">
-                      <AvatarImage src={user?.profile_picture} alt={user?.full_name} />
+                      <AvatarImage src={normalizeImageUrl(user?.profile_picture)} alt={user?.full_name} />
                       <AvatarFallback className="bg-tertiary text-tertiary-foreground text-sm">
                         {user?.full_name?.charAt(0) || 'U'}
                       </AvatarFallback>
@@ -159,7 +160,7 @@ const Header: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
                   <Avatar className="w-10 h-10">
-                    <AvatarImage src={user?.profile_picture} alt={user?.full_name} />
+                    <AvatarImage src={normalizeImageUrl(user?.profile_picture)} alt={user?.full_name} />
                     <AvatarFallback className="bg-tertiary text-tertiary-foreground">
                       {user?.full_name?.charAt(0) || 'U'}
                     </AvatarFallback>

@@ -5,6 +5,7 @@ import { Product, formatPrice, formatRelativeTime } from '@/lib/mockData';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { normalizeImageUrl } from '@/lib/api';
 
 interface ProductCardProps {
   product: Product;
@@ -36,7 +37,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
       <div className="relative aspect-square overflow-hidden bg-muted">
         {primaryImage ? (
           <img
-            src={primaryImage.image_url}
+            src={normalizeImageUrl(primaryImage.image_url)}
             alt={product.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"

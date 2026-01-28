@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import ProductCard from '@/components/products/ProductCard';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { normalizeImageUrl } from '@/lib/api';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -134,7 +135,7 @@ const ProductDetailPage: React.FC = () => {
               {product.images.length > 0 ? (
                 <>
                   <img
-                    src={product.images[currentImageIndex]?.image_url}
+                    src={normalizeImageUrl(product.images[currentImageIndex]?.image_url)}
                     alt={product.title}
                     className="w-full h-full object-cover"
                   />
@@ -179,7 +180,7 @@ const ProductDetailPage: React.FC = () => {
                     )}
                   >
                     <img
-                      src={image.image_url}
+                      src={normalizeImageUrl(image.image_url)}
                       alt={`${product.title} ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -298,7 +299,7 @@ const ProductDetailPage: React.FC = () => {
               <div className="p-4 rounded-xl bg-muted/50 border border-border">
                 <div className="flex items-center gap-4">
                   <Avatar className="w-14 h-14">
-                    <AvatarImage src={product.seller.profile_picture} alt={product.seller.full_name} />
+                    <AvatarImage src={normalizeImageUrl(product.seller.profile_picture)} alt={product.seller.full_name} />
                     <AvatarFallback className="bg-tertiary text-tertiary-foreground text-lg">
                       {product.seller.full_name?.charAt(0) || 'U'}
                     </AvatarFallback>

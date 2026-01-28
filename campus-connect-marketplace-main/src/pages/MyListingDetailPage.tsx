@@ -3,18 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Package } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatPrice, formatRelativeTime } from '@/lib/mockData';
+import { normalizeImageUrl } from '@/lib/api';
 
 type CategoryOption = { id: number; name: string; icon?: string | null; parent_id?: number | null };
 type ConditionLevelOption = { id: number; name: string; description?: string | null; sort_order?: number | null };
@@ -79,8 +68,6 @@ const MyListingDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isMarkingSold, setIsMarkingSold] = useState(false);
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [isSoldConfirmed, setIsSoldConfirmed] = useState(false);
   const [errorState, setErrorState] = useState<'not_found' | 'error' | null>(null);
 
   const productId = useMemo(() => {
@@ -261,11 +248,6 @@ const MyListingDetailPage: React.FC = () => {
     }
   };
 
-  const handleConfirmOpenChange = (open: boolean) => {
-    setIsConfirmOpen(open);
-    if (!open) setIsSoldConfirmed(false);
-  };
-
   if (!isAuthenticated || !user) {
     return (
       <MainLayout>
@@ -355,55 +337,17 @@ const MyListingDetailPage: React.FC = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <AlertDialog open={isConfirmOpen} onOpenChange={handleConfirmOpenChange}>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  disabled={product.status === 'sold' || isMarkingSold}
-                  className={cn(
-                    "mark-sold-btn",
-                    product.status === 'sold' && "mark-sold-btn--sold",
-                    isMarkingSold && "opacity-80 cursor-not-allowed"
-                  )}
-                >
-                  {product.status === 'sold' ? 'Marked Sold' : 'Mark as Sold'}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Mark this listing as sold?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will update the listing status to sold and hide it from active browsing.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="rounded-lg border border-border bg-muted/40 p-4">
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="confirm-sold"
-                      checked={isSoldConfirmed}
-                      onCheckedChange={(checked) => setIsSoldConfirmed(checked === true)}
-                    />
-                    <div className="space-y-1">
-                      <Label htmlFor="confirm-sold" className="text-sm font-medium">
-                        I confirm this item has been sold
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Buyers will no longer be able to contact you about this listing.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleMarkSold}
-                    disabled={!isSoldConfirmed || isMarkingSold}
-                  >
-                    {isMarkingSold ? 'Marking...' : 'Confirm Sold'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Button
+              variant="ghost"
+              disabled={product.status === 'sold' || isMarkingSold}
+              onClick={handleMarkSold}
+              className={cn(
+                "mark-sold-btn",
+                product.status === 'sold' && "mark-sold-btn--sold"
+              )}
+            >
+              {product.status === 'sold' ? 'Marked Sold' : 'Mark as Sold'}
+            </Button>
             <Button
               variant="outline"
               onClick={() => navigate('/my-listings')}
@@ -419,7 +363,7 @@ const MyListingDetailPage: React.FC = () => {
               <div className="relative aspect-square bg-muted">
                 {primaryImage ? (
                   <img
-                    src={primaryImage.image_url}
+                    src={normalizeImageUrl(primaryImage.image_url)}
                     alt={product.title}
                     className="w-full h-full object-cover"
                   />
@@ -442,7 +386,7 @@ const MyListingDetailPage: React.FC = () => {
                       )}
                     >
                       <img
-                        src={image.image_thumbnail_url || image.image_url}
+                        src={normalizeImageUrl(image.image_thumbnail_url || image.image_url)}
                         alt={`${product.title} ${index + 1}`}
                         className="w-full h-full object-cover"
                       />

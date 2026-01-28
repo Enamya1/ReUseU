@@ -7,6 +7,7 @@ import ProductGrid from '@/components/products/ProductGrid';
 import CategoryFilter from '@/components/filters/CategoryFilter';
 import { mockProducts, mockCategories, Category } from '@/lib/mockData';
 import { useAuth } from '@/contexts/AuthContext';
+import { normalizeImageUrl } from '@/lib/api';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -130,7 +131,7 @@ const HomePage: React.FC = () => {
                 >
                   {product.images[0] && (
                     <img
-                      src={product.images[0].image_url}
+                      src={normalizeImageUrl(product.images[0].image_url)}
                       alt={product.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
