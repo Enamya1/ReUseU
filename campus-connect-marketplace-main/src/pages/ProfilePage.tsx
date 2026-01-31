@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Camera, ArrowLeft, Save } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -9,6 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import TimezoneSelect, { type ITimezone } from "react-timezone-select";
+import TimezoneMap from '@/components/TimezoneMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { normalizeImageUrl } from '@/lib/api';
@@ -25,13 +28,25 @@ const ProfilePage: React.FC = () => {
   const [dormitories, setDormitories] = useState<Array<{ id: number; dormitory_name: string; is_active?: boolean }>>([]);
   const [selectedUniversityId, setSelectedUniversityId] = useState<string>("");
   const [selectedDormitoryId, setSelectedDormitoryId] = useState<string>("");
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [isTimezoneOpen, setIsTimezoneOpen] = useState(false);
+  const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffsetX, setCropOffsetX] = useState(0);
+  const [cropOffsetY, setCropOffsetY] = useState(0);
+  const [cropMeta, setCropMeta] = useState<{ width: number; height: number } | null>(null);
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cropImageRef = useRef<HTMLImageElement | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const timezonePortalTarget = typeof document === "undefined" ? undefined : document.body;
   
   const [formData, setFormData] = useState({
     full_name: user?.full_name || '',
     username: user?.username || '',
     email: user?.email || '',
     phone_number: user?.phone_number || '',
-    profile_picture: user?.profile_picture || '',
     bio: user?.bio || '',
     student_id: user?.student_id || '',
     date_of_birth: user?.date_of_birth || '',
@@ -39,6 +54,9 @@ const ProfilePage: React.FC = () => {
     language: user?.language || '',
     timezone: user?.timezone || '',
   });
+  const [timezoneDraft, setTimezoneDraft] = useState<ITimezone | string>(
+    user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -47,7 +65,6 @@ const ProfilePage: React.FC = () => {
       username: user.username || '',
       email: user.email || '',
       phone_number: user.phone_number || '',
-      profile_picture: user.profile_picture || '',
       bio: user.bio || '',
       student_id: user.student_id || '',
       date_of_birth: user.date_of_birth || '',
@@ -55,7 +72,47 @@ const ProfilePage: React.FC = () => {
       language: user.language || '',
       timezone: user.timezone || '',
     });
+    setTimezoneDraft(user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, [user]);
+
+  useEffect(() => {
+    if (!cropSourceUrl) {
+      cropImageRef.current = null;
+      setCropMeta(null);
+      return;
+    }
+
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      cropImageRef.current = image;
+      setCropMeta({ width: image.naturalWidth, height: image.naturalHeight });
+    };
+    image.src = cropSourceUrl;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cropSourceUrl]);
+
+  useEffect(() => {
+    if (isCropOpen) return;
+    if (cropSourceUrl && cropSourceUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(cropSourceUrl);
+    }
+    if (cropSourceUrl) {
+      setCropSourceUrl(null);
+    }
+  }, [cropSourceUrl, isCropOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (profilePicturePreview && profilePicturePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(profilePicturePreview);
+      }
+    };
+  }, [profilePicturePreview]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -210,6 +267,198 @@ const ProfilePage: React.FC = () => {
     });
   };
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleTimezoneOpen = () => {
+    setTimezoneDraft(formData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+    setIsTimezoneOpen(true);
+  };
+
+  const handleTimezoneSave = () => {
+    const value = typeof timezoneDraft === "string" ? timezoneDraft : timezoneDraft.value;
+    handleChange("timezone", value);
+    setIsTimezoneOpen(false);
+  };
+
+  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const type = file.type.toLowerCase();
+    const allowed =
+      type === 'image/jpeg' ||
+      type === 'image/jpg' ||
+      type === 'image/png' ||
+      type === 'image/webp';
+    if (!allowed) {
+      toast({
+        title: "Unsupported file",
+        description: "Please upload a JPG, PNG, or WebP image",
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    const nextUrl = URL.createObjectURL(file);
+    setCropZoom(1);
+    setCropOffsetX(0);
+    setCropOffsetY(0);
+    setCropSourceUrl(prev => {
+      if (prev && prev.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return nextUrl;
+    });
+    setIsCropOpen(true);
+    event.target.value = "";
+  };
+
+  const cropBoxSize = 320;
+  const cropLimits = useMemo(() => {
+    if (!cropMeta) return null;
+    const { width, height } = cropMeta;
+    const base = Math.min(width, height);
+    const cropSize = base / cropZoom;
+    const maxOffsetX = Math.max(0, (width - cropSize) / 2);
+    const maxOffsetY = Math.max(0, (height - cropSize) / 2);
+    const scaleBase = cropBoxSize / base;
+    const displayScale = scaleBase * cropZoom;
+    return { maxOffsetX, maxOffsetY, displayScale };
+  }, [cropMeta, cropZoom]);
+
+  const handleCropPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!cropLimits) return;
+    event.preventDefault();
+    dragStartRef.current = { x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleCropPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragStartRef.current || !cropLimits) return;
+    const deltaX = event.clientX - dragStartRef.current.x;
+    const deltaY = event.clientY - dragStartRef.current.y;
+    dragStartRef.current = { x: event.clientX, y: event.clientY };
+    const { maxOffsetX, maxOffsetY, displayScale } = cropLimits;
+    if (displayScale <= 0) return;
+    if (maxOffsetX > 0) {
+      const deltaOffsetX = -(deltaX / displayScale) / maxOffsetX;
+      setCropOffsetX(prev => Math.max(-1, Math.min(1, prev + deltaOffsetX)));
+    }
+    if (maxOffsetY > 0) {
+      const deltaOffsetY = -(deltaY / displayScale) / maxOffsetY;
+      setCropOffsetY(prev => Math.max(-1, Math.min(1, prev + deltaOffsetY)));
+    }
+  };
+
+  const handleCropPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragStartRef.current) return;
+    dragStartRef.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  const handleCropWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (!cropMeta) return;
+    event.preventDefault();
+    const direction = event.deltaY > 0 ? -1 : 1;
+    const step = 0.08;
+    setCropZoom((prev) => {
+      const next = prev + direction * step;
+      return Math.max(1, Math.min(3, next));
+    });
+  };
+
+  const cropSelection = useMemo(() => {
+    if (!cropMeta) return null;
+    const { width, height } = cropMeta;
+    const base = Math.min(width, height);
+    const cropSize = base / cropZoom;
+    const maxOffsetX = Math.max(0, (width - cropSize) / 2);
+    const maxOffsetY = Math.max(0, (height - cropSize) / 2);
+    const centerX = width / 2 + cropOffsetX * maxOffsetX;
+    const centerY = height / 2 + cropOffsetY * maxOffsetY;
+    const sx = Math.max(0, Math.min(width - cropSize, centerX - cropSize / 2));
+    const sy = Math.max(0, Math.min(height - cropSize, centerY - cropSize / 2));
+    return { sx, sy, cropSize };
+  }, [cropMeta, cropZoom, cropOffsetX, cropOffsetY]);
+
+  const croppedPreview = useMemo(() => {
+    if (!cropSourceUrl || !cropSelection || !cropImageRef.current) return null;
+    const { sx, sy, cropSize } = cropSelection;
+    const canvas = document.createElement("canvas");
+    const outputSize = 256;
+    canvas.width = outputSize;
+    canvas.height = outputSize;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(cropImageRef.current, sx, sy, cropSize, cropSize, 0, 0, outputSize, outputSize);
+    return canvas.toDataURL("image/png");
+  }, [cropSourceUrl, cropSelection]);
+
+  const handleCropSave = async () => {
+    if (!cropSelection || !cropImageRef.current) {
+      toast({
+        title: "Crop failed",
+        description: "Please select a valid image to crop",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    const outputSize = 256;
+    canvas.width = outputSize;
+    canvas.height = outputSize;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      toast({
+        title: "Crop failed",
+        description: "Unable to process the selected image",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    ctx.drawImage(cropImageRef.current, cropSelection.sx, cropSelection.sy, cropSelection.cropSize, cropSelection.cropSize, 0, 0, outputSize, outputSize);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) {
+      toast({
+        title: "Crop failed",
+        description: "Unable to process the selected image",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const file = new File([blob], "avatar.png", { type: "image/png" });
+    const previewUrl = URL.createObjectURL(file);
+    setProfilePictureFile(file);
+    setProfilePicturePreview(prev => {
+      if (prev && prev.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return previewUrl;
+    });
+    setIsCropOpen(false);
+  };
+
+  const avatarSrc = profilePicturePreview || normalizeImageUrl(user.profile_picture);
+
+  const cropImageStyle = useMemo(() => {
+    if (!cropMeta || !cropLimits) return undefined;
+    const { width, height } = cropMeta;
+    const { maxOffsetX, maxOffsetY, displayScale } = cropLimits;
+    const shiftX = cropOffsetX * maxOffsetX * displayScale;
+    const shiftY = cropOffsetY * maxOffsetY * displayScale;
+    return {
+      width,
+      height,
+      transform: `translate(-50%, -50%) translate(${-shiftX}px, ${-shiftY}px) scale(${displayScale})`,
+    } as React.CSSProperties;
+  }, [cropMeta, cropLimits, cropOffsetX, cropOffsetY]);
+
   const firstError = useMemo(() => {
     const get = (field: string) => fieldErrors[field]?.[0] || "";
     return { get };
@@ -226,7 +475,7 @@ const ProfilePage: React.FC = () => {
         username: formData.username.trim() || undefined,
         email: formData.email.trim() || undefined,
         phone_number: formData.phone_number.trim() || undefined,
-        profile_picture: formData.profile_picture.trim() || undefined,
+        profile_picture: profilePictureFile || undefined,
         bio: formData.bio.trim() || undefined,
         student_id: formData.student_id.trim() || undefined,
         date_of_birth: formData.date_of_birth || undefined,
@@ -268,6 +517,8 @@ const ProfilePage: React.FC = () => {
       setIsSaving(false);
     }
   };
+
+  const selectedTimezone = typeof timezoneDraft === "string" ? timezoneDraft : timezoneDraft?.value;
 
   if (!isAuthenticated || !user) {
     return (
@@ -314,7 +565,7 @@ const ProfilePage: React.FC = () => {
             <div className="flex items-center gap-6 p-6 rounded-2xl bg-muted/50 border border-border">
               <div className="relative">
                 <Avatar className="w-24 h-24">
-                  <AvatarImage src={normalizeImageUrl(user.profile_picture)} alt={user.full_name} />
+                  <AvatarImage src={avatarSrc} alt={user.full_name} />
                   <AvatarFallback className="bg-tertiary text-tertiary-foreground text-2xl">
                     {user.full_name?.charAt(0) || 'U'}
                   </AvatarFallback>
@@ -322,6 +573,7 @@ const ProfilePage: React.FC = () => {
                 <button
                   type="button"
                   className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground shadow-lg"
+                  onClick={handleAvatarClick}
                 >
                   <Camera className="w-4 h-4" />
                 </button>
@@ -408,20 +660,6 @@ const ProfilePage: React.FC = () => {
                     <p className="text-xs text-destructive">{firstError.get("student_id")}</p>
                   ) : null}
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="profile_picture">Profile Picture URL</Label>
-                <Input
-                  id="profile_picture"
-                  value={formData.profile_picture}
-                  onChange={(e) => handleChange('profile_picture', e.target.value)}
-                  placeholder="https://..."
-                  className="h-11"
-                />
-                {firstError.get("profile_picture") ? (
-                  <p className="text-xs text-destructive">{firstError.get("profile_picture")}</p>
-                ) : null}
               </div>
 
               <div className="space-y-4 p-6 rounded-2xl bg-muted/30 border border-border">
@@ -526,14 +764,11 @@ const ProfilePage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="timezone">Timezone</Label>
-                  <Input
-                    id="timezone"
-                    value={formData.timezone}
-                    onChange={(e) => handleChange('timezone', e.target.value)}
-                    placeholder="e.g., UTC, America/Los_Angeles"
-                    className="h-11"
-                  />
+                  <Label>Timezone</Label>
+                  <Button type="button" variant="outline" className="w-full h-11 justify-between" onClick={handleTimezoneOpen}>
+                    <span>{formData.timezone || "Select time-zone"}</span>
+                    <span className="text-muted-foreground">Select time-zone</span>
+                  </Button>
                   {firstError.get("timezone") ? <p className="text-xs text-destructive">{firstError.get("timezone")}</p> : null}
                 </div>
               </div>
@@ -562,8 +797,111 @@ const ProfilePage: React.FC = () => {
               </Button>
             </div>
           </form>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            onChange={handleAvatarFileChange}
+            className="hidden"
+          />
         </div>
       </div>
+      <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Crop Avatar</DialogTitle>
+            <DialogDescription>Adjust zoom and position, then save your new avatar.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-8 md:grid-cols-[1.4fr_1fr]">
+            <div className="flex items-center justify-center">
+              <div
+                className="relative w-80 h-80 rounded-full overflow-hidden bg-muted border border-border touch-none"
+                onPointerDown={handleCropPointerDown}
+                onPointerMove={handleCropPointerMove}
+                onPointerUp={handleCropPointerUp}
+                onPointerLeave={handleCropPointerUp}
+                onWheel={handleCropWheel}
+              >
+                {cropSourceUrl ? (
+                  <img
+                    src={cropSourceUrl}
+                    alt="Avatar source"
+                    className="absolute left-1/2 top-1/2 select-none pointer-events-none"
+                    draggable={false}
+                    style={cropImageStyle}
+                  />
+                ) : null}
+                <div className="absolute inset-0 rounded-full border-2 border-white/80 pointer-events-none" />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <Label>Drag to reposition</Label>
+                <p className="text-sm text-muted-foreground">Move the image under the fixed frame.</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsCropOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleCropSave} disabled={!croppedPreview}>
+              Save Avatar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isTimezoneOpen} onOpenChange={setIsTimezoneOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Select time-zone</DialogTitle>
+            <DialogDescription>Pick a time-zone from the map or list.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <TimezoneMap selectedTimezone={selectedTimezone} onTimezoneSelect={setTimezoneDraft} />
+            <TimezoneSelect
+              value={timezoneDraft}
+              onChange={setTimezoneDraft}
+              menuPortalTarget={timezonePortalTarget}
+              menuPosition="fixed"
+              styles={{
+                menuPortal: (base) => ({ ...base, zIndex: 60 }),
+                control: (base) => ({
+                  ...base,
+                  backgroundColor: "hsl(var(--background))",
+                  borderColor: "hsl(var(--border))",
+                  minHeight: "44px",
+                  boxShadow: "none",
+                }),
+                menu: (base) => ({
+                  ...base,
+                  backgroundColor: "hsl(var(--background))",
+                  border: "1px solid hsl(var(--border))",
+                }),
+                singleValue: (base) => ({ ...base, color: "hsl(var(--foreground))" }),
+                input: (base) => ({ ...base, color: "hsl(var(--foreground))" }),
+                option: (base, state) => ({
+                  ...base,
+                  backgroundColor: state.isSelected
+                    ? "hsl(var(--accent))"
+                    : state.isFocused
+                      ? "hsl(var(--muted))"
+                      : "transparent",
+                  color: "hsl(var(--foreground))",
+                }),
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsTimezoneOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleTimezoneSave}>
+              Select time-zone
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };

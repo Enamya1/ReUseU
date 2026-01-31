@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { User, currentUser as defaultUser, mockUsers } from '@/lib/mockData';
+import { User, mockUsers } from '@/lib/mockData';
 import { apiUrl } from '@/lib/api';
 
 interface AuthContextType {
@@ -10,7 +10,7 @@ interface AuthContextType {
   adminLogin: (email: string, password: string) => Promise<boolean>;
   signup: (data: SignupData) => Promise<boolean>;
   logout: () => void;
-  updateProfile: (data: Partial<User>) => Promise<boolean>;
+  updateProfile: (data: Omit<Partial<User>, "profile_picture"> & { profile_picture?: File | string }) => Promise<boolean>;
   getUniversityOptions: (universityId?: number) => Promise<UniversityOptionsResponseBody>;
   updateUniversitySettings: (data: { university_id: number; dormitory_id: number }) => Promise<boolean>;
   getMetaOptions: () => Promise<MetaOptionsResponseBody>;
@@ -347,16 +347,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     removeStorage(STORAGE_KEYS.user);
   }, []);
 
-  const updateProfile = useCallback(async (data: Partial<User>): Promise<boolean> => {
+  const updateProfile = useCallback(async (data: Omit<Partial<User>, "profile_picture"> & { profile_picture?: File | string }): Promise<boolean> => {
     if (!accessToken) return false;
 
+    const hasFile = typeof data.profile_picture !== "string" && data.profile_picture instanceof File;
     const payload = removeUndefined({
       full_name: data.full_name,
       username: data.username,
       email: data.email,
       phone_number: data.phone_number,
       dormitory_id: data.dormitory_id,
-      profile_picture: data.profile_picture,
+      profile_picture: hasFile ? undefined : data.profile_picture,
       student_id: data.student_id,
       bio: data.bio,
       date_of_birth: data.date_of_birth,
@@ -369,10 +370,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       method: "PATCH",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/json",
         Authorization: `${tokenType || "Bearer"} ${accessToken}`,
       },
-      body: JSON.stringify(payload),
+      body: hasFile
+        ? (() => {
+            const form = new FormData();
+            Object.entries(payload).forEach(([key, value]) => {
+              if (value === undefined || value === null) return;
+              if (typeof value === "number") {
+                form.set(key, String(value));
+                return;
+              }
+              form.set(key, String(value));
+            });
+            form.append("profile_picture", data.profile_picture as File);
+            return form;
+          })()
+        : JSON.stringify(payload),
     });
 
     const contentType = response.headers.get("content-type") || "";

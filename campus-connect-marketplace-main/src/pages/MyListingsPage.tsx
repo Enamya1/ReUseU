@@ -25,6 +25,7 @@ const MyListingsPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
+  const skeletonItems = useMemo(() => Array.from({ length: pageSize }, (_, i) => i), [pageSize]);
 
   const paginationItems = useMemo(() => {
     if (totalPages <= 7) {
@@ -184,12 +185,25 @@ const MyListingsPage: React.FC = () => {
         </div>
 
         {isLoading ? (
-          <div className="max-w-md mx-auto text-center py-12">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-              <Package className="w-12 h-12 text-muted-foreground" />
+          <div className="space-y-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {skeletonItems.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-xl border border-border bg-card shadow-card overflow-hidden animate-pulse"
+                >
+                  <div className="aspect-square bg-muted" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-4 bg-muted rounded w-2/3" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                    <div className="h-3 bg-muted rounded w-3/4" />
+                  </div>
+                </div>
+              ))}
             </div>
-            <h2 className="text-xl font-semibold mb-2">Loading listings...</h2>
-            <p className="text-muted-foreground">Fetching your items</p>
+            <div className="flex justify-center">
+              <div className="h-10 w-48 rounded-full bg-muted animate-pulse" />
+            </div>
           </div>
         ) : products.length === 0 ? (
           <div className="max-w-md mx-auto text-center py-12">
