@@ -12,10 +12,12 @@ import ProductCard from '@/components/products/ProductCard';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -30,12 +32,12 @@ const ProductDetailPage: React.FC = () => {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <AlertCircle className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold mb-2">Product not found</h1>
+            <h1 className="text-2xl font-display font-bold mb-2">{t('product.notFoundTitle')}</h1>
             <p className="text-muted-foreground mb-6">
-              This item may have been sold or removed.
+              {t('product.notFoundSubtitle')}
             </p>
             <Button asChild>
-              <Link to="/">Browse other items</Link>
+              <Link to="/">{t('product.browseOther')}</Link>
             </Button>
           </div>
         </div>
@@ -51,16 +53,16 @@ const ProductDetailPage: React.FC = () => {
   const handleFavorite = () => {
     if (!isAuthenticated) {
       toast({
-        title: "Login required",
-        description: "Please log in to save favorites",
+        title: t('product.loginRequired'),
+        description: t('product.loginToFavorites'),
       });
       navigate('/login');
       return;
     }
     toggleFavorite(product.id);
     toast({
-      title: favorite ? "Removed from favorites" : "Added to favorites",
-      description: favorite ? "Item removed from your favorites" : "Item saved to your favorites",
+      title: favorite ? t('product.favoriteRemoved') : t('product.favoriteAdded'),
+      description: favorite ? t('product.favoriteRemovedDesc') : t('product.favoriteAddedDesc'),
     });
   };
 
@@ -68,14 +70,14 @@ const ProductDetailPage: React.FC = () => {
     try {
       await navigator.share({
         title: product.title,
-        text: `Check out ${product.title} on SCU!`,
+        text: t('product.shareText', { title: product.title }),
         url: window.location.href,
       });
     } catch {
       navigator.clipboard.writeText(window.location.href);
       toast({
-        title: "Link copied!",
-        description: "Product link copied to clipboard",
+        title: t('product.shareTitle'),
+        description: t('product.shareDesc'),
       });
     }
   };
@@ -83,15 +85,15 @@ const ProductDetailPage: React.FC = () => {
   const handleContact = () => {
     if (!isAuthenticated) {
       toast({
-        title: "Login required",
-        description: "Please log in to contact the seller",
+        title: t('product.loginRequired'),
+        description: t('product.loginToContact'),
       });
       navigate('/login');
       return;
     }
     toast({
-      title: "Message sent!",
-      description: "The seller will be notified",
+      title: t('product.messageSent'),
+      description: t('product.messageSentDesc'),
     });
   };
 
@@ -112,7 +114,7 @@ const ProductDetailPage: React.FC = () => {
       <div className="container py-6 md:py-10">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
+          <Link to="/" className="hover:text-foreground transition-colors">{t('product.breadcrumbHome')}</Link>
           <span>/</span>
           {product.category && (
             <>
@@ -144,14 +146,14 @@ const ProductDetailPage: React.FC = () => {
                       <button
                         onClick={prevImage}
                         className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-card/80 backdrop-blur-sm hover:bg-card transition-colors"
-                        aria-label="Previous image"
+                      aria-label={t('product.previousImage')}
                       >
                         <ChevronLeft className="w-5 h-5" />
                       </button>
                       <button
                         onClick={nextImage}
                         className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-card/80 backdrop-blur-sm hover:bg-card transition-colors"
-                        aria-label="Next image"
+                      aria-label={t('product.nextImage')}
                       >
                         <ChevronRight className="w-5 h-5" />
                       </button>
@@ -160,7 +162,7 @@ const ProductDetailPage: React.FC = () => {
                 </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  No images available
+                  {t('product.noImages')}
                 </div>
               )}
             </div>
@@ -198,12 +200,12 @@ const ProductDetailPage: React.FC = () => {
                 <div className="flex items-center gap-3 mb-2">
                   {product.is_promoted && (
                     <Badge className="bg-warning text-warning-foreground border-0">
-                      Featured
+                      {t('product.featured')}
                     </Badge>
                   )}
                   {product.status !== 'available' && (
                     <Badge variant="secondary">
-                      {product.status === 'sold' ? 'Sold' : 'Reserved'}
+                      {product.status === 'sold' ? t('product.sold') : t('product.reserved')}
                     </Badge>
                   )}
                 </div>
@@ -216,7 +218,7 @@ const ProductDetailPage: React.FC = () => {
                   variant={favorite ? "default" : "outline"}
                   size="icon"
                   onClick={handleFavorite}
-                  aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                  aria-label={favorite ? t('productCard.favoriteRemove') : t('productCard.favoriteAdd')}
                 >
                   <Heart className={cn("w-5 h-5", favorite && "fill-current")} />
                 </Button>
@@ -224,7 +226,7 @@ const ProductDetailPage: React.FC = () => {
                   variant="outline"
                   size="icon"
                   onClick={handleShare}
-                  aria-label="Share"
+                  aria-label={t('product.shareAction')}
                 >
                   <Share2 className="w-5 h-5" />
                 </Button>
@@ -246,12 +248,12 @@ const ProductDetailPage: React.FC = () => {
               )}
               {product.distance_km !== undefined && (
                 <Badge variant="outline" className="text-tertiary border-tertiary">
-                  {product.distance_km} km away
+                  {t('product.distanceKm', { count: product.distance_km })}
                 </Badge>
               )}
               <div className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4" />
-                <span>Posted {formatRelativeTime(product.created_at)}</span>
+                <span>{t('product.posted', { time: formatRelativeTime(product.created_at) })}</span>
               </div>
             </div>
 
@@ -259,7 +261,7 @@ const ProductDetailPage: React.FC = () => {
             <div className="flex flex-wrap gap-2">
               {product.condition_level && (
                 <Badge variant="outline">
-                  Condition: {product.condition_level.name}
+                  {t('product.conditionLabel', { name: product.condition_level.name })}
                 </Badge>
               )}
               {product.category && (
@@ -287,7 +289,7 @@ const ProductDetailPage: React.FC = () => {
             {/* Description */}
             {product.description && (
               <div className="space-y-2">
-                <h3 className="font-semibold text-foreground">Description</h3>
+                <h3 className="font-semibold text-foreground">{t('product.description')}</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   {product.description}
                 </p>
@@ -311,7 +313,7 @@ const ProductDetailPage: React.FC = () => {
                   <Button variant="outline" size="sm" asChild>
                     <Link to={`/seller/${product.seller.id}`}>
                       <User className="w-4 h-4" />
-                      View Profile
+                      {t('product.viewProfile')}
                     </Link>
                   </Button>
                 </div>
@@ -328,7 +330,7 @@ const ProductDetailPage: React.FC = () => {
                 disabled={product.status !== 'available'}
               >
                 <MessageCircle className="w-5 h-5" />
-                Contact Seller
+                {t('product.contactSeller')}
               </Button>
             </div>
           </div>
@@ -338,7 +340,7 @@ const ProductDetailPage: React.FC = () => {
         {relatedProducts.length > 0 && (
           <section className="mt-16">
             <h2 className="text-2xl font-display font-bold text-foreground mb-6">
-              Similar items
+              {t('product.similarItems')}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {relatedProducts.map(p => (

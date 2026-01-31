@@ -16,9 +16,11 @@ import {
 import { Product } from '@/lib/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 const MyListingsPage: React.FC = () => {
   const { user, isAuthenticated, getMyProductCards } = useAuth();
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(12);
@@ -121,8 +123,8 @@ const MyListingsPage: React.FC = () => {
         const maybe = error as { message?: string } | undefined;
         if (!cancelled) {
           toast({
-            title: "Error",
-            description: maybe?.message || "Failed to load your listings",
+            title: t('listings.loadErrorTitle'),
+            description: maybe?.message || t('listings.loadErrorDesc'),
             variant: "destructive",
           });
           setProducts([]);
@@ -138,7 +140,7 @@ const MyListingsPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [getMyProductCards, isAuthenticated, page, pageSize, user]);
+  }, [getMyProductCards, isAuthenticated, page, pageSize, t, user]);
 
   if (!isAuthenticated || !user) {
     return (
@@ -148,13 +150,13 @@ const MyListingsPage: React.FC = () => {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Package className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold mb-2">Manage your listings</h1>
+            <h1 className="text-2xl font-display font-bold mb-2">{t('listings.manageTitle')}</h1>
             <p className="text-muted-foreground mb-6">
-              Log in to view and manage your listings.
+              {t('listings.manageSubtitle')}
             </p>
             <Button asChild>
               <Link to="/login">
-                Log in
+                {t('common.login')}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
@@ -170,16 +172,16 @@ const MyListingsPage: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              My Listings
+              {t('listings.title')}
             </h1>
             <p className="text-muted-foreground">
-              {total} {total === 1 ? 'item' : 'items'} listed
+              {t('listings.itemsCount', { count: total })}
             </p>
           </div>
           <Button asChild>
             <Link to="/create-listing">
               <Plus className="w-4 h-4" />
-              New Listing
+              {t('listings.newListing')}
             </Link>
           </Button>
         </div>
@@ -210,14 +212,14 @@ const MyListingsPage: React.FC = () => {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Package className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-semibold mb-2">No listings yet</h2>
+            <h2 className="text-xl font-semibold mb-2">{t('listings.emptyTitle')}</h2>
             <p className="text-muted-foreground mb-6">
-              Start selling by creating your first listing.
+              {t('listings.emptySubtitle')}
             </p>
             <Button asChild>
               <Link to="/create-listing">
                 <Plus className="w-4 h-4" />
-                Create listing
+                {t('listings.createListing')}
               </Link>
             </Button>
           </div>

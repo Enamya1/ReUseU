@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { mockDormitories } from '@/lib/mockData';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 const SignupPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -22,6 +23,7 @@ const SignupPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -32,8 +34,8 @@ const SignupPage: React.FC = () => {
     
     if (!formData.full_name || !formData.username || !formData.email || !formData.password) {
       toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
+        title: t('signup.missingFields'),
+        description: t('signup.missingFields'),
         variant: "destructive",
       });
       return;
@@ -41,8 +43,8 @@ const SignupPage: React.FC = () => {
 
     if (formData.password !== formData.confirmPassword) {
       toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match",
+        title: t('signup.passwordMismatch'),
+        description: t('signup.passwordMismatch'),
         variant: "destructive",
       });
       return;
@@ -50,8 +52,8 @@ const SignupPage: React.FC = () => {
 
     if (formData.password.length < 8) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 8 characters",
+        title: t('signup.passwordTooShort'),
+        description: t('signup.passwordTooShort'),
         variant: "destructive",
       });
       return;
@@ -70,15 +72,15 @@ const SignupPage: React.FC = () => {
       
       if (success) {
         toast({
-          title: "Account created!",
-          description: "Welcome to SCU",
+          title: t('signup.title'),
+          description: t('signup.success'),
         });
         navigate('/');
       }
     } catch {
       toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: t('signup.error'),
+        description: t('signup.error'),
         variant: "destructive",
       });
     } finally {
@@ -86,12 +88,7 @@ const SignupPage: React.FC = () => {
     }
   };
 
-  const features = [
-    "Buy and sell within your campus community",
-    "Verified student sellers",
-    "Secure messaging",
-    "Easy meetup coordination",
-  ];
+  const features = t('signup.features', { returnObjects: true }) as string[];
 
   return (
     <div className="min-h-screen flex">
@@ -102,10 +99,10 @@ const SignupPage: React.FC = () => {
             <ShoppingBag className="w-10 h-10 text-white" />
           </div>
           <h2 className="text-4xl font-display font-bold text-white mb-4">
-            Join the campus marketplace
+            {t('signup.heroTitle')}
           </h2>
           <p className="text-lg text-white/80 mb-8">
-            Create your account and start trading with fellow students today.
+            {t('signup.heroSubtitle')}
           </p>
           <ul className="space-y-4">
             {features.map((feature, index) => (
@@ -134,10 +131,10 @@ const SignupPage: React.FC = () => {
               </span>
             </Link>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              Create an account
+              {t('signup.title')}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Start trading on your campus today
+              {t('signup.subtitle')}
             </p>
           </div>
 
@@ -145,7 +142,7 @@ const SignupPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="full_name">Full Name *</Label>
+                <Label htmlFor="full_name">{t('signup.fullName')}</Label>
                 <Input
                   id="full_name"
                   type="text"
@@ -156,7 +153,7 @@ const SignupPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="username">Username *</Label>
+                <Label htmlFor="username">{t('signup.username')}</Label>
                 <Input
                   id="username"
                   type="text"
@@ -169,7 +166,7 @@ const SignupPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">University Email *</Label>
+              <Label htmlFor="email">{t('signup.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -182,13 +179,13 @@ const SignupPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dormitory">Dormitory (Optional)</Label>
+              <Label htmlFor="dormitory">{t('signup.dormitory')}</Label>
               <Select
                 value={formData.dormitory_id}
                 onValueChange={(value) => handleChange('dormitory_id', value)}
               >
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Select your dormitory" />
+                  <SelectValue placeholder={t('signup.selectDormitory')} />
                 </SelectTrigger>
                 <SelectContent>
                   {mockDormitories.map((dorm) => (
@@ -201,7 +198,7 @@ const SignupPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
+              <Label htmlFor="password">{t('signup.password')}</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -220,11 +217,11 @@ const SignupPage: React.FC = () => {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
+              <p className="text-xs text-muted-foreground">{t('signup.passwordHint')}</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
+              <Label htmlFor="confirmPassword">{t('signup.confirmPassword')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -243,24 +240,24 @@ const SignupPage: React.FC = () => {
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? 'Creating account...' : 'Create account'}
+              {isLoading ? t('signup.submitting') : t('signup.submit')}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </form>
 
           {/* Terms */}
           <p className="text-xs text-center text-muted-foreground">
-            By creating an account, you agree to our{' '}
-            <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link>
-            {' '}and{' '}
-            <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
+            {t('signup.termsPrefix')}{' '}
+            <Link to="/terms" className="text-primary hover:underline">{t('signup.terms')}</Link>
+            {' '}{t('common.and', { defaultValue: 'and' })}{' '}
+            <Link to="/privacy" className="text-primary hover:underline">{t('signup.privacy')}</Link>
           </p>
 
           {/* Login Link */}
           <p className="text-center text-muted-foreground">
-            Already have an account?{' '}
+            {t('signup.alreadyHaveAccount')}{' '}
             <Link to="/login" className="text-primary font-medium hover:underline">
-              Log in
+              {t('common.login')}
             </Link>
           </p>
         </div>

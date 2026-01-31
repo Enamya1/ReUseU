@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { User, mockUsers } from '@/lib/mockData';
 import { apiUrl } from '@/lib/api';
+import i18n from '@/i18n';
 
 interface AuthContextType {
   user: User | null;
@@ -264,6 +265,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [accessToken, setAccessToken] = useState<string | null>(() => readStorage(STORAGE_KEYS.accessToken));
   const [tokenType, setTokenType] = useState<string | null>(() => readStorage(STORAGE_KEYS.tokenType));
   const [user, setUser] = useState<User | null>(() => parseJson<User>(readStorage(STORAGE_KEYS.user)));
+
+  useEffect(() => {
+    if (user?.language) {
+      i18n.changeLanguage(user.language);
+    }
+  }, [user?.language]);
 
   const setAuthSession = useCallback((nextUser: User, nextToken: string, nextTokenType: string) => {
     setUser(nextUser);

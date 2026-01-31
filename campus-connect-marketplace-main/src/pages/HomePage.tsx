@@ -8,10 +8,12 @@ import CategoryFilter from '@/components/filters/CategoryFilter';
 import { mockProducts, mockCategories, Category } from '@/lib/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizeImageUrl } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
+  const { t } = useTranslation();
 
   const filteredProducts = useMemo(() => {
     if (selectedCategory === undefined) {
@@ -27,9 +29,9 @@ const HomePage: React.FC = () => {
   };
 
   const stats = [
-    { icon: Users, label: 'Active Students', value: '5,000+' },
-    { icon: TrendingUp, label: 'Items Traded', value: '25,000+' },
-    { icon: Shield, label: 'Safe Transactions', value: '99.9%' },
+    { icon: Users, label: t('home.stats.activeStudents'), value: '5,000+' },
+    { icon: TrendingUp, label: t('home.stats.itemsTraded'), value: '25,000+' },
+    { icon: Shield, label: t('home.stats.safeTransactions'), value: '99.9%' },
   ];
 
   return (
@@ -42,19 +44,18 @@ const HomePage: React.FC = () => {
           <div className="max-w-3xl mx-auto text-center text-white">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-sm mb-6">
               <Sparkles className="w-4 h-4" />
-              <span>Trusted by 5,000+ students</span>
+              <span>{t('home.trustedBy')}</span>
             </div>
             
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-6 leading-tight">
-              Trade Safely Within Your{' '}
+              {t('home.heroTitle')}{' '}
               <span className="text-gradient-primary bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-                Campus Community
+                {t('home.heroHighlight')}
               </span>
             </h1>
             
             <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-              Buy, sell, and trade second-hand items with verified students. 
-              From textbooks to furniture, find great deals right on your campus.
+              {t('home.heroSubtitle')}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -62,24 +63,24 @@ const HomePage: React.FC = () => {
                 <>
                   <Button variant="hero" size="xl" asChild>
                     <Link to="/create-listing">
-                      Start Selling
+                      {t('home.startSelling')}
                       <ArrowRight className="w-5 h-5" />
                     </Link>
                   </Button>
                   <Button variant="outline-white" size="xl" asChild>
-                    <a href="#browse">Browse Items</a>
+                    <a href="#browse">{t('home.browseItems')}</a>
                   </Button>
                 </>
               ) : (
                 <>
                   <Button variant="hero" size="xl" asChild>
                     <Link to="/signup">
-                      Get Started
+                      {t('home.getStarted')}
                       <ArrowRight className="w-5 h-5" />
                     </Link>
                   </Button>
                   <Button variant="outline-white" size="xl" asChild>
-                    <Link to="/login">Log In</Link>
+                    <Link to="/login">{t('home.logIn')}</Link>
                   </Button>
                 </>
               )}
@@ -109,15 +110,15 @@ const HomePage: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-display font-bold text-foreground">
-                  Featured Items
+                  {t('home.featuredTitle')}
                 </h2>
                 <p className="text-muted-foreground">
-                  Hand-picked deals from our community
+                  {t('home.featuredSubtitle')}
                 </p>
               </div>
               <Button variant="ghost" asChild>
                 <Link to="/featured">
-                  View all
+                  {t('home.viewAll')}
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </Button>
@@ -152,7 +153,7 @@ const HomePage: React.FC = () => {
         <div className="container">
           <div className="mb-8">
             <h2 className="text-2xl font-display font-bold text-foreground mb-4">
-              Browse by Category
+              {t('home.browseByCategory')}
             </h2>
             <CategoryFilter
               selectedCategory={selectedCategory}
@@ -162,14 +163,14 @@ const HomePage: React.FC = () => {
 
           <ProductGrid
             products={filteredProducts}
-            emptyMessage="No items in this category yet"
+            emptyMessage={t('home.emptyCategory')}
           />
 
           {filteredProducts.length > 0 && (
             <div className="mt-8 text-center">
               <Button variant="outline" size="lg" asChild>
                 <Link to="/browse">
-                  View all items
+                  {t('home.viewAllItems')}
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </Button>
@@ -184,14 +185,14 @@ const HomePage: React.FC = () => {
           <div className="container">
             <div className="max-w-2xl mx-auto text-center text-primary-foreground">
               <h2 className="text-3xl font-display font-bold mb-4">
-                Ready to start trading?
+                {t('home.ctaTitle')}
               </h2>
               <p className="text-lg opacity-80 mb-8">
-                Join thousands of students already using SCU to buy and sell on campus.
+                {t('home.ctaSubtitle')}
               </p>
               <Button variant="secondary" size="xl" asChild>
                 <Link to="/signup">
-                  Create Free Account
+                  {t('home.ctaButton')}
                   <ArrowRight className="w-5 h-5" />
                 </Link>
               </Button>

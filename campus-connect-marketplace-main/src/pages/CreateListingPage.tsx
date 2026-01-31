@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 type Step = 'details' | 'media' | 'tags' | 'review';
 
@@ -27,6 +28,7 @@ type DormitoryOption = { id: number; dormitory_name: string; is_active?: boolean
 const CreateListingPage: React.FC = () => {
   const { user, isAuthenticated, createProduct, getMetaOptions, getDormitoriesByUniversity } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   const [currentStep, setCurrentStep] = useState<Step>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,8 +83,8 @@ const CreateListingPage: React.FC = () => {
         if (cancelled) return;
         const maybe = error as { message?: string } | undefined;
         toast({
-          title: "Error",
-          description: maybe?.message || "Failed to load listing options",
+          title: t('createListing.errorTitle'),
+          description: maybe?.message || t('createListing.loadOptionsErrorDesc'),
           variant: "destructive",
         });
       } finally {
@@ -94,7 +96,7 @@ const CreateListingPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [getMetaOptions, isAuthenticated]);
+  }, [getMetaOptions, isAuthenticated, t]);
 
   useEffect(() => {
     if (!user?.dormitory_id) return;
@@ -119,8 +121,8 @@ const CreateListingPage: React.FC = () => {
         setDormitories([]);
         const maybe = error as { message?: string } | undefined;
         toast({
-          title: "Error",
-          description: maybe?.message || "Failed to load dormitories",
+          title: t('createListing.errorTitle'),
+          description: maybe?.message || t('createListing.loadDormitoriesErrorDesc'),
           variant: "destructive",
         });
       } finally {
@@ -132,13 +134,13 @@ const CreateListingPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [getDormitoriesByUniversity, isAuthenticated]);
+  }, [getDormitoriesByUniversity, isAuthenticated, t]);
 
   const steps: { id: Step; label: string }[] = [
-    { id: 'details', label: 'Details' },
-    { id: 'media', label: 'Photos' },
-    { id: 'tags', label: 'Tags' },
-    { id: 'review', label: 'Review' },
+    { id: 'details', label: t('createListing.details') },
+    { id: 'media', label: t('createListing.photos') },
+    { id: 'tags', label: t('createListing.tags') },
+    { id: 'review', label: t('createListing.review') },
   ];
 
   const currentStepIndex = steps.findIndex(s => s.id === currentStep);
@@ -283,17 +285,29 @@ const CreateListingPage: React.FC = () => {
           : undefined;
 
       if (!Number.isFinite(categoryId) || !Number.isFinite(conditionLevelId) || !Number.isFinite(price)) {
-        toast({ title: "Missing fields", description: "Please fill the required fields", variant: "destructive" });
+        toast({
+          title: t('createListing.validationTitle'),
+          description: t('createListing.missingFields'),
+          variant: "destructive",
+        });
         setCurrentStep('details');
         return;
       }
       if (price < 0.01) {
-        toast({ title: "Invalid price", description: "Price must be at least 0.01", variant: "destructive" });
+        toast({
+          title: t('createListing.validationTitle'),
+          description: t('createListing.invalidPrice'),
+          variant: "destructive",
+        });
         setCurrentStep('details');
         return;
       }
       if (dormitoryRequired && !Number.isFinite(dormitoryId)) {
-        toast({ title: "Missing location", description: "Please select your dormitory", variant: "destructive" });
+        toast({
+          title: t('createListing.validationTitle'),
+          description: t('createListing.missingLocation'),
+          variant: "destructive",
+        });
         setCurrentStep('details');
         return;
       }
@@ -319,8 +333,8 @@ const CreateListingPage: React.FC = () => {
       });
 
       toast({
-        title: "Listing created!",
-        description: result.message || "Your item is now live on SCU",
+        title: t('createListing.createSuccessTitle'),
+        description: result.message || t('createListing.createSuccessDesc'),
       });
       navigate('/my-listings');
     } catch (error) {
@@ -331,16 +345,16 @@ const CreateListingPage: React.FC = () => {
         if (errorKeys.some((k) => k.includes('image'))) setCurrentStep('media');
         else setCurrentStep('details');
         toast({
-          title: maybe.message || "Validation error",
-          description: "Please review the highlighted fields",
+          title: maybe.message || t('createListing.validationTitle'),
+          description: t('createListing.validationDesc'),
           variant: "destructive",
         });
         return;
       }
 
       toast({
-        title: "Error",
-        description: maybe?.message || "Failed to create listing",
+        title: t('createListing.errorTitle'),
+        description: maybe?.message || t('createListing.createErrorDesc'),
         variant: "destructive",
       });
     } finally {
@@ -356,13 +370,13 @@ const CreateListingPage: React.FC = () => {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Upload className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold mb-2">Start selling</h1>
+            <h1 className="text-2xl font-display font-bold mb-2">{t('createListing.loginTitle')}</h1>
             <p className="text-muted-foreground mb-6">
-              Log in to create a listing and start selling to your campus community.
+              {t('createListing.loginSubtitle')}
             </p>
             <Button asChild>
               <Link to="/login">
-                Log in to continue
+                {t('createListing.loginCta')}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
@@ -387,9 +401,9 @@ const CreateListingPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
                 <ArrowLeft className="w-4 h-4" />
-                Back
+                {t('createListing.back')}
               </Button>
-              <h1 className="font-display font-bold text-lg">Create Listing</h1>
+              <h1 className="font-display font-bold text-lg">{t('createListing.title')}</h1>
               <div className="w-20" /> {/* Spacer */}
             </div>
             
@@ -433,16 +447,16 @@ const CreateListingPage: React.FC = () => {
             {currentStep === 'details' && (
               <div className="space-y-6 animate-fade-in">
                 <div>
-                  <h2 className="text-2xl font-display font-bold mb-2">Item Details</h2>
-                  <p className="text-muted-foreground">Tell us about what you're selling</p>
+                  <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.detailsTitle')}</h2>
+                  <p className="text-muted-foreground">{t('createListing.detailsSubtitle')}</p>
                 </div>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Title *</Label>
+                    <Label htmlFor="title">{t('createListing.titleLabel')}</Label>
                     <Input
                       id="title"
-                      placeholder="e.g., MacBook Pro 2021"
+                      placeholder={t('createListing.titlePlaceholder')}
                       value={formData.title}
                       onChange={(e) => updateField('title', e.target.value)}
                       className="h-12"
@@ -451,10 +465,10 @@ const CreateListingPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">{t('createListing.descriptionLabel')}</Label>
                     <Textarea
                       id="description"
-                      placeholder="Describe your item, condition, and any details buyers should know..."
+                      placeholder={t('createListing.descriptionPlaceholder')}
                       value={formData.description}
                       onChange={(e) => updateField('description', e.target.value)}
                       rows={4}
@@ -466,7 +480,7 @@ const CreateListingPage: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="price">Price ($) *</Label>
+                      <Label htmlFor="price">{t('createListing.priceLabel')}</Label>
                       <Input
                         id="price"
                         type="number"
@@ -481,14 +495,16 @@ const CreateListingPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="category">Category *</Label>
+                      <Label htmlFor="category">{t('createListing.categoryLabel')}</Label>
                       <Select
                         value={formData.category_id}
                         onValueChange={(value) => updateField('category_id', value)}
                         disabled={isMetaLoading}
                       >
                         <SelectTrigger className="h-12">
-                          <SelectValue placeholder={isMetaLoading ? "Loading..." : "Select category"} />
+                          <SelectValue
+                            placeholder={isMetaLoading ? t('common.loading') : t('createListing.categoryPlaceholder')}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {categories.map((category) => (
@@ -506,14 +522,16 @@ const CreateListingPage: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="condition">Condition *</Label>
+                      <Label htmlFor="condition">{t('createListing.conditionLabel')}</Label>
                       <Select
                         value={formData.condition_level_id}
                         onValueChange={(value) => updateField('condition_level_id', value)}
                         disabled={isMetaLoading}
                       >
                         <SelectTrigger className="h-12">
-                          <SelectValue placeholder={isMetaLoading ? "Loading..." : "Select condition"} />
+                          <SelectValue
+                            placeholder={isMetaLoading ? t('common.loading') : t('createListing.conditionPlaceholder')}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {conditionLevels.map((level) => (
@@ -529,19 +547,23 @@ const CreateListingPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="dormitory">Location{dormitoryRequired ? ' *' : ''}</Label>
+                      <Label htmlFor="dormitory">
+                        {t('createListing.locationLabel', { required: dormitoryRequired ? ' *' : '' })}
+                      </Label>
                       <Select
                         value={formData.dormitory_id}
                         onValueChange={(value) => updateField('dormitory_id', value)}
                         disabled={isDormitoriesLoading || (dormitoryRequired && dormitories.length === 0)}
                       >
                         <SelectTrigger className="h-12">
-                          <SelectValue placeholder={isDormitoriesLoading ? "Loading..." : "Select dormitory"} />
+                          <SelectValue
+                            placeholder={isDormitoriesLoading ? t('common.loading') : t('createListing.locationPlaceholder')}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {isDormitoriesLoading ? (
                             <SelectItem value="__loading" disabled>
-                              Loading...
+                              {t('common.loading')}
                             </SelectItem>
                           ) : dormitories.length ? (
                             dormitories.map((dorm) => (
@@ -551,7 +573,7 @@ const CreateListingPage: React.FC = () => {
                             ))
                           ) : (
                             <SelectItem value="__empty" disabled>
-                              No dormitories available
+                              {t('createListing.noDormitories')}
                             </SelectItem>
                           )}
                         </SelectContent>
@@ -569,13 +591,13 @@ const CreateListingPage: React.FC = () => {
             {currentStep === 'media' && (
               <div className="space-y-6 animate-fade-in">
                 <div>
-                  <h2 className="text-2xl font-display font-bold mb-2">Add Photos</h2>
-                  <p className="text-muted-foreground">Add up to 6 photos of your item</p>
+                  <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.mediaTitle')}</h2>
+                  <p className="text-muted-foreground">{t('createListing.mediaSubtitle')}</p>
                 </div>
 
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="image_files">Upload images</Label>
+                    <Label htmlFor="image_files">{t('createListing.uploadLabel')}</Label>
                     <Input
                       id="image_files"
                       type="file"
@@ -590,17 +612,17 @@ const CreateListingPage: React.FC = () => {
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <Label htmlFor="image_url" className="sr-only">
-                        Image URL
+                        {t('createListing.imageUrlLabel')}
                       </Label>
                       <Input
                         id="image_url"
-                        placeholder="https://example.com/image.jpg"
+                        placeholder={t('createListing.imageUrlPlaceholder')}
                         value={imageUrlDraft}
                         onChange={(e) => setImageUrlDraft(e.target.value)}
                       />
                     </div>
                     <Button type="button" variant="outline" onClick={addImageUrl} disabled={media.length >= 6}>
-                      Add URL
+                      {t('createListing.addUrl')}
                     </Button>
                   </div>
                   {fieldErrors.image_urls?.[0] ? (
@@ -616,7 +638,11 @@ const CreateListingPage: React.FC = () => {
                         onClick={() => setPrimaryImageIndex(index)}
                         className="absolute inset-0"
                       >
-                        <img src={normalizeImageUrl(image)} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                        <img
+                          src={normalizeImageUrl(image)}
+                          alt={t('createListing.photoAlt', { index: index + 1 })}
+                          className="w-full h-full object-cover"
+                        />
                       </button>
                       <button
                         type="button"
@@ -627,7 +653,7 @@ const CreateListingPage: React.FC = () => {
                       </button>
                       {index === primaryImageIndex && (
                         <Badge className="absolute bottom-2 left-2 bg-primary text-primary-foreground">
-                          Primary
+                          {t('createListing.primary')}
                         </Badge>
                       )}
                     </div>
@@ -640,14 +666,12 @@ const CreateListingPage: React.FC = () => {
                       className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary"
                     >
                       <Plus className="w-8 h-8" />
-                      <span className="text-sm font-medium">Add Photos</span>
+                      <span className="text-sm font-medium">{t('createListing.addPhotos')}</span>
                     </button>
                   )}
                 </div>
 
-                <p className="text-sm text-muted-foreground">
-                  <strong>Tip:</strong> Click a photo to set it as the primary image.
-                </p>
+                <p className="text-sm text-muted-foreground">{t('createListing.mediaTip')}</p>
               </div>
             )}
 
@@ -655,8 +679,8 @@ const CreateListingPage: React.FC = () => {
             {currentStep === 'tags' && (
               <div className="space-y-6 animate-fade-in">
                 <div>
-                  <h2 className="text-2xl font-display font-bold mb-2">Add Tags</h2>
-                  <p className="text-muted-foreground">Help buyers find your item with relevant tags</p>
+                  <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.tagsTitle')}</h2>
+                  <p className="text-muted-foreground">{t('createListing.tagsSubtitle')}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -679,7 +703,7 @@ const CreateListingPage: React.FC = () => {
 
                 {formData.tags.length > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {formData.tags.length} tag{formData.tags.length !== 1 ? 's' : ''} selected
+                    {t('createListing.tagsSelected', { count: formData.tags.length })}
                   </p>
                 )}
               </div>
@@ -689,8 +713,8 @@ const CreateListingPage: React.FC = () => {
             {currentStep === 'review' && (
               <div className="space-y-6 animate-fade-in">
                 <div>
-                  <h2 className="text-2xl font-display font-bold mb-2">Review Listing</h2>
-                  <p className="text-muted-foreground">Make sure everything looks good</p>
+                  <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.reviewTitle')}</h2>
+                  <p className="text-muted-foreground">{t('createListing.reviewSubtitle')}</p>
                 </div>
 
                 {/* Preview Card */}
@@ -709,7 +733,7 @@ const CreateListingPage: React.FC = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-2xl font-bold">${formData.price}</p>
-                        <h3 className="text-lg font-semibold">{formData.title || 'Untitled'}</h3>
+                        <h3 className="text-lg font-semibold">{formData.title || t('createListing.untitled')}</h3>
                       </div>
                     </div>
 
@@ -756,7 +780,7 @@ const CreateListingPage: React.FC = () => {
               disabled={currentStepIndex === 0}
             >
               <ArrowLeft className="w-4 h-4" />
-              Back
+              {t('createListing.back')}
             </Button>
 
             {currentStep === 'review' ? (
@@ -765,7 +789,7 @@ const CreateListingPage: React.FC = () => {
                 onClick={handleSubmit}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Publishing...' : 'Publish Listing'}
+                {isSubmitting ? t('createListing.publishing') : t('createListing.publish')}
                 <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
@@ -773,7 +797,7 @@ const CreateListingPage: React.FC = () => {
                 onClick={nextStep}
                 disabled={!canProceed()}
               >
-                Continue
+                {t('common.continue')}
                 <ArrowRight className="w-4 h-4" />
               </Button>
             )}

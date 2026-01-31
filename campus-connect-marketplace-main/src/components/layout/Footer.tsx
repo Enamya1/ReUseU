@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Github, Twitter, Instagram } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Footer: React.FC = () => {
+  const { t } = useTranslation();
   return (
     <footer className="border-t border-border bg-card mt-auto">
       <div className="container py-12">
@@ -18,7 +20,7 @@ const Footer: React.FC = () => {
               </span>
             </Link>
             <p className="text-sm text-muted-foreground">
-              The trusted marketplace for campus communities. Buy, sell, and trade safely with fellow students.
+              {t('footer.tagline')}
             </p>
             <div className="flex gap-4">
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -35,48 +37,48 @@ const Footer: React.FC = () => {
 
           {/* Quick Links */}
           <div>
-            <h3 className="font-semibold mb-4">Quick Links</h3>
+            <h3 className="font-semibold mb-4">{t('footer.quickLinks')}</h3>
             <nav className="space-y-2">
               <Link to="/" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Browse Items
+                {t('footer.browseItems')}
               </Link>
               <Link to="/create-listing" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Sell an Item
+                {t('footer.sellItem')}
               </Link>
               <Link to="/categories" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Categories
+                {t('footer.categories')}
               </Link>
             </nav>
           </div>
 
           {/* Support */}
           <div>
-            <h3 className="font-semibold mb-4">Support</h3>
+            <h3 className="font-semibold mb-4">{t('footer.support')}</h3>
             <nav className="space-y-2">
               <Link to="/help" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Help Center
+                {t('footer.helpCenter')}
               </Link>
               <Link to="/safety" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Safety Tips
+                {t('footer.safetyTips')}
               </Link>
               <Link to="/contact" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Contact Us
+                {t('footer.contactUs')}
               </Link>
             </nav>
           </div>
 
           {/* Legal */}
           <div>
-            <h3 className="font-semibold mb-4">Legal</h3>
+            <h3 className="font-semibold mb-4">{t('footer.legal')}</h3>
             <nav className="space-y-2">
               <Link to="/terms" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Terms of Service
+                {t('footer.terms')}
               </Link>
               <Link to="/privacy" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Privacy Policy
+                {t('footer.privacy')}
               </Link>
               <Link to="/guidelines" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Community Guidelines
+                {t('footer.guidelines')}
               </Link>
             </nav>
           </div>
@@ -84,10 +86,10 @@ const Footer: React.FC = () => {
 
         <div className="mt-8 pt-8 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} SCU. All rights reserved.
+            {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>
           <p className="text-sm text-muted-foreground">
-            Made with ❤️ for campus communities
+            {t('footer.madeWith')}
           </p>
         </div>
       </div>

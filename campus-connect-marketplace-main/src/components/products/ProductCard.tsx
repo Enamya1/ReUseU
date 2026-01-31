@@ -6,6 +6,7 @@ import { useFavorites } from '@/contexts/FavoritesContext';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 interface ProductCardProps {
   product: Product;
@@ -15,6 +16,7 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo }) => {
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { t } = useTranslation();
   const favorite = isFavorite(product.id);
 
   const primaryImage = product.images.find(img => img.is_primary) || product.images[0];
@@ -44,7 +46,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-            No image
+            {t('productCard.noImage')}
           </div>
         )}
 
@@ -57,7 +59,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
               ? "bg-primary text-primary-foreground"
               : "bg-card/80 text-foreground hover:bg-card"
           )}
-          aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+          aria-label={favorite ? t('productCard.favoriteRemove') : t('productCard.favoriteAdd')}
         >
           <Heart className={cn("w-5 h-5", favorite && "fill-current")} />
         </button>
@@ -67,7 +69,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
           <div className="absolute top-3 left-3">
             <Badge className="bg-warning text-warning-foreground border-0 gap-1">
               <Star className="w-3 h-3 fill-current" />
-              Featured
+              {t('product.featured')}
             </Badge>
           </div>
         )}
@@ -76,7 +78,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
         {product.status !== 'available' && (
           <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center">
             <Badge variant="secondary" className="text-base font-semibold">
-              {product.status === 'sold' ? 'Sold' : 'Reserved'}
+              {product.status === 'sold' ? t('product.sold') : t('product.reserved')}
             </Badge>
           </div>
         )}
@@ -110,7 +112,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
             </div>
           )}
           {product.distance_km !== undefined && (
-            <span className="text-tertiary font-medium">{product.distance_km} km</span>
+            <span className="text-tertiary font-medium">{t('product.distanceKm', { count: product.distance_km })}</span>
           )}
           <div className="flex items-center gap-1 ml-auto">
             <Clock className="w-3 h-3" />

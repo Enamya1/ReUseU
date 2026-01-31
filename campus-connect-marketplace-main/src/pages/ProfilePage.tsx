@@ -15,10 +15,12 @@ import TimezoneMap from '@/components/TimezoneMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { normalizeImageUrl } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 const ProfilePage: React.FC = () => {
   const { user, isAuthenticated, updateProfile, getUniversityOptions, updateUniversitySettings } = useAuth();
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
   const [isSaving, setIsSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [isUniversityLoading, setIsUniversityLoading] = useState(false);
@@ -54,6 +56,15 @@ const ProfilePage: React.FC = () => {
     language: user?.language || '',
     timezone: user?.timezone || '',
   });
+
+  const languageOptions = useMemo(
+    () => [
+      { value: 'en', label: 'English' },
+      { value: 'zh', label: '中文' },
+      { value: 'ar', label: 'العربية' },
+    ],
+    [],
+  );
   const [timezoneDraft, setTimezoneDraft] = useState<ITimezone | string>(
     user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
@@ -74,6 +85,13 @@ const ProfilePage: React.FC = () => {
     });
     setTimezoneDraft(user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.language) return;
+    if (user.language === i18n.resolvedLanguage) return;
+    if (!languageOptions.some((option) => option.value === user.language)) return;
+    void i18n.changeLanguage(user.language);
+  }, [i18n, languageOptions, user?.language]);
 
   useEffect(() => {
     if (!cropSourceUrl) {
@@ -265,6 +283,11 @@ const ProfilePage: React.FC = () => {
       const { [field]: _removed, ...rest } = prev;
       return rest;
     });
+  };
+
+  const handleLanguageChange = (value: string) => {
+    handleChange('language', value);
+    void i18n.changeLanguage(value);
   };
 
   const handleAvatarClick = () => {
@@ -753,13 +776,21 @@ const ProfilePage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="language">Language</Label>
-                  <Input
-                    id="language"
-                    value={formData.language}
-                    onChange={(e) => handleChange('language', e.target.value)}
-                    placeholder="e.g., en"
-                    className="h-11"
-                  />
+                  <Select
+                    value={formData.language || i18n.resolvedLanguage || 'en'}
+                    onValueChange={handleLanguageChange}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languageOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {firstError.get("language") ? <p className="text-xs text-destructive">{firstError.get("language")}</p> : null}
                 </div>
 

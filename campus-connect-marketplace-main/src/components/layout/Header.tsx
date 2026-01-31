@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { normalizeImageUrl } from '@/lib/api';
 import { NavLink } from '@/components/NavLink';
+import { useTranslation } from 'react-i18next';
 
 const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -22,19 +23,20 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { t } = useTranslation();
   const primaryNavItems = [
-    { to: '/', label: 'Home' },
-    { to: '/for-you', label: 'For You' },
-    { to: '/messages', label: 'Messages' },
-    { to: '/my-listings', label: 'My Listings' },
-    { to: '/ai', label: 'AI' },
-    { to: '/profile', label: 'Profile' },
-    { to: '/nearby', label: 'Near By' },
+    { to: '/', label: t('nav.home') },
+    { to: '/for-you', label: t('nav.forYou') },
+    { to: '/messages', label: t('nav.messages') },
+    { to: '/my-listings', label: t('nav.myListings') },
+    { to: '/ai', label: t('nav.ai') },
+    { to: '/profile', label: t('nav.profile') },
+    { to: '/nearby', label: t('nav.nearBy') },
   ];
   const moreNavItems = [
-    { to: '/favorites', label: 'Favorites' },
-    { to: '/create-listing', label: 'Create Listing' },
-    { to: '/admin/dashboard', label: 'Admin' },
+    { to: '/favorites', label: t('nav.favorites') },
+    { to: '/create-listing', label: t('nav.createListing') },
+    { to: '/admin/dashboard', label: t('nav.admin') },
   ];
 
   const handleSearch = (e: React.FormEvent) => {
@@ -74,7 +76,7 @@ const Header: React.FC = () => {
                 type="button"
                 className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors inline-flex items-center gap-1"
               >
-                <span>More</span>
+                <span>{t('header.more')}</span>
                 <ChevronDown className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
@@ -96,7 +98,7 @@ const Header: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search for items..."
+                placeholder={t('header.searchPlaceholder')}
                 className="pl-10 pr-4 h-10 bg-muted/50 border-0 focus-visible:ring-1"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -119,7 +121,7 @@ const Header: React.FC = () => {
               <Button variant="default" size="sm" asChild>
                 <Link to="/create-listing">
                   <Plus className="w-4 h-4" />
-                  <span>Sell</span>
+                  <span>{t('header.sell')}</span>
                 </Link>
               </Button>
 
@@ -143,19 +145,19 @@ const Header: React.FC = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/my-listings" className="cursor-pointer">
                       <ShoppingBag className="w-4 h-4 mr-2" />
-                      My Listings
+                      {t('nav.myListings')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/profile" className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
-                      Settings
+                      {t('header.settings')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive">
                     <LogOut className="w-4 h-4 mr-2" />
-                    Logout
+                    {t('common.logout')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -163,10 +165,10 @@ const Header: React.FC = () => {
           ) : (
             <>
               <Button variant="ghost" size="sm" asChild>
-                <Link to="/login">Log in</Link>
+                <Link to="/login">{t('common.login')}</Link>
               </Button>
               <Button variant="default" size="sm" asChild>
-                <Link to="/signup">Sign up</Link>
+                <Link to="/signup">{t('common.signup')}</Link>
               </Button>
             </>
           )}
@@ -193,7 +195,7 @@ const Header: React.FC = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search for items..."
+                placeholder={t('header.searchPlaceholder')}
                   className="pl-10 pr-4 h-10 bg-muted/50"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -219,7 +221,7 @@ const Header: React.FC = () => {
                     type="button"
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
                   >
-                    <span>More</span>
+                    <span>{t('header.more')}</span>
                     <ChevronDown className="w-4 h-4" />
                   </button>
                 </DropdownMenuTrigger>
@@ -270,7 +272,7 @@ const Header: React.FC = () => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <ShoppingBag className="w-5 h-5" />
-                    <span>My Listings</span>
+                  <span>{t('nav.myListings')}</span>
                   </Link>
                   <Link
                     to="/profile"
@@ -278,7 +280,7 @@ const Header: React.FC = () => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <Settings className="w-5 h-5" />
-                    <span>Settings</span>
+                  <span>{t('header.settings')}</span>
                   </Link>
                 </nav>
 
@@ -291,7 +293,7 @@ const Header: React.FC = () => {
                   >
                     <Link to="/create-listing">
                       <Plus className="w-4 h-4" />
-                      Sell an Item
+                      {t('header.sellAnItem')}
                     </Link>
                   </Button>
                   <Button
@@ -303,7 +305,7 @@ const Header: React.FC = () => {
                     }}
                   >
                     <LogOut className="w-4 h-4" />
-                    Logout
+                    {t('common.logout')}
                   </Button>
                 </div>
               </div>
@@ -311,12 +313,12 @@ const Header: React.FC = () => {
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" asChild>
                   <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                    Log in
+                    {t('common.login')}
                   </Link>
                 </Button>
                 <Button variant="default" className="flex-1" asChild>
                   <Link to="/signup" onClick={() => setMobileMenuOpen(false)}>
-                    Sign up
+                    {t('common.signup')}
                   </Link>
                 </Button>
               </div>

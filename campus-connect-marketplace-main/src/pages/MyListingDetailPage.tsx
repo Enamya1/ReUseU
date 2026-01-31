@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatPrice, formatRelativeTime } from '@/lib/mockData';
 import { normalizeImageUrl } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 type CategoryOption = { id: number; name: string; icon?: string | null; parent_id?: number | null };
 type ConditionLevelOption = { id: number; name: string; description?: string | null; sort_order?: number | null };
@@ -40,6 +41,7 @@ type EditableProduct = {
 const MyListingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const {
     user,
     isAuthenticated,
@@ -127,8 +129,8 @@ const MyListingDetailPage: React.FC = () => {
         } else {
           setErrorState('error');
           toast({
-            title: "Error",
-            description: maybe?.message || "Failed to load listing",
+            title: t('listingDetail.errorTitle'),
+            description: maybe?.message || t('listingDetail.loadErrorDesc'),
             variant: "destructive",
           });
         }
@@ -141,7 +143,7 @@ const MyListingDetailPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [getDormitoriesByUniversity, getMetaOptions, getProductForEdit, isAuthenticated, productId, user]);
+  }, [getDormitoriesByUniversity, getMetaOptions, getProductForEdit, isAuthenticated, productId, t, user]);
 
   const updateField = (key: keyof typeof formData, value: string | number[]) => {
     setFormData(prev => ({ ...prev, [key]: value }));
@@ -169,17 +171,17 @@ const MyListingDetailPage: React.FC = () => {
     if (!product) return;
 
     const validationErrors: Record<string, string[]> = {};
-    if (!formData.title.trim()) validationErrors.title = ["Title is required"];
-    if (!formData.category_id) validationErrors.category_id = ["Category is required"];
-    if (!formData.condition_level_id) validationErrors.condition_level_id = ["Condition is required"];
+    if (!formData.title.trim()) validationErrors.title = [t('listingDetail.titleRequired')];
+    if (!formData.category_id) validationErrors.category_id = [t('listingDetail.categoryRequired')];
+    if (!formData.condition_level_id) validationErrors.condition_level_id = [t('listingDetail.conditionRequired')];
     const parsedPrice = Number(formData.price);
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) validationErrors.price = ["Enter a valid price"];
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) validationErrors.price = [t('listingDetail.priceInvalid')];
 
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
       toast({
-        title: "Validation error",
-        description: "Please review the highlighted fields",
+        title: t('listingDetail.validationTitle'),
+        description: t('listingDetail.validationDesc'),
         variant: "destructive",
       });
       return;
@@ -202,22 +204,22 @@ const MyListingDetailPage: React.FC = () => {
       const nextProduct = result.product ? (result.product as EditableProduct) : { ...product, ...payload };
       setProduct(nextProduct);
       toast({
-        title: "Listing updated",
-        description: result.message || "Changes saved",
+        title: t('listingDetail.updateSuccessTitle'),
+        description: result.message || t('listingDetail.updateSuccessDesc'),
       });
     } catch (error) {
       const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
       if (maybe?.errors) {
         setFieldErrors(maybe.errors);
         toast({
-          title: maybe.message || "Validation error",
-          description: "Please review the highlighted fields",
+          title: maybe.message || t('listingDetail.validationTitle'),
+          description: t('listingDetail.validationDesc'),
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Error",
-          description: maybe?.message || "Failed to update listing",
+          title: t('listingDetail.errorTitle'),
+          description: maybe?.message || t('listingDetail.updateErrorDesc'),
           variant: "destructive",
         });
       }
@@ -233,14 +235,14 @@ const MyListingDetailPage: React.FC = () => {
       const result = await markProductSold(product.id);
       setProduct(prev => (prev ? { ...prev, status: result.product?.status || 'sold' } : prev));
       toast({
-        title: "Marked as sold",
-        description: result.message || "Your item is now marked as sold",
+        title: t('listingDetail.markSoldTitle'),
+        description: result.message || t('listingDetail.markSoldDesc'),
       });
     } catch (error) {
       const maybe = error as { message?: string } | undefined;
       toast({
-        title: "Error",
-        description: maybe?.message || "Failed to mark as sold",
+        title: t('listingDetail.errorTitle'),
+        description: maybe?.message || t('listingDetail.markSoldErrorDesc'),
         variant: "destructive",
       });
     } finally {
@@ -256,12 +258,12 @@ const MyListingDetailPage: React.FC = () => {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Package className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold mb-2">Manage your listings</h1>
+            <h1 className="text-2xl font-display font-bold mb-2">{t('listings.manageTitle')}</h1>
             <p className="text-muted-foreground mb-6">
-              Log in to view and manage your listings.
+              {t('listings.manageSubtitle')}
             </p>
             <Button asChild>
-              <Link to="/login">Log in</Link>
+              <Link to="/login">{t('common.login')}</Link>
             </Button>
           </div>
         </div>
@@ -277,12 +279,12 @@ const MyListingDetailPage: React.FC = () => {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <AlertCircle className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold mb-2">Listing not found</h1>
+            <h1 className="text-2xl font-display font-bold mb-2">{t('listingDetail.notFoundTitle')}</h1>
             <p className="text-muted-foreground mb-6">
-              This listing may have been removed or is no longer available.
+              {t('listingDetail.notFoundSubtitle')}
             </p>
             <Button asChild>
-              <Link to="/my-listings">Back to My Listings</Link>
+              <Link to="/my-listings">{t('listingDetail.backToListings')}</Link>
             </Button>
           </div>
         </div>
@@ -298,8 +300,8 @@ const MyListingDetailPage: React.FC = () => {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Package className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-semibold mb-2">Loading listing...</h2>
-            <p className="text-muted-foreground">Fetching your item details</p>
+            <h2 className="text-xl font-semibold mb-2">{t('listingDetail.loadingTitle')}</h2>
+            <p className="text-muted-foreground">{t('listingDetail.loadingSubtitle')}</p>
           </div>
         </div>
       </MainLayout>
@@ -317,14 +319,18 @@ const MyListingDetailPage: React.FC = () => {
           <div>
             <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-4 h-4" />
-              Back
+              {t('common.back')}
             </Button>
             <h1 className="text-3xl font-display font-bold text-foreground mt-2">
-              {product.title || "Listing details"}
+              {product.title || t('listingDetail.detailsFallback')}
             </h1>
             <div className="flex flex-wrap gap-2 mt-2">
               <Badge variant={product.status === 'sold' ? "secondary" : "outline"}>
-                {product.status === 'sold' ? 'Sold' : product.status === 'reserved' ? 'Reserved' : 'Available'}
+                {product.status === 'sold'
+                  ? t('listingDetail.statusSold')
+                  : product.status === 'reserved'
+                  ? t('listingDetail.statusReserved')
+                  : t('listingDetail.statusAvailable')}
               </Badge>
               {product.category?.name ? (
                 <Badge variant="secondary">
@@ -346,13 +352,13 @@ const MyListingDetailPage: React.FC = () => {
                 product.status === 'sold' && "mark-sold-btn--sold"
               )}
             >
-              {product.status === 'sold' ? 'Marked Sold' : 'Mark as Sold'}
+              {product.status === 'sold' ? t('listingDetail.markedSold') : t('listingDetail.markSold')}
             </Button>
             <Button
               variant="outline"
               onClick={() => navigate('/my-listings')}
             >
-              Back to Listings
+              {t('listingDetail.backToListings')}
             </Button>
           </div>
         </div>
@@ -369,7 +375,7 @@ const MyListingDetailPage: React.FC = () => {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    No image
+                    {t('productCard.noImage')}
                   </div>
                 )}
               </div>
@@ -399,12 +405,12 @@ const MyListingDetailPage: React.FC = () => {
             <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Listed price</p>
+                  <p className="text-sm text-muted-foreground">{t('listingDetail.listedPrice')}</p>
                   <p className="text-2xl font-display font-bold">{formatPrice(product.price)}</p>
                 </div>
                 {product.created_at ? (
                   <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Listed</p>
+                    <p className="text-sm text-muted-foreground">{t('listingDetail.listedDate')}</p>
                     <p className="text-sm font-medium">{formatRelativeTime(product.created_at)}</p>
                   </div>
                 ) : null}
@@ -412,7 +418,7 @@ const MyListingDetailPage: React.FC = () => {
 
               {product.description ? (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">Description</p>
+                  <p className="text-sm text-muted-foreground mb-2">{t('listingDetail.description')}</p>
                   <p className="text-sm text-foreground leading-relaxed">{product.description}</p>
                 </div>
               ) : null}
@@ -432,7 +438,7 @@ const MyListingDetailPage: React.FC = () => {
           <div className="rounded-2xl border border-border bg-card p-6">
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
+                <Label htmlFor="title">{t('createListing.titleLabel')}</Label>
                 <Input
                   id="title"
                   value={formData.title}
@@ -443,7 +449,7 @@ const MyListingDetailPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">{t('createListing.descriptionLabel')}</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
@@ -457,7 +463,7 @@ const MyListingDetailPage: React.FC = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price ($) *</Label>
+                  <Label htmlFor="price">{t('createListing.priceLabel')}</Label>
                   <Input
                     id="price"
                     type="number"
@@ -471,13 +477,13 @@ const MyListingDetailPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
+                  <Label htmlFor="category">{t('createListing.categoryLabel')}</Label>
                   <Select
                     value={formData.category_id}
                     onValueChange={(value) => updateField('category_id', value)}
                   >
                     <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={t('createListing.categoryPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
@@ -495,13 +501,13 @@ const MyListingDetailPage: React.FC = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="condition">Condition *</Label>
+                  <Label htmlFor="condition">{t('createListing.conditionLabel')}</Label>
                   <Select
                     value={formData.condition_level_id}
                     onValueChange={(value) => updateField('condition_level_id', value)}
                   >
                     <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select condition" />
+                      <SelectValue placeholder={t('createListing.conditionPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {conditionLevels.map((level) => (
@@ -517,13 +523,13 @@ const MyListingDetailPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dormitory">Location</Label>
+                  <Label htmlFor="dormitory">{t('listingDetail.locationLabel')}</Label>
                   <Select
                     value={formData.dormitory_id}
                     onValueChange={(value) => updateField('dormitory_id', value)}
                   >
                     <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select dormitory" />
+                      <SelectValue placeholder={t('createListing.locationPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {dormitories.length ? (
@@ -534,7 +540,7 @@ const MyListingDetailPage: React.FC = () => {
                         ))
                       ) : (
                         <SelectItem value="__empty" disabled>
-                          No dormitories available
+                          {t('listingDetail.noDormitories')}
                         </SelectItem>
                       )}
                     </SelectContent>
@@ -546,7 +552,7 @@ const MyListingDetailPage: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <Label>Tags</Label>
+                <Label>{t('listingDetail.tagsLabel')}</Label>
                 <div className="flex flex-wrap gap-2">
                   {tags.map((tag) => (
                     <button
@@ -569,14 +575,14 @@ const MyListingDetailPage: React.FC = () => {
 
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Changes'}
+                  {isSaving ? t('listingDetail.saving') : t('listingDetail.saveChanges')}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => navigate('/my-listings')}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </form>

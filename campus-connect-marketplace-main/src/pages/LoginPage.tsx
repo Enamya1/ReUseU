@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -14,14 +15,15 @@ const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
       toast({
-        title: "Missing fields",
-        description: "Please fill in all fields",
+        title: t('login.missingFields'),
+        description: t('login.missingFields'),
         variant: "destructive",
       });
       return;
@@ -33,21 +35,21 @@ const LoginPage: React.FC = () => {
       const success = await login(email, password);
       if (success) {
         toast({
-          title: "Welcome back!",
-          description: "You've successfully logged in",
+          title: t('login.welcomeBack'),
+          description: t('login.subtitle'),
         });
         navigate('/');
       } else {
         toast({
-          title: "Login failed",
-          description: "Invalid email or password",
+          title: t('login.loginFailed'),
+          description: t('login.loginFailed'),
           variant: "destructive",
         });
       }
     } catch {
       toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: t('login.error'),
+        description: t('login.error'),
         variant: "destructive",
       });
     } finally {
@@ -71,17 +73,17 @@ const LoginPage: React.FC = () => {
               </span>
             </Link>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              Welcome back
+              {t('login.welcomeBack')}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Log in to your account to continue trading
+              {t('login.subtitle')}
             </p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('login.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -95,12 +97,12 @@ const LoginPage: React.FC = () => {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t('login.password')}</Label>
                 <Link
                   to="/forgot-password"
                   className="text-sm text-primary hover:underline"
                 >
-                  Forgot password?
+                  {t('login.forgotPassword')}
                 </Link>
               </div>
               <div className="relative">
@@ -130,23 +132,23 @@ const LoginPage: React.FC = () => {
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? 'Logging in...' : 'Log in'}
+              {isLoading ? t('login.submitting') : t('login.submit')}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </form>
 
           {/* Sign Up Link */}
           <p className="text-center text-muted-foreground">
-            Don't have an account?{' '}
+            {t('login.noAccount')}{' '}
             <Link to="/signup" className="text-primary font-medium hover:underline">
-              Sign up
+              {t('common.signup')}
             </Link>
           </p>
 
           {/* Demo Note */}
           <div className="p-4 rounded-lg bg-muted/50 border border-border">
             <p className="text-sm text-muted-foreground text-center">
-              Uses your REST API credentials to log in
+              {t('login.demoNote')}
             </p>
           </div>
         </div>
@@ -159,11 +161,10 @@ const LoginPage: React.FC = () => {
             <ShoppingBag className="w-10 h-10" />
           </div>
           <h2 className="text-4xl font-display font-bold mb-4">
-            Trade safely within your campus
+            {t('home.heroTitle')} {t('home.heroHighlight')}
           </h2>
           <p className="text-lg text-white/80">
-            Join thousands of students buying and selling second-hand items securely. 
-            From textbooks to furniture, find great deals right on your campus.
+            {t('home.heroSubtitle')}
           </p>
         </div>
       </div>
