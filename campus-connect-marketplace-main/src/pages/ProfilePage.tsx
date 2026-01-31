@@ -94,6 +94,13 @@ const ProfilePage: React.FC = () => {
   }, [i18n, languageOptions, user?.language]);
 
   useEffect(() => {
+    if (formData.language) return;
+    if (!i18n.resolvedLanguage) return;
+    if (!languageOptions.some((option) => option.value === i18n.resolvedLanguage)) return;
+    setFormData(prev => ({ ...prev, language: i18n.resolvedLanguage || prev.language }));
+  }, [formData.language, i18n.resolvedLanguage, languageOptions]);
+
+  useEffect(() => {
     if (!cropSourceUrl) {
       cropImageRef.current = null;
       setCropMeta(null);

@@ -46,6 +46,16 @@ type UpdateProfileResponse = {
   errors?: Record<string, string[]>;
 };
 
+type UserLanguageResponse = {
+  message?: string;
+  language?: string;
+};
+
+type UserProfilePictureResponse = {
+  message?: string;
+  profile_picture?: string | null;
+};
+
 type UniversityOption = {
   id: number;
   name: string;
@@ -272,6 +282,80 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user?.language]);
 
+  const fetchUserLanguage = useCallback(async () => {
+    if (!accessToken) return;
+    if (user?.role === 'admin') return;
+
+    const response = await fetch(apiUrl("/api/user/settings/language"), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+      },
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const responseBody = contentType.includes("application/json")
+      ? ((await response.json()) as UserLanguageResponse)
+      : null;
+
+    if (!response.ok) return;
+
+    const supported = i18n.options.supportedLngs;
+    const nextLanguage = responseBody?.language || "en";
+    if (Array.isArray(supported) && supported.length > 0 && !supported.includes(nextLanguage)) return;
+
+    if (i18n.resolvedLanguage !== nextLanguage) {
+      await i18n.changeLanguage(nextLanguage);
+    }
+
+    setUser(prev => {
+      if (!prev) return prev;
+      if (prev.language === nextLanguage) return prev;
+      const nextUser = { ...prev, language: nextLanguage };
+      writeStorage(STORAGE_KEYS.user, JSON.stringify(nextUser));
+      return nextUser;
+    });
+  }, [accessToken, tokenType, user?.role]);
+
+  useEffect(() => {
+    void fetchUserLanguage();
+  }, [fetchUserLanguage]);
+
+  const fetchUserProfilePicture = useCallback(async () => {
+    if (!accessToken) return;
+    if (user?.role === 'admin') return;
+
+    const response = await fetch(apiUrl("/api/user/settings/profile-picture"), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+      },
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const responseBody = contentType.includes("application/json")
+      ? ((await response.json()) as UserProfilePictureResponse)
+      : null;
+
+    if (!response.ok) return;
+
+    const nextProfilePicture = responseBody?.profile_picture ?? undefined;
+
+    setUser(prev => {
+      if (!prev) return prev;
+      if (prev.profile_picture === nextProfilePicture) return prev;
+      const nextUser = { ...prev, profile_picture: nextProfilePicture };
+      writeStorage(STORAGE_KEYS.user, JSON.stringify(nextUser));
+      return nextUser;
+    });
+  }, [accessToken, tokenType, user?.role]);
+
+  useEffect(() => {
+    void fetchUserProfilePicture();
+  }, [fetchUserProfilePicture]);
+
   const setAuthSession = useCallback((nextUser: User, nextToken: string, nextTokenType: string) => {
     setUser(nextUser);
     setAccessToken(nextToken);
@@ -377,6 +461,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       method: "PATCH",
       headers: {
         Accept: "application/json",
+        ...(hasFile ? {} : { "Content-Type": "application/json" }),
         Authorization: `${tokenType || "Bearer"} ${accessToken}`,
       },
       body: hasFile
