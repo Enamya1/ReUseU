@@ -430,13 +430,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const logout = useCallback(() => {
+    const currentToken = accessToken;
+    const currentTokenType = tokenType || "Bearer";
+    const currentRole = user?.role;
     setUser(null);
     setAccessToken(null);
     setTokenType(null);
     removeStorage(STORAGE_KEYS.accessToken);
     removeStorage(STORAGE_KEYS.tokenType);
     removeStorage(STORAGE_KEYS.user);
-  }, []);
+    if (!currentToken || currentRole !== "user") return;
+    void fetch(apiUrl("/api/user/logout"), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `${currentTokenType} ${currentToken}`,
+      },
+    });
+  }, [accessToken, tokenType, user?.role]);
 
   const updateProfile = useCallback(async (data: Omit<Partial<User>, "profile_picture"> & { profile_picture?: File | string }): Promise<boolean> => {
     if (!accessToken) return false;
