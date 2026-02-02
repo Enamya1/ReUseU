@@ -6,22 +6,21 @@ interface Admin {
   name: string;
   role: 'admin';
   token: string;
+  tokenType: string;
 }
+
+type LoginResult = { success: true } | { success: false; error: string; details?: string[] };
 
 interface AuthContextType {
   admin: Admin | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Dummy admin credentials
-const DUMMY_ADMINS = [
-  { id: '1', email: 'admin@campus.trade', password: 'admin123', name: 'Super Admin', role: 'admin' as const },
-  { id: '2', email: 'manager@campus.trade', password: 'manager123', name: 'Platform Manager', role: 'admin' as const },
-];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<Admin | null>(null);
@@ -34,28 +33,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+  const login = async (email: string, password: string): Promise<LoginResult> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const foundAdmin = DUMMY_ADMINS.find(
-      a => a.email === email && a.password === password
-    );
+      const data = await response.json().catch(() => undefined);
 
-    if (foundAdmin) {
+      if (!response.ok) {
+        const message = data && typeof data.message === 'string' ? data.message : 'Login failed';
+        const errors = data && typeof data.errors === 'object' && data.errors !== null ? data.errors : undefined;
+        const details = errors
+          ? Object.entries(errors).flatMap(([field, value]) => {
+              if (Array.isArray(value)) {
+                return value.map((item) => `${field}: ${String(item)}`);
+              }
+              return [`${field}: ${String(value)}`];
+            })
+          : undefined;
+        return { success: false, error: message, details };
+      }
+
+      const accessToken = data?.access_token;
+      if (typeof accessToken !== 'string' || accessToken.length === 0) {
+        return { success: false, error: 'Login failed', details: ['Access token missing from response'] };
+      }
+
+      const tokenType = typeof data?.token_type === 'string' ? data.token_type : 'Bearer';
+      const displayName = email.split('@')[0] || email;
       const adminData: Admin = {
-        id: foundAdmin.id,
-        email: foundAdmin.email,
-        name: foundAdmin.name,
-        role: foundAdmin.role,
-        token: `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: email,
+        email,
+        name: displayName,
+        role: 'admin',
+        token: accessToken,
+        tokenType,
       };
       setAdmin(adminData);
       localStorage.setItem('admin', JSON.stringify(adminData));
       return { success: true };
+    } catch {
+      return { success: false, error: 'Network error. Please try again.' };
     }
-
-    return { success: false, error: 'Invalid email or password' };
   };
 
   const logout = () => {

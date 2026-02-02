@@ -10,7 +10,7 @@ export default function Login() {
   const { isAuthenticated, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<{ message: string; details?: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -20,13 +20,13 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError(null);
     setLoading(true);
 
     const result = await login(email, password);
     
     if (!result.success) {
-      setError(result.error || 'Login failed');
+      setError({ message: result.error || 'Login failed', details: result.details });
     }
     
     setLoading(false);
@@ -72,7 +72,16 @@ export default function Login() {
             {error && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-center gap-3 text-destructive animate-fade-in">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <p className="text-sm">{error}</p>
+                <div className="space-y-1">
+                  <p className="text-sm">{error.message}</p>
+                  {error.details && error.details.length > 0 && (
+                    <ul className="text-xs text-destructive/90 space-y-1">
+                      {error.details.map((detail, index) => (
+                        <li key={`${detail}-${index}`}>{detail}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             )}
 
