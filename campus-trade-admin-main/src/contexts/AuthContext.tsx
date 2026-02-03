@@ -15,7 +15,7 @@ interface AuthContextType {
   admin: Admin | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,7 +80,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const currentAdmin = admin;
+    if (currentAdmin) {
+      try {
+        await fetch(`${API_BASE_URL}/api/admin/logout`, {
+          method: 'POST',
+          headers: {
+            Authorization: `${currentAdmin.tokenType} ${currentAdmin.token}`,
+            Accept: 'application/json',
+          },
+        });
+      } catch {
+        void 0;
+      }
+    }
     setAdmin(null);
     localStorage.removeItem('admin');
   };

@@ -98,7 +98,9 @@ export function Sidebar() {
         )}
         <Button
           variant="ghost"
-          onClick={logout}
+          onClick={() => {
+            void logout();
+          }}
           className={cn(
             "w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10",
             collapsed && "justify-center px-2"

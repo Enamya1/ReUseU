@@ -26,7 +26,9 @@ export default function Login() {
     const result = await login(email, password);
     
     if (!result.success) {
-      setError({ message: result.error || 'Login failed', details: result.details });
+      const message = 'error' in result && result.error ? result.error : 'Login failed';
+      const details = 'details' in result ? result.details : undefined;
+      setError({ message, details });
     }
     
     setLoading(false);
