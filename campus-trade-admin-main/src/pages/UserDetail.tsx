@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { users, universities, dormitories, User } from '@/lib/dummyData';
-import { ArrowLeft, Mail, Phone, GraduationCap, Building2, ShoppingBag, CheckCircle, XCircle, Save } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, GraduationCap, Building2, ShoppingBag, CheckCircle, XCircle, Save, User as UserIcon, Hash, CalendarDays, Users, Languages, MessageCircle, Send } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
 
 export default function UserDetail() {
@@ -23,6 +32,12 @@ export default function UserDetail() {
   
   const [formData, setFormData] = useState<Partial<User>>(user || {});
   const [isEditing, setIsEditing] = useState(false);
+  const [profitPeriod, setProfitPeriod] = useState('last6Months');
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState(() => [
+    { id: 1, sender: 'user' as const, text: 'Hi, I need help with my listing.', time: '09:42' },
+    { id: 2, sender: 'admin' as const, text: 'Sure, what seems to be the issue?', time: '09:44' },
+  ]);
 
   if (!user) {
     return (
@@ -36,6 +51,65 @@ export default function UserDetail() {
   }
 
   const universityDormitories = dormitories.filter(d => d.universityId === formData.universityId);
+  const uploadedProducts = Array.from({ length: Math.min(user.productsListed, 6) }, (_, index) => ({
+    id: `${user.id}-${index + 1}`,
+    title: `Listing ${index + 1}`,
+    status: index < user.productsSold ? 'sold' : 'active',
+    imageUrl: index % 2 === 0 ? '/placeholder.svg' : '/placeholder.svg',
+  }));
+  const profitDataByPeriod: Record<string, { label: string; profit: number }[]> = {
+    '2weeks': [
+      { label: 'Mon', profit: 48 },
+      { label: 'Tue', profit: 62 },
+      { label: 'Wed', profit: 55 },
+      { label: 'Thu', profit: 71 },
+      { label: 'Fri', profit: 66 },
+      { label: 'Sat', profit: 80 },
+      { label: 'Sun', profit: 74 },
+      { label: 'Mon', profit: 69 },
+      { label: 'Tue', profit: 76 },
+      { label: 'Wed', profit: 72 },
+      { label: 'Thu', profit: 88 },
+      { label: 'Fri', profit: 95 },
+      { label: 'Sat', profit: 91 },
+      { label: 'Sun', profit: 99 },
+    ],
+    lastMonth: [
+      { label: 'Week 1', profit: 260 },
+      { label: 'Week 2', profit: 310 },
+      { label: 'Week 3', profit: 280 },
+      { label: 'Week 4', profit: 340 },
+    ],
+    last6Months: [
+      { label: 'Jan', profit: 120 },
+      { label: 'Feb', profit: 180 },
+      { label: 'Mar', profit: 140 },
+      { label: 'Apr', profit: 260 },
+      { label: 'May', profit: 310 },
+      { label: 'Jun', profit: 280 },
+    ],
+    '1year': [
+      { label: 'Jan', profit: 120 },
+      { label: 'Feb', profit: 180 },
+      { label: 'Mar', profit: 140 },
+      { label: 'Apr', profit: 260 },
+      { label: 'May', profit: 310 },
+      { label: 'Jun', profit: 280 },
+      { label: 'Jul', profit: 360 },
+      { label: 'Aug', profit: 330 },
+      { label: 'Sep', profit: 390 },
+      { label: 'Oct', profit: 410 },
+      { label: 'Nov', profit: 380 },
+      { label: 'Dec', profit: 450 },
+    ],
+  };
+  const profitData = profitDataByPeriod[profitPeriod] ?? profitDataByPeriod.last6Months;
+  const profitChartConfig = {
+    profit: {
+      label: 'Profit',
+      color: 'hsl(174 72% 50%)',
+    },
+  };
 
   const handleSave = () => {
     toast.success('User updated successfully');
@@ -46,6 +120,24 @@ export default function UserDetail() {
     const newStatus = formData.status === 'active' ? 'inactive' : 'active';
     setFormData({ ...formData, status: newStatus });
     toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
+  };
+
+  const handleChatSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = chatInput.trim();
+    if (!trimmed) {
+      return;
+    }
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: prev.length + 1,
+        sender: 'admin',
+        text: trimmed,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+    setChatInput('');
   };
 
   return (
@@ -65,6 +157,59 @@ export default function UserDetail() {
             <p className="text-muted-foreground">View and manage user information</p>
           </div>
           <div className="flex items-center gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Chat
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Chat with {user.name}</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  <div className="max-h-72 overflow-y-auto rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
+                    {chatMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          "flex w-full",
+                          message.sender === 'admin' ? "justify-end" : "justify-start"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "max-w-[80%] rounded-lg px-3 py-2 text-sm",
+                            message.sender === 'admin'
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-card text-foreground border border-border"
+                          )}
+                        >
+                          <div className="text-[11px] opacity-70 mb-1">
+                            {message.sender === 'admin' ? 'You' : user.name}
+                          </div>
+                          <div>{message.text}</div>
+                          <div className="text-[10px] opacity-70 mt-1 text-right">{message.time}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <form className="flex items-center gap-2" onSubmit={handleChatSubmit}>
+                    <Input
+                      value={chatInput}
+                      onChange={(event) => setChatInput(event.target.value)}
+                      placeholder="Type a message..."
+                      className="bg-secondary/50"
+                    />
+                    <Button type="submit">
+                      <Send className="w-4 h-4 mr-2" />
+                      Send
+                    </Button>
+                  </form>
+                </div>
+              </DialogContent>
+            </Dialog>
             {isEditing ? (
               <>
                 <Button variant="outline" onClick={() => setIsEditing(false)}>
@@ -93,7 +238,9 @@ export default function UserDetail() {
                 </span>
               </div>
               <h2 className="text-xl font-bold text-foreground">{user.name}</h2>
-              <p className="text-muted-foreground">{user.email}</p>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span>{user.email}</span>
+              </div>
               
               <div className="flex items-center gap-2 mt-4">
                 <span className={cn(
@@ -121,7 +268,17 @@ export default function UserDetail() {
                   <Mail className="w-5 h-5 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Email</p>
-                    <p className="text-sm text-foreground">{user.email}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-foreground">{user.email}</p>
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          user.emailVerified ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
+                        )}
+                      >
+                        {user.emailVerified ? 'Verified' : 'Unverified'}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-left">
@@ -143,6 +300,41 @@ export default function UserDetail() {
                   <div>
                     <p className="text-xs text-muted-foreground">Dormitory</p>
                     <p className="text-sm text-foreground">{user.dormitoryName}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-left">
+                  <Hash className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Student ID</p>
+                    <p className="text-sm text-foreground">{user.studentId || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-left">
+                  <UserIcon className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Username</p>
+                    <p className="text-sm text-foreground">{user.username || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-left">
+                  <CalendarDays className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Date of Birth</p>
+                    <p className="text-sm text-foreground">{user.dateOfBirth || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-left">
+                  <Users className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Gender</p>
+                    <p className="text-sm text-foreground">{user.gender || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-left">
+                  <Languages className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Language</p>
+                    <p className="text-sm text-foreground">{user.language || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -302,6 +494,95 @@ export default function UserDetail() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </div>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Uploaded Products</h3>
+                <span className="text-sm text-muted-foreground">{user.productsListed} total</span>
+              </div>
+              {uploadedProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No products uploaded yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {uploadedProducts.map((product) => (
+                    <div key={product.id} className="bg-secondary/50 rounded-lg p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="h-16 w-16 rounded-lg border border-border bg-card overflow-hidden flex items-center justify-center">
+                          <img
+                            src={product.imageUrl}
+                            alt={product.title}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm font-medium text-foreground">{product.title}</p>
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-xs font-medium capitalize",
+                                product.status === 'sold' && "bg-success/10 text-success",
+                                product.status === 'active' && "bg-primary/10 text-primary"
+                              )}
+                            >
+                              {product.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Uploaded by {user.name}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Profit Over Time</h3>
+                  <p className="text-sm text-muted-foreground">Test data</p>
+                </div>
+                <Select value={profitPeriod} onValueChange={setProfitPeriod}>
+                  <SelectTrigger className="w-44 bg-secondary/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2weeks">2 weeks ago</SelectItem>
+                    <SelectItem value="lastMonth">Last month</SelectItem>
+                    <SelectItem value="last6Months">Last 6 months</SelectItem>
+                    <SelectItem value="1year">1 year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="h-[260px]">
+                <ChartContainer config={profitChartConfig} className="h-full w-full">
+                  <AreaChart data={profitData} margin={{ left: 0, right: 12 }}>
+                    <defs>
+                      <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-profit)" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="var(--color-profit)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value) => `$${Number(value).toLocaleString()}`}
+                        />
+                      }
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="profit"
+                      stroke="var(--color-profit)"
+                      fill="url(#profitGradient)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ChartContainer>
               </div>
             </div>
           </div>

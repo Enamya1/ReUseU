@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/ui/data-table';
@@ -10,33 +10,150 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { users as allUsers, User } from '@/lib/dummyData';
+import { User } from '@/lib/dummyData';
 import { Search, Mail, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 10;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+
+type ApiUser = {
+  id: number;
+  full_name: string;
+  email: string;
+  role: 'user' | 'admin' | 'moderator';
+  status: 'active' | 'inactive' | 'suspended';
+  profile_picture: string | null;
+  last_login_at: string | null;
+  product_count: number | string;
+  sold_counter: number | string;
+  university_name: string | null;
+};
+
+type PaginatedResponse<T> = {
+  current_page: number;
+  data: T[];
+  last_page: number;
+  per_page: number;
+  total: number;
+};
+
+type UsersResponse = {
+  message: string;
+  users: PaginatedResponse<ApiUser>;
+};
+
+const buildUser = (user: ApiUser): User => ({
+  id: String(user.id),
+  email: user.email,
+  emailVerified: false,
+  name: user.full_name || user.email.split('@')[0] || user.email,
+  username: '',
+  studentId: '',
+  dateOfBirth: '',
+  gender: '',
+  language: '',
+  role: user.role,
+  status: user.status,
+  universityId: '',
+  universityName: user.university_name ?? 'N/A',
+  dormitoryId: '',
+  dormitoryName: '',
+  phone: '',
+  avatar: user.profile_picture ?? '',
+  createdAt: '',
+  lastLogin: user.last_login_at ?? '',
+  productsListed: Number(user.product_count) || 0,
+  productsSold: Number(user.sold_counter) || 0,
+});
 
 export default function Users() {
   const navigate = useNavigate();
+  const { admin } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [users, setUsers] = useState<User[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredUsers = allUsers.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(search.toLowerCase()) ||
-                         user.email.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+  useEffect(() => {
+    let ignore = false;
+    const fetchUsers = async () => {
+      if (!admin) {
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/admin/get_all_users?page=${currentPage}&per_page=${ITEMS_PER_PAGE}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `${admin.tokenType} ${admin.token}`,
+              Accept: 'application/json',
+            },
+          },
+        );
+        const data: UsersResponse | undefined = await response.json().catch(() => undefined);
+        if (!response.ok || !data) {
+          const message =
+            data && 'message' in data && typeof data.message === 'string'
+              ? data.message
+              : 'Failed to load users';
+          if (!ignore) {
+            setError(message);
+            setUsers([]);
+            setTotalPages(1);
+            setTotalUsers(0);
+          }
+          return;
+        }
+        const mappedUsers = data.users.data.map(buildUser);
+        if (!ignore) {
+          setUsers(mappedUsers);
+          setTotalPages(Math.max(1, data.users.last_page || 1));
+          setTotalUsers(data.users.total ?? mappedUsers.length);
+        }
+      } catch {
+        if (!ignore) {
+          setError('Failed to load users');
+          setUsers([]);
+          setTotalPages(1);
+          setTotalUsers(0);
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchUsers();
+    return () => {
+      ignore = true;
+    };
+  }, [admin, currentPage]);
 
-  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const matchesSearch =
+        user.name.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+      return matchesSearch && matchesStatus && matchesRole;
+    });
+  }, [users, search, statusFilter, roleFilter]);
+
+  const activeCount = filteredUsers.filter((user) => user.status === 'active').length;
+  const inactiveCount = filteredUsers.filter((user) => user.status === 'inactive').length;
+  const suspendedCount = filteredUsers.filter((user) => user.status === 'suspended').length;
 
   const columns = [
     {
@@ -50,8 +167,16 @@ export default function Users() {
           </div>
           <div>
             <p className="font-medium text-foreground">{row.name}</p>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
               <Mail className="w-3 h-3" /> {row.email}
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                  row.emailVerified ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
+                )}
+              >
+                {row.emailVerified ? 'Verified' : 'Unverified'}
+              </span>
             </p>
           </div>
         </div>
@@ -123,24 +248,24 @@ export default function Users() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-sm text-muted-foreground">Total Users</p>
-            <p className="text-2xl font-bold text-foreground">{allUsers.length}</p>
+            <p className="text-2xl font-bold text-foreground">{totalUsers}</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-sm text-muted-foreground">Active</p>
             <p className="text-2xl font-bold text-success">
-              {allUsers.filter(u => u.status === 'active').length}
+              {activeCount}
             </p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-sm text-muted-foreground">Inactive</p>
             <p className="text-2xl font-bold text-muted-foreground">
-              {allUsers.filter(u => u.status === 'inactive').length}
+              {inactiveCount}
             </p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-sm text-muted-foreground">Suspended</p>
             <p className="text-2xl font-bold text-destructive">
-              {allUsers.filter(u => u.status === 'suspended').length}
+              {suspendedCount}
             </p>
           </div>
         </div>
@@ -181,12 +306,22 @@ export default function Users() {
         </div>
 
         {/* Table */}
+        {error && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
         <DataTable 
           columns={columns} 
-          data={paginatedUsers}
+          data={loading ? [] : filteredUsers}
           currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          onPageChange={(page) => {
+            if (loading) {
+              return;
+            }
+            setCurrentPage(page);
+          }}
           onRowClick={(user) => navigate(`/users/${user.id}`)}
         />
       </div>
