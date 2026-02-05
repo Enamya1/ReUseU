@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { users, universities, dormitories, User } from '@/lib/dummyData';
+import { products, users, universities, dormitories, User } from '@/lib/dummyData';
 import { ArrowLeft, Mail, Phone, GraduationCap, Building2, ShoppingBag, CheckCircle, XCircle, Save, User as UserIcon, Hash, CalendarDays, Users, Languages, MessageCircle, Send } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
@@ -51,12 +51,8 @@ export default function UserDetail() {
   }
 
   const universityDormitories = dormitories.filter(d => d.universityId === formData.universityId);
-  const uploadedProducts = Array.from({ length: Math.min(user.productsListed, 6) }, (_, index) => ({
-    id: `${user.id}-${index + 1}`,
-    title: `Listing ${index + 1}`,
-    status: index < user.productsSold ? 'sold' : 'active',
-    imageUrl: index % 2 === 0 ? '/placeholder.svg' : '/placeholder.svg',
-  }));
+  const uploadedProducts = products.filter((product) => product.sellerId === user.id);
+  const uploadedProductsPreview = uploadedProducts.slice(0, 6);
   const profitDataByPeriod: Record<string, { label: string; profit: number }[]> = {
     '2weeks': [
       { label: 'Mon', profit: 48 },
@@ -499,18 +495,22 @@ export default function UserDetail() {
             <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">Uploaded Products</h3>
-                <span className="text-sm text-muted-foreground">{user.productsListed} total</span>
+                <span className="text-sm text-muted-foreground">{uploadedProducts.length} total</span>
               </div>
-              {uploadedProducts.length === 0 ? (
+              {uploadedProductsPreview.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No products uploaded yet.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {uploadedProducts.map((product) => (
-                    <div key={product.id} className="bg-secondary/50 rounded-lg p-4">
+                  {uploadedProductsPreview.map((product) => (
+                    <div
+                      key={product.id}
+                      className="bg-secondary/50 rounded-lg p-4 cursor-pointer hover:bg-secondary/70 transition-colors"
+                      onClick={() => navigate(`/products/${product.id}`)}
+                    >
                       <div className="flex items-start gap-4">
                         <div className="h-16 w-16 rounded-lg border border-border bg-card overflow-hidden flex items-center justify-center">
                           <img
-                            src={product.imageUrl}
+                            src={product.images[0] || '/placeholder.svg'}
                             alt={product.title}
                             className="h-full w-full object-cover"
                           />
@@ -522,7 +522,8 @@ export default function UserDetail() {
                               className={cn(
                                 "px-2 py-0.5 rounded-full text-xs font-medium capitalize",
                                 product.status === 'sold' && "bg-success/10 text-success",
-                                product.status === 'active' && "bg-primary/10 text-primary"
+                                product.status === 'active' && "bg-primary/10 text-primary",
+                                product.status === 'reserved' && "bg-warning/10 text-warning"
                               )}
                             >
                               {product.status}
