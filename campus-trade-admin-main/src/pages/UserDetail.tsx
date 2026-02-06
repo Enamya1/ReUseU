@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -18,26 +18,534 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { products, users, universities, dormitories, User } from '@/lib/dummyData';
+import { universities, dormitories, User } from '@/lib/dummyData';
 import { ArrowLeft, Mail, Phone, GraduationCap, Building2, ShoppingBag, CheckCircle, XCircle, Save, User as UserIcon, Hash, CalendarDays, Users, Languages, MessageCircle, Send } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+const PRODUCT_IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL ?? API_BASE_URL ?? 'http://127.0.0.1:8000';
+const PRODUCTS_PAGE_SIZE = 6;
+const SEARCH_PAGE_SIZE = 100;
+
+type ApiUser = {
+  id: number;
+  student_id: string | null;
+  full_name: string | null;
+  username: string | null;
+  email: string;
+  role: 'user' | 'admin' | 'moderator';
+  email_verified_at: string | null;
+  phone_number: string | null;
+  profile_picture: string | null;
+  bio: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  language: string | null;
+  timezone: string | null;
+  dormitory_id: number | null;
+  dormitory: {
+    id: number;
+    dormitory_name: string;
+    university_id: number;
+  } | null;
+  university: {
+    id: number;
+    name: string;
+  } | null;
+  status: 'active' | 'inactive' | 'suspended';
+  failed_login_attempts: number | null;
+  locked_until: string | null;
+  deleted_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  last_login_at: string | null;
+  listed_count: number | string | null;
+  sold_count: number | string | null;
+  sold: number | string | null;
+};
+
+type UserResponse = {
+  message: string;
+  user: ApiUser;
+};
+
+type ApiProductTag = {
+  id: number;
+  name: string;
+};
+
+type ApiProduct = {
+  id?: number | string;
+  product_id?: number | string;
+  title: string;
+  status: string;
+  created_at: string;
+  image_url: string | null;
+  tags: ApiProductTag[];
+};
+
+type ProductsResponse = {
+  message: string;
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  products: ApiProduct[];
+};
+
+type UploadedProduct = {
+  id?: string;
+  title: string;
+  status: 'active' | 'sold' | 'reserved';
+  createdAt: string;
+  imageUrl: string;
+  tags: string[];
+};
+
+type ProductDetailStateProduct = {
+  id: string;
+  title: string;
+  status: 'active' | 'sold' | 'reserved';
+  images: string[];
+  categoryName: string;
+  universityName: string;
+  conditionName: string;
+  description: string;
+  views: number;
+  clicks: number;
+  favorites: number;
+  price: string;
+  createdAt: string;
+  updatedAt: string;
+  sellerName: string;
+  sellerId: string;
+  dormitoryName: string;
+  pickupAvailable: boolean;
+  deliveryAvailable: boolean;
+  location: string;
+  conditionId?: string;
+};
+
+const normalizeProductStatus = (status: string | null | undefined): 'active' | 'sold' | 'reserved' => {
+  const normalized = status?.toLowerCase();
+  if (normalized === 'sold') {
+    return 'sold';
+  }
+  if (normalized === 'reserved') {
+    return 'reserved';
+  }
+  return 'active';
+};
+
+const resolveProductImageUrl = (imageUrl: string | null | undefined): string => {
+  if (!imageUrl) {
+    return '';
+  }
+  const baseUrl = PRODUCT_IMAGE_BASE_URL.replace(/\/+$/, '');
+  const trimmed = imageUrl.trim().replace(/\\/g, '/');
+  const normalizedPath = trimmed.replace(/\/{2,}/g, '/');
+  const normalizedHttp = normalizedPath.replace(/^http:\//i, 'http://').replace(/^https:\//i, 'https://');
+  if (normalizedHttp.startsWith('http://') || normalizedHttp.startsWith('https://')) {
+    try {
+      const resolvedUrl = new URL(normalizedHttp);
+      if (resolvedUrl.hostname === 'localhost') {
+        const base = new URL(baseUrl);
+        resolvedUrl.protocol = base.protocol;
+        resolvedUrl.host = base.host;
+      }
+      return resolvedUrl.toString();
+    } catch {
+      return normalizedHttp;
+    }
+  }
+  if (normalizedPath.startsWith('/')) {
+    return `${baseUrl}${normalizedPath}`;
+  }
+  return `${baseUrl}/${normalizedPath}`;
+};
+
+const buildProductRouteId = (product: UploadedProduct): string => {
+  if (product.id) {
+    return product.id;
+  }
+  const titleSlug = product.title.trim().toLowerCase().replace(/\s+/g, '-');
+  return titleSlug || 'details';
+};
+
+const buildProductDetailState = (product: UploadedProduct, user: User): ProductDetailStateProduct => ({
+  id: product.id ?? buildProductRouteId(product),
+  title: product.title,
+  status: product.status,
+  images: product.imageUrl ? [product.imageUrl] : [],
+  categoryName: product.tags[0] ?? 'N/A',
+  universityName: user.universityName || 'N/A',
+  conditionName: 'N/A',
+  description: 'No description available.',
+  views: 0,
+  clicks: 0,
+  favorites: 0,
+  price: 'N/A',
+  createdAt: product.createdAt,
+  updatedAt: product.createdAt,
+  sellerName: user.name,
+  sellerId: user.id,
+  dormitoryName: user.dormitoryName || 'N/A',
+  pickupAvailable: false,
+  deliveryAvailable: false,
+  location: user.universityName || 'N/A',
+  conditionId: undefined,
+});
+
+const mapApiProductToUploaded = (product: ApiProduct): UploadedProduct => {
+  const resolvedId = product.id ?? product.product_id;
+  return {
+    id: resolvedId ? String(resolvedId) : undefined,
+    title: product.title ?? '',
+    status: normalizeProductStatus(product.status),
+    createdAt: product.created_at ?? '',
+    imageUrl: resolveProductImageUrl(product.image_url),
+    tags: product.tags?.map((tag) => tag.name).filter(Boolean) ?? [],
+  };
+};
+
+const buildUser = (apiUser: ApiUser): User => {
+  const dormitory = dormitories.find((item) => item.id === String(apiUser.dormitory_id));
+  const dormitoryName = apiUser.dormitory?.dormitory_name ?? dormitory?.name ?? '';
+  const dormitoryId = apiUser.dormitory?.id ?? apiUser.dormitory_id;
+  const universityIdFromDormitory = apiUser.dormitory?.university_id;
+  const universityLookupId = apiUser.university?.id ?? universityIdFromDormitory;
+  const university = universityLookupId
+    ? universities.find((item) => item.id === String(universityLookupId))
+    : undefined;
+  const universityName = apiUser.university?.name ?? university?.name ?? dormitory?.universityName ?? 'N/A';
+  const universityId = universityLookupId;
+  const displayName = apiUser.full_name || apiUser.username || apiUser.email.split('@')[0] || apiUser.email;
+  return {
+    id: String(apiUser.id),
+    email: apiUser.email,
+    emailVerified: Boolean(apiUser.email_verified_at),
+    name: displayName,
+    username: apiUser.username ?? '',
+    studentId: apiUser.student_id ?? '',
+    dateOfBirth: apiUser.date_of_birth ?? '',
+    gender: apiUser.gender ?? '',
+    language: apiUser.language ?? '',
+    role: apiUser.role,
+    status: apiUser.status,
+    universityId: universityId ? String(universityId) : '',
+    universityName,
+    dormitoryId: dormitoryId ? String(dormitoryId) : '',
+    dormitoryName,
+    phone: apiUser.phone_number ?? '',
+    avatar: apiUser.profile_picture ?? '',
+    createdAt: apiUser.created_at ?? '',
+    lastLogin: apiUser.last_login_at ?? '',
+    productsListed: Number(apiUser.listed_count) || 0,
+    productsSold: Number(apiUser.sold_count ?? apiUser.sold) || 0,
+  };
+};
 
 export default function UserDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const user = users.find(u => u.id === id);
+  const { admin } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  const [formData, setFormData] = useState<Partial<User>>(user || {});
+  const [formData, setFormData] = useState<Partial<User>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [profitPeriod, setProfitPeriod] = useState('last6Months');
   const [chatInput, setChatInput] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [uploadOrder, setUploadOrder] = useState('latest');
+  const [uploadedProducts, setUploadedProducts] = useState<UploadedProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsTotalPages, setProductsTotalPages] = useState(1);
+  const [productsTotalCount, setProductsTotalCount] = useState(0);
+  const [productsPageSize, setProductsPageSize] = useState(PRODUCTS_PAGE_SIZE);
+  const [allProducts, setAllProducts] = useState<UploadedProduct[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState(() => [
     { id: 1, sender: 'user' as const, text: 'Hi, I need help with my listing.', time: '09:42' },
     { id: 2, sender: 'admin' as const, text: 'Sure, what seems to be the issue?', time: '09:44' },
   ]);
+
+  const normalizedProductSearch = productSearch.trim().toLowerCase();
+  const shouldSearchAll = normalizedProductSearch.length > 0 || tagFilter !== 'all';
+
+  useEffect(() => {
+    setProductsPage(1);
+  }, [normalizedProductSearch, tagFilter]);
+
+  useEffect(() => {
+    if (!admin || !id) {
+      return;
+    }
+    let ignore = false;
+    const fetchUser = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `${admin.tokenType} ${admin.token}`,
+            Accept: 'application/json',
+          },
+        });
+        const data: UserResponse | undefined = await response.json().catch(() => undefined);
+        if (!response.ok || !data?.user) {
+          const message =
+            data && typeof data.message === 'string'
+              ? data.message
+              : response.status === 403
+              ? 'Unauthorized: Only administrators can access this endpoint.'
+              : response.status === 404
+              ? 'User not found.'
+              : 'Failed to load user';
+          if (!ignore) {
+            setError(message);
+            setUser(null);
+          }
+          return;
+        }
+        const mappedUser = buildUser(data.user);
+        if (!ignore) {
+          setUser(mappedUser);
+          setFormData(mappedUser);
+        }
+      } catch {
+        if (!ignore) {
+          setError('Failed to load user');
+          setUser(null);
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchUser();
+    return () => {
+      ignore = true;
+    };
+  }, [admin, id]);
+
+  useEffect(() => {
+    if (!admin || shouldSearchAll) {
+      return;
+    }
+    let ignore = false;
+    const fetchProducts = async () => {
+      setProductsLoading(true);
+      setProductsError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/products?per_page=${PRODUCTS_PAGE_SIZE}&page=${productsPage}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `${admin.tokenType} ${admin.token}`,
+            Accept: 'application/json',
+          },
+        });
+        const data: ProductsResponse | undefined = await response.json().catch(() => undefined);
+        if (!response.ok || !data?.products) {
+          const message =
+            data && typeof data.message === 'string'
+              ? data.message
+              : response.status === 403
+              ? 'Unauthorized: Only administrators can access this endpoint.'
+              : response.status === 422
+              ? 'Validation Error'
+              : 'Failed to load products';
+          if (!ignore) {
+            setProductsError(message);
+            setUploadedProducts([]);
+            setProductsTotalCount(0);
+            setProductsTotalPages(1);
+            setProductsPageSize(PRODUCTS_PAGE_SIZE);
+          }
+          return;
+        }
+        const mappedProducts = data.products.map(mapApiProductToUploaded);
+        if (!ignore) {
+          setUploadedProducts(mappedProducts);
+          setProductsTotalCount(Number(data.total) || 0);
+          setProductsTotalPages(Number(data.total_pages) || 1);
+          setProductsPageSize(Number(data.page_size) || PRODUCTS_PAGE_SIZE);
+        }
+      } catch {
+        if (!ignore) {
+          setProductsError('Failed to load products');
+          setUploadedProducts([]);
+          setProductsTotalCount(0);
+          setProductsTotalPages(1);
+          setProductsPageSize(PRODUCTS_PAGE_SIZE);
+        }
+      } finally {
+        if (!ignore) {
+          setProductsLoading(false);
+        }
+      }
+    };
+    fetchProducts();
+    return () => {
+      ignore = true;
+    };
+  }, [admin, productsPage, shouldSearchAll]);
+
+  useEffect(() => {
+    if (!admin || !shouldSearchAll) {
+      return;
+    }
+    let ignore = false;
+    const fetchAllProducts = async () => {
+      setSearchLoading(true);
+      setSearchError(null);
+      try {
+        const firstResponse = await fetch(`${API_BASE_URL}/api/admin/products?per_page=${SEARCH_PAGE_SIZE}&page=1`, {
+          method: 'GET',
+          headers: {
+            Authorization: `${admin.tokenType} ${admin.token}`,
+            Accept: 'application/json',
+          },
+        });
+        const firstData: ProductsResponse | undefined = await firstResponse.json().catch(() => undefined);
+        if (!firstResponse.ok || !firstData?.products) {
+          const message =
+            firstData && typeof firstData.message === 'string'
+              ? firstData.message
+              : firstResponse.status === 403
+              ? 'Unauthorized: Only administrators can access this endpoint.'
+              : firstResponse.status === 422
+              ? 'Validation Error'
+              : 'Failed to load products';
+          if (!ignore) {
+            setSearchError(message);
+            setAllProducts([]);
+          }
+          return;
+        }
+        const totalPages = Number(firstData.total_pages) || 1;
+        const pagePromises = Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => {
+          const page = index + 2;
+          return fetch(`${API_BASE_URL}/api/admin/products?per_page=${SEARCH_PAGE_SIZE}&page=${page}`, {
+            method: 'GET',
+            headers: {
+              Authorization: `${admin.tokenType} ${admin.token}`,
+              Accept: 'application/json',
+            },
+          })
+            .then((response) => response.json().catch(() => undefined))
+            .catch(() => undefined);
+        });
+        const restData = await Promise.all(pagePromises);
+        const allProductsData = [firstData, ...restData]
+          .flatMap((data) => (data && Array.isArray(data.products) ? data.products : []))
+          .map(mapApiProductToUploaded);
+        if (!ignore) {
+          setAllProducts(allProductsData);
+        }
+      } catch {
+        if (!ignore) {
+          setSearchError('Failed to load products');
+          setAllProducts([]);
+        }
+      } finally {
+        if (!ignore) {
+          setSearchLoading(false);
+        }
+      }
+    };
+    fetchAllProducts();
+    return () => {
+      ignore = true;
+    };
+  }, [admin, shouldSearchAll]);
+
+  const baseProducts = shouldSearchAll ? allProducts : uploadedProducts;
+  const productTags = Array.from(new Set(baseProducts.flatMap((product) => product.tags))).filter(Boolean).sort();
+  const filteredProducts = baseProducts
+    .filter((product) => {
+      const matchesSearch = !normalizedProductSearch
+        || product.title.toLowerCase().includes(normalizedProductSearch)
+        || product.tags.some((tag) => tag.toLowerCase().includes(normalizedProductSearch));
+      const matchesTag = tagFilter === 'all' || product.tags.includes(tagFilter);
+      return matchesSearch && matchesTag;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return uploadOrder === 'latest' ? dateB - dateA : dateA - dateB;
+    });
+  const displayTotalPages = shouldSearchAll
+    ? Math.max(1, Math.ceil(filteredProducts.length / productsPageSize))
+    : productsTotalPages;
+  const displayTotalCount = shouldSearchAll ? filteredProducts.length : productsTotalCount || uploadedProducts.length;
+  const pagedProducts = shouldSearchAll
+    ? filteredProducts.slice((productsPage - 1) * productsPageSize, productsPage * productsPageSize)
+    : filteredProducts;
+  const isProductsLoading = productsLoading || searchLoading;
+  const productsErrorMessage = searchError ?? productsError;
+  const pageItems: Array<number | 'ellipsis'> = [];
+  if (displayTotalPages <= 7) {
+    for (let page = 1; page <= displayTotalPages; page += 1) {
+      pageItems.push(page);
+    }
+  } else {
+    const left = Math.max(1, productsPage - 2);
+    const right = Math.min(displayTotalPages, productsPage + 2);
+    if (left > 1) {
+      pageItems.push(1);
+      if (left > 2) {
+        pageItems.push('ellipsis');
+      }
+    }
+    for (let page = left; page <= right; page += 1) {
+      pageItems.push(page);
+    }
+    if (right < displayTotalPages) {
+      if (right < displayTotalPages - 1) {
+        pageItems.push('ellipsis');
+      }
+      pageItems.push(displayTotalPages);
+    }
+  }
+
+  useEffect(() => {
+    if (productsPage > displayTotalPages) {
+      setProductsPage(displayTotalPages);
+    }
+  }, [productsPage, displayTotalPages]);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-96">
+          <p className="text-xl text-muted-foreground mb-4">Loading user...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-96">
+          <p className="text-xl text-muted-foreground mb-4">{error}</p>
+          <Button onClick={() => navigate('/users')}>Back to Users</Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!user) {
     return (
@@ -50,9 +558,6 @@ export default function UserDetail() {
     );
   }
 
-  const universityDormitories = dormitories.filter(d => d.universityId === formData.universityId);
-  const uploadedProducts = products.filter((product) => product.sellerId === user.id);
-  const uploadedProductsPreview = uploadedProducts.slice(0, 6);
   const profitDataByPeriod: Record<string, { label: string; profit: number }[]> = {
     '2weeks': [
       { label: 'Mon', profit: 48 },
@@ -442,99 +947,148 @@ export default function UserDetail() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="university">University</Label>
-                  <Select
-                    value={formData.universityId}
-                    onValueChange={(value) => {
-                      const uni = universities.find(u => u.id === value);
-                      setFormData({ 
-                        ...formData, 
-                        universityId: value,
-                        universityName: uni?.name || '',
-                        dormitoryId: '',
-                        dormitoryName: ''
-                      });
-                    }}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger className="bg-secondary/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {universities.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="rounded-md border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground">
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 text-sm text-primary"
+                      disabled={!user.universityName || user.universityName === 'N/A'}
+                      onClick={() => navigate('/universities')}
+                    >
+                      {user.universityName || 'N/A'}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="dormitory">Dormitory</Label>
-                  <Select
-                    value={formData.dormitoryId}
-                    onValueChange={(value) => {
-                      const dorm = dormitories.find(d => d.id === value);
-                      setFormData({ 
-                        ...formData, 
-                        dormitoryId: value,
-                        dormitoryName: dorm?.name || ''
-                      });
-                    }}
-                    disabled={!isEditing || !formData.universityId}
-                  >
-                    <SelectTrigger className="bg-secondary/50">
-                      <SelectValue placeholder="Select dormitory" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {universityDormitories.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="rounded-md border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground">
+                    {user.dormitoryName || 'N/A'}
+                  </div>
                 </div>
               </div>
             </div>
             <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">Uploaded Products</h3>
-                <span className="text-sm text-muted-foreground">{uploadedProducts.length} total</span>
+                <span className="text-sm text-muted-foreground">
+                  Showing {pagedProducts.length} of {displayTotalCount}
+                </span>
               </div>
-              {uploadedProductsPreview.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No products uploaded yet.</p>
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                  <Input
+                    value={productSearch}
+                    onChange={(event) => setProductSearch(event.target.value)}
+                    placeholder="Search products..."
+                    className="bg-secondary/50"
+                  />
+                  <Select value={tagFilter} onValueChange={setTagFilter}>
+                    <SelectTrigger className="w-full lg:w-44 bg-secondary/50">
+                      <SelectValue placeholder="All tags" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All tags</SelectItem>
+                      {productTags.map((tag) => (
+                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={uploadOrder} onValueChange={setUploadOrder}>
+                    <SelectTrigger className="w-full lg:w-44 bg-secondary/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="latest">Last upload</SelectItem>
+                      <SelectItem value="oldest">First upload</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {isProductsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading products...</p>
+              ) : productsErrorMessage ? (
+                <p className="text-sm text-muted-foreground">{productsErrorMessage}</p>
+              ) : pagedProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No products match your filters.</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {uploadedProductsPreview.map((product) => (
-                    <div
-                      key={product.id}
-                      className="bg-secondary/50 rounded-lg p-4 cursor-pointer hover:bg-secondary/70 transition-colors"
-                      onClick={() => navigate(`/products/${product.id}`)}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="h-16 w-16 rounded-lg border border-border bg-card overflow-hidden flex items-center justify-center">
-                          <img
-                            src={product.images[0] || '/placeholder.svg'}
-                            alt={product.title}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-medium text-foreground">{product.title}</p>
-                            <span
-                              className={cn(
-                                "px-2 py-0.5 rounded-full text-xs font-medium capitalize",
-                                product.status === 'sold' && "bg-success/10 text-success",
-                                product.status === 'active' && "bg-primary/10 text-primary",
-                                product.status === 'reserved' && "bg-warning/10 text-warning"
-                              )}
-                            >
-                              {product.status}
-                            </span>
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {pagedProducts.map((product) => {
+                      const canNavigate = Boolean(product.title);
+                      return (
+                        <div
+                          key={product.id ?? `${product.title}-${product.createdAt}`}
+                          className={cn(
+                            "bg-secondary/50 rounded-lg p-4 transition-colors",
+                            canNavigate && "cursor-pointer hover:bg-secondary/70",
+                          )}
+                          onClick={() => {
+                            if (canNavigate) {
+                              const routeId = buildProductRouteId(product);
+                              navigate(`/products/${routeId}`, {
+                                state: { product: buildProductDetailState(product, user) },
+                              });
+                            }
+                          }}
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="h-16 w-16 rounded-lg border border-border bg-card overflow-hidden flex items-center justify-center">
+                              <img
+                                src={product.imageUrl || '/placeholder.svg'}
+                                alt={product.title}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-medium text-foreground">{product.title}</p>
+                                <span
+                                  className={cn(
+                                    "px-2 py-0.5 rounded-full text-xs font-medium capitalize",
+                                    product.status === 'sold' && "bg-success/10 text-success",
+                                    product.status === 'active' && "bg-primary/10 text-primary",
+                                    product.status === 'reserved' && "bg-warning/10 text-warning"
+                                  )}
+                                >
+                                  {product.status}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground">Uploaded by {user.name}</p>
                         </div>
+                      );
+                    })}
+                  </div>
+                  {displayTotalPages > 1 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+                      <p className="text-xs text-muted-foreground">
+                        Page {productsPage} of {displayTotalPages} • {productsPageSize} per page
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {pageItems.map((item, index) => {
+                          if (item === 'ellipsis') {
+                            return (
+                              <span key={`ellipsis-${index}`} className="px-2 text-xs text-muted-foreground">
+                                ...
+                              </span>
+                            );
+                          }
+                          return (
+                            <Button
+                              key={`page-${item}`}
+                              type="button"
+                              variant={item === productsPage ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setProductsPage(item)}
+                            >
+                              {item}
+                            </Button>
+                          );
+                        })}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
             <div className="bg-card rounded-xl border border-border p-6">
