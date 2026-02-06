@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -26,10 +26,40 @@ const productLocationIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
+type ProductDetailStateProduct = {
+  id: string;
+  title: string;
+  status: 'active' | 'sold' | 'reserved';
+  images: string[];
+  categoryName: string;
+  universityName: string;
+  conditionName: string;
+  description: string;
+  views: number;
+  clicks: number;
+  favorites: number;
+  price: string;
+  createdAt: string;
+  updatedAt: string;
+  sellerName: string;
+  sellerId: string;
+  dormitoryName: string;
+  pickupAvailable: boolean;
+  deliveryAvailable: boolean;
+  location: string;
+  conditionId?: string;
+};
+
+type ProductDetailState = {
+  product?: ProductDetailStateProduct;
+};
+
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const product = products.find((item) => item.id === id);
+  const location = useLocation();
+  const stateProduct = (location.state as ProductDetailState | null)?.product;
+  const product = products.find((item) => item.id === id) ?? stateProduct;
   const seller = users.find((item) => item.id === product?.sellerId);
   const universityLocation = universities.find((item) => item.name === product?.universityName);
   const conditionLevel = conditions.find((item) => item.id === product?.conditionId)?.level;
