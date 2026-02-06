@@ -111,6 +111,7 @@ type ProductDetailStateProduct = {
   title: string;
   status: 'active' | 'sold' | 'reserved';
   images: string[];
+  tags: string[];
   categoryName: string;
   universityName: string;
   conditionName: string;
@@ -123,6 +124,7 @@ type ProductDetailStateProduct = {
   updatedAt: string;
   sellerName: string;
   sellerId: string;
+  sellerAvatar?: string;
   dormitoryName: string;
   pickupAvailable: boolean;
   deliveryAvailable: boolean;
@@ -181,6 +183,7 @@ const buildProductDetailState = (product: UploadedProduct, user: User): ProductD
   title: product.title,
   status: product.status,
   images: product.imageUrl ? [product.imageUrl] : [],
+  tags: product.tags ?? [],
   categoryName: product.tags[0] ?? 'N/A',
   universityName: user.universityName || 'N/A',
   conditionName: 'N/A',
@@ -193,6 +196,7 @@ const buildProductDetailState = (product: UploadedProduct, user: User): ProductD
   updatedAt: product.createdAt,
   sellerName: user.name,
   sellerId: user.id,
+  sellerAvatar: user.avatar,
   dormitoryName: user.dormitoryName || 'N/A',
   pickupAvailable: false,
   deliveryAvailable: false,

@@ -12,8 +12,6 @@ export interface University {
   description?: string;
   website?: string;
   foundedYear?: number;
-  domain?: string;
-  imageUrl?: string;
 }
 
 export interface Dormitory {
