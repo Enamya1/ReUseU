@@ -5,6 +5,15 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { universities } from '@/lib/dummyData';
 import { ArrowLeft, CalendarDays, DollarSign, MapPin, Package, Tag, Heart, Eye, MousePointerClick } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -31,7 +40,7 @@ const productLocationIcon = new L.Icon({
 type ProductDetailStateProduct = {
   id: string;
   title: string;
-  status: 'active' | 'sold' | 'reserved';
+  status: 'active' | 'sold' | 'reserved' | 'blocked';
   images: string[];
   tags: string[];
   categoryName: string;
@@ -137,8 +146,11 @@ type ProductResponse = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 const PRODUCT_IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL ?? API_BASE_URL ?? 'http://127.0.0.1:8000';
 
-const normalizeProductStatus = (status: string | null | undefined): 'active' | 'sold' | 'reserved' => {
+const normalizeProductStatus = (status: string | null | undefined): 'active' | 'sold' | 'reserved' | 'blocked' => {
   const normalized = status?.toLowerCase();
+  if (normalized === 'block' || normalized === 'blocked') {
+    return 'blocked';
+  }
   if (normalized === 'sold') {
     return 'sold';
   }
@@ -259,6 +271,10 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<ProductDetailStateProduct | null>(stateProduct ?? null);
   const [loading, setLoading] = useState(Boolean(id));
   const [error, setError] = useState<string | null>(null);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  const [blockError, setBlockError] = useState<string | null>(null);
+  const [isBlocking, setIsBlocking] = useState(false);
 
   useEffect(() => {
     if (!id || !admin) {
@@ -323,6 +339,60 @@ export default function ProductDetail() {
     : [39.8283, -98.5795];
   const mapZoom = hasCoordinates || universityLocation ? 12 : 3;
 
+  const handleBlockProduct = async () => {
+    if (!product || !admin) {
+      return;
+    }
+    const trimmedReason = blockReason.trim();
+    if (!trimmedReason) {
+      setBlockError('Reason is required.');
+      return;
+    }
+    setIsBlocking(true);
+    setBlockError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/products/${product.id}/block`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `${admin.tokenType} ${admin.token}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason: trimmedReason }),
+      });
+      const data: ProductResponse | undefined = await response.json().catch(() => undefined);
+      if (!response.ok || !data?.product) {
+        const message =
+          data && typeof data.message === 'string'
+            ? data.message
+            : response.status === 403
+            ? 'Unauthorized: Only administrators can access this endpoint.'
+            : response.status === 404
+            ? 'Product not found.'
+            : response.status === 422
+            ? 'Validation Error'
+            : 'Failed to block product';
+        setBlockError(message);
+        return;
+      }
+      setProduct((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          status: normalizeProductStatus(data.product?.status ?? prev.status),
+        };
+      });
+      setIsBlockDialogOpen(false);
+      setBlockReason('');
+    } catch {
+      setBlockError('Failed to block product');
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
   if (!product) {
     if (loading) {
       return (
@@ -369,7 +439,8 @@ export default function ProductDetail() {
               "px-3 py-1 rounded-full text-sm font-medium capitalize",
               product.status === 'active' && "bg-primary/10 text-primary",
               product.status === 'sold' && "bg-success/10 text-success",
-              product.status === 'reserved' && "bg-warning/10 text-warning"
+              product.status === 'reserved' && "bg-warning/10 text-warning",
+              product.status === 'blocked' && "bg-destructive/10 text-destructive"
             )}
           >
             {product.status}
@@ -526,6 +597,64 @@ export default function ProductDetail() {
                   {product.sellerEmail}
                 </div>
               )}
+            </div>
+
+            <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Moderation</p>
+                <span
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-xs font-medium capitalize",
+                    product.status === 'blocked' && "bg-destructive/10 text-destructive",
+                    product.status !== 'blocked' && "bg-secondary text-foreground"
+                  )}
+                >
+                  {product.status}
+                </span>
+              </div>
+              <Dialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => {
+                    setBlockError(null);
+                    setIsBlockDialogOpen(true);
+                  }}
+                  disabled={isBlocking || product.status === 'blocked'}
+                >
+                  Block Product
+                </Button>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Block Product</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-2">
+                    <Label htmlFor="block-reason">Reason</Label>
+                    <Textarea
+                      id="block-reason"
+                      value={blockReason}
+                      onChange={(event) => setBlockReason(event.target.value)}
+                      placeholder="Enter the reason for blocking this product..."
+                      className="min-h-[120px]"
+                    />
+                    {blockError && (
+                      <div className="text-sm text-destructive">{blockError}</div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsBlockDialogOpen(false)}
+                      disabled={isBlocking}
+                    >
+                      Cancel
+                    </Button>
+                    <Button onClick={handleBlockProduct} disabled={isBlocking}>
+                      {isBlocking ? 'Blocking...' : 'Confirm Block'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <div className="bg-card rounded-xl border border-border p-6 space-y-3">

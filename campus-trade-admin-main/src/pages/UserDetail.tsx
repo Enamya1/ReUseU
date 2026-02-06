@@ -100,7 +100,7 @@ type ProductsResponse = {
 type UploadedProduct = {
   id?: string;
   title: string;
-  status: 'active' | 'sold' | 'reserved';
+  status: 'active' | 'sold' | 'reserved' | 'blocked';
   createdAt: string;
   imageUrl: string;
   tags: string[];
@@ -109,7 +109,7 @@ type UploadedProduct = {
 type ProductDetailStateProduct = {
   id: string;
   title: string;
-  status: 'active' | 'sold' | 'reserved';
+  status: 'active' | 'sold' | 'reserved' | 'blocked';
   images: string[];
   tags: string[];
   categoryName: string;
@@ -132,8 +132,11 @@ type ProductDetailStateProduct = {
   conditionId?: string;
 };
 
-const normalizeProductStatus = (status: string | null | undefined): 'active' | 'sold' | 'reserved' => {
+const normalizeProductStatus = (status: string | null | undefined): 'active' | 'sold' | 'reserved' | 'blocked' => {
   const normalized = status?.toLowerCase();
+  if (normalized === 'block' || normalized === 'blocked') {
+    return 'blocked';
+  }
   if (normalized === 'sold') {
     return 'sold';
   }
@@ -285,6 +288,7 @@ export default function UserDetail() {
 
   const normalizedProductSearch = productSearch.trim().toLowerCase();
   const shouldSearchAll = normalizedProductSearch.length > 0 || tagFilter !== 'all';
+  const avatarUrl = user?.avatar ? resolveProductImageUrl(user.avatar) : '';
 
   useEffect(() => {
     setProductsPage(1);
@@ -737,10 +741,14 @@ export default function UserDetail() {
           {/* Profile Card */}
           <div className="bg-card rounded-xl border border-border p-6">
             <div className="flex flex-col items-center text-center">
-              <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center mb-4">
-                <span className="text-3xl font-bold text-primary">
-                  {user.name.split(' ').map(n => n[0]).join('')}
-                </span>
+              <div className="w-24 h-24 rounded-full border border-border bg-secondary/50 overflow-hidden flex items-center justify-center mb-4">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-3xl font-bold text-primary">
+                    {user.name.split(' ').map(n => n[0]).join('')}
+                  </span>
+                )}
               </div>
               <h2 className="text-xl font-bold text-foreground">{user.name}</h2>
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -1051,7 +1059,8 @@ export default function UserDetail() {
                                     "px-2 py-0.5 rounded-full text-xs font-medium capitalize",
                                     product.status === 'sold' && "bg-success/10 text-success",
                                     product.status === 'active' && "bg-primary/10 text-primary",
-                                    product.status === 'reserved' && "bg-warning/10 text-warning"
+                                    product.status === 'reserved' && "bg-warning/10 text-warning",
+                                    product.status === 'blocked' && "bg-destructive/10 text-destructive"
                                   )}
                                 >
                                   {product.status}
