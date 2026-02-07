@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -97,6 +98,26 @@ type ProductsResponse = {
   products: ApiProduct[];
 };
 
+type ApiMessage = {
+  id: number;
+  conversation_id: number;
+  sender_id: number;
+  sender_username: string;
+  message_text: string;
+  created_at: string;
+};
+
+type MessagesResponse = {
+  message: string;
+  messages: ApiMessage[];
+};
+
+type SendMessageResponse = {
+  message: string;
+  conversation_id: number;
+  message_data?: ApiMessage;
+};
+
 type UploadedProduct = {
   id?: string;
   title: string;
@@ -130,6 +151,13 @@ type ProductDetailStateProduct = {
   deliveryAvailable: boolean;
   location: string;
   conditionId?: string;
+};
+
+type ChatMessage = {
+  id: number | string;
+  sender: 'admin' | 'user';
+  text: string;
+  time: string;
 };
 
 const normalizeProductStatus = (status: string | null | undefined): 'active' | 'sold' | 'reserved' | 'blocked' => {
@@ -171,6 +199,17 @@ const resolveProductImageUrl = (imageUrl: string | null | undefined): string => 
     return `${baseUrl}${normalizedPath}`;
   }
   return `${baseUrl}/${normalizedPath}`;
+};
+
+const formatMessageTime = (value: string | null | undefined): string => {
+  if (!value) {
+    return '';
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
 const buildProductRouteId = (product: UploadedProduct): string => {
@@ -268,6 +307,11 @@ export default function UserDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [profitPeriod, setProfitPeriod] = useState('last6Months');
   const [chatInput, setChatInput] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatConversationId, setChatConversationId] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('all');
   const [uploadOrder, setUploadOrder] = useState('latest');
@@ -281,10 +325,7 @@ export default function UserDetail() {
   const [allProducts, setAllProducts] = useState<UploadedProduct[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [chatMessages, setChatMessages] = useState(() => [
-    { id: 1, sender: 'user' as const, text: 'Hi, I need help with my listing.', time: '09:42' },
-    { id: 2, sender: 'admin' as const, text: 'Sure, what seems to be the issue?', time: '09:44' },
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const normalizedProductSearch = productSearch.trim().toLowerCase();
   const shouldSearchAll = normalizedProductSearch.length > 0 || tagFilter !== 'all';
@@ -357,7 +398,11 @@ export default function UserDetail() {
       setProductsLoading(true);
       setProductsError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/products?per_page=${PRODUCTS_PAGE_SIZE}&page=${productsPage}`, {
+        const params = new URLSearchParams();
+        params.set('per_page', String(PRODUCTS_PAGE_SIZE));
+        params.set('page', String(productsPage));
+        params.set('user_id', String(id));
+        const response = await fetch(`${API_BASE_URL}/api/admin/products?${params.toString()}`, {
           method: 'GET',
           headers: {
             Authorization: `${admin.tokenType} ${admin.token}`,
@@ -408,7 +453,7 @@ export default function UserDetail() {
     return () => {
       ignore = true;
     };
-  }, [admin, productsPage, shouldSearchAll]);
+  }, [admin, id, productsPage, shouldSearchAll]);
 
   useEffect(() => {
     if (!admin || !shouldSearchAll) {
@@ -419,7 +464,10 @@ export default function UserDetail() {
       setSearchLoading(true);
       setSearchError(null);
       try {
-        const firstResponse = await fetch(`${API_BASE_URL}/api/admin/products?per_page=${SEARCH_PAGE_SIZE}&page=1`, {
+        const baseParams = new URLSearchParams();
+        baseParams.set('per_page', String(SEARCH_PAGE_SIZE));
+        baseParams.set('user_id', String(id));
+        const firstResponse = await fetch(`${API_BASE_URL}/api/admin/products?${baseParams.toString()}&page=1`, {
           method: 'GET',
           headers: {
             Authorization: `${admin.tokenType} ${admin.token}`,
@@ -445,7 +493,7 @@ export default function UserDetail() {
         const totalPages = Number(firstData.total_pages) || 1;
         const pagePromises = Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => {
           const page = index + 2;
-          return fetch(`${API_BASE_URL}/api/admin/products?per_page=${SEARCH_PAGE_SIZE}&page=${page}`, {
+          return fetch(`${API_BASE_URL}/api/admin/products?${baseParams.toString()}&page=${page}`, {
             method: 'GET',
             headers: {
               Authorization: `${admin.tokenType} ${admin.token}`,
@@ -477,7 +525,7 @@ export default function UserDetail() {
     return () => {
       ignore = true;
     };
-  }, [admin, shouldSearchAll]);
+  }, [admin, id, shouldSearchAll]);
 
   const baseProducts = shouldSearchAll ? allProducts : uploadedProducts;
   const productTags = Array.from(new Set(baseProducts.flatMap((product) => product.tags))).filter(Boolean).sort();
@@ -527,6 +575,83 @@ export default function UserDetail() {
       pageItems.push(displayTotalPages);
     }
   }
+
+  useEffect(() => {
+    if (!isChatOpen || !admin || !id) {
+      return;
+    }
+    let ignore = false;
+    const fetchMessages = async () => {
+      setIsChatLoading(true);
+      setChatError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set('limit', '50');
+        if (chatConversationId) {
+          params.set('conversation_id', String(chatConversationId));
+        }
+        const response = await fetch(`${API_BASE_URL}/api/admin/messages?${params.toString()}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `${admin.tokenType} ${admin.token}`,
+            Accept: 'application/json',
+          },
+        });
+        const data: MessagesResponse | undefined = await response.json().catch(() => undefined);
+        if (!response.ok) {
+          const message =
+            data && typeof data.message === 'string'
+              ? data.message
+              : response.status === 403
+              ? 'Unauthorized: Only administrators can access this endpoint.'
+              : response.status === 422
+              ? 'Validation Error'
+              : 'Failed to load messages';
+          if (!ignore) {
+            setChatError(message);
+          }
+          return;
+        }
+        const messages = data?.messages ?? [];
+        const userId = Number(id);
+        const matchedConversationId = !chatConversationId
+          ? messages.find(
+              (message) =>
+                message.sender_id === userId ||
+                (user?.username && message.sender_username === user.username),
+            )?.conversation_id ?? null
+          : null;
+        const activeConversationId = chatConversationId ?? matchedConversationId;
+        if (!chatConversationId && activeConversationId) {
+          setChatConversationId(activeConversationId);
+        }
+        const filteredMessages = activeConversationId
+          ? messages.filter((message) => message.conversation_id === activeConversationId)
+          : messages;
+        const mappedMessages: ChatMessage[] = filteredMessages.map((message) => ({
+          id: message.id,
+          sender: message.sender_id === userId ? 'user' : 'admin',
+          text: message.message_text,
+          time: formatMessageTime(message.created_at),
+        }));
+        if (!ignore) {
+          setChatMessages(mappedMessages);
+        }
+      } catch {
+        if (!ignore) {
+          setChatError('Failed to load messages');
+        }
+      } finally {
+        if (!ignore) {
+          setIsChatLoading(false);
+        }
+      }
+    };
+    fetchMessages();
+    return () => {
+      ignore = true;
+    };
+  }, [isChatOpen, admin, id, chatConversationId, user?.username]);
 
   useEffect(() => {
     if (productsPage > displayTotalPages) {
@@ -631,22 +756,69 @@ export default function UserDetail() {
     toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
   };
 
-  const handleChatSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleChatSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = chatInput.trim();
-    if (!trimmed) {
+    if (!trimmed || !admin || !id || isSendingMessage) {
       return;
     }
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        sender: 'admin',
-        text: trimmed,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
-    setChatInput('');
+    const receiverId = Number(id);
+    if (Number.isNaN(receiverId)) {
+      setChatError('Invalid user id.');
+      return;
+    }
+    setIsSendingMessage(true);
+    setChatError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `${admin.tokenType} ${admin.token}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiver_id: receiverId,
+          message_text: trimmed,
+        }),
+      });
+      const data: SendMessageResponse | undefined = await response.json().catch(() => undefined);
+      if (!response.ok) {
+        const message =
+          data && typeof data.message === 'string'
+            ? data.message
+            : response.status === 403
+            ? 'Unauthorized: Only administrators can access this endpoint.'
+            : response.status === 422
+            ? 'Validation Error'
+            : 'Failed to send message';
+        setChatError(message);
+        return;
+      }
+      if (data?.conversation_id) {
+        setChatConversationId(data.conversation_id);
+      }
+      const messageData = data?.message_data;
+      const newMessage: ChatMessage = messageData
+        ? {
+            id: messageData.id,
+            sender: messageData.sender_id === receiverId ? 'user' : 'admin',
+            text: messageData.message_text,
+            time: formatMessageTime(messageData.created_at),
+          }
+        : {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            sender: 'admin',
+            text: trimmed,
+            time: formatMessageTime(new Date().toISOString()),
+          };
+      setChatMessages((prev) => [...prev, newMessage]);
+      setChatInput('');
+    } catch {
+      setChatError('Failed to send message');
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   return (
@@ -666,7 +838,7 @@ export default function UserDetail() {
             <p className="text-muted-foreground">View and manage user information</p>
           </div>
           <div className="flex items-center gap-2">
-            <Dialog>
+            <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">
                   <MessageCircle className="w-4 h-4 mr-2" />
@@ -679,30 +851,38 @@ export default function UserDetail() {
                 </DialogHeader>
                 <div className="flex flex-col gap-4">
                   <div className="max-h-72 overflow-y-auto rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
-                    {chatMessages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          "flex w-full",
-                          message.sender === 'admin' ? "justify-end" : "justify-start"
-                        )}
-                      >
+                    {isChatLoading ? (
+                      <p className="text-sm text-muted-foreground">Loading messages...</p>
+                    ) : chatError ? (
+                      <p className="text-sm text-destructive">{chatError}</p>
+                    ) : chatMessages.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No messages yet.</p>
+                    ) : (
+                      chatMessages.map((message) => (
                         <div
+                          key={message.id}
                           className={cn(
-                            "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                            message.sender === 'admin'
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-card text-foreground border border-border"
+                            "flex w-full",
+                            message.sender === 'admin' ? "justify-end" : "justify-start"
                           )}
                         >
-                          <div className="text-[11px] opacity-70 mb-1">
-                            {message.sender === 'admin' ? 'You' : user.name}
+                          <div
+                            className={cn(
+                              "max-w-[80%] rounded-lg px-3 py-2 text-sm",
+                              message.sender === 'admin'
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-card text-foreground border border-border"
+                            )}
+                          >
+                            <div className="text-[11px] opacity-70 mb-1">
+                              {message.sender === 'admin' ? 'You' : user.name}
+                            </div>
+                            <div>{message.text}</div>
+                            <div className="text-[10px] opacity-70 mt-1 text-right">{message.time}</div>
                           </div>
-                          <div>{message.text}</div>
-                          <div className="text-[10px] opacity-70 mt-1 text-right">{message.time}</div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                   <form className="flex items-center gap-2" onSubmit={handleChatSubmit}>
                     <Input
@@ -710,10 +890,11 @@ export default function UserDetail() {
                       onChange={(event) => setChatInput(event.target.value)}
                       placeholder="Type a message..."
                       className="bg-secondary/50"
+                      disabled={isSendingMessage}
                     />
-                    <Button type="submit">
+                    <Button type="submit" disabled={isSendingMessage}>
                       <Send className="w-4 h-4 mr-2" />
-                      Send
+                      {isSendingMessage ? 'Sending...' : 'Send'}
                     </Button>
                   </form>
                 </div>
@@ -1017,7 +1198,19 @@ export default function UserDetail() {
                 </div>
               </div>
               {isProductsLoading ? (
-                <p className="text-sm text-muted-foreground">Loading products...</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Array.from({ length: PRODUCTS_PAGE_SIZE }, (_, index) => (
+                    <div key={`product-skeleton-${index}`} className="bg-secondary/50 rounded-lg p-4">
+                      <div className="flex items-start gap-4">
+                        <Skeleton className="h-16 w-16 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/5" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : productsErrorMessage ? (
                 <p className="text-sm text-muted-foreground">{productsErrorMessage}</p>
               ) : pagedProducts.length === 0 ? (
