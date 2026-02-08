@@ -312,6 +312,7 @@ export default function UserDetail() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatConversationId, setChatConversationId] = useState<number | null>(null);
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('all');
   const [uploadOrder, setUploadOrder] = useState('latest');
@@ -750,10 +751,49 @@ export default function UserDetail() {
     setIsEditing(false);
   };
 
-  const handleStatusToggle = () => {
-    const newStatus = formData.status === 'active' ? 'inactive' : 'active';
-    setFormData({ ...formData, status: newStatus });
-    toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
+  const handleStatusToggle = async () => {
+    if (isStatusUpdating) {
+      return;
+    }
+    if (!admin || !id) {
+      toast.error('Unauthorized: Only administrators can access this endpoint.');
+      return;
+    }
+    if (formData.status !== 'active') {
+      toast.error('Activation is not available for this user.');
+      return;
+    }
+    setIsStatusUpdating(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/deactivate`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `${admin.tokenType} ${admin.token}`,
+          Accept: 'application/json',
+        },
+      });
+      const data: { message?: string } | undefined = await response.json().catch(() => undefined);
+      if (!response.ok) {
+        const message =
+          data && typeof data.message === 'string'
+            ? data.message
+            : response.status === 403
+            ? 'Unauthorized: Only administrators can access this endpoint.'
+            : response.status === 404
+            ? 'User not found.'
+            : 'Failed to deactivate user';
+        toast.error(message);
+        return;
+      }
+      const updated = { ...formData, status: 'inactive' as const };
+      setFormData(updated);
+      setUser((prev) => (prev ? { ...prev, status: 'inactive' } : prev));
+      toast.success('User deactivated successfully');
+    } catch {
+      toast.error('Failed to deactivate user');
+    } finally {
+      setIsStatusUpdating(false);
+    }
   };
 
   const handleChatSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -1039,11 +1079,12 @@ export default function UserDetail() {
                 variant={formData.status === 'active' ? 'destructive' : 'default'}
                 className="w-full"
                 onClick={handleStatusToggle}
+                disabled={isStatusUpdating}
               >
                 {formData.status === 'active' ? (
                   <>
                     <XCircle className="w-4 h-4 mr-2" />
-                    Deactivate User
+                    {isStatusUpdating ? 'Deactivating...' : 'Deactivate User'}
                   </>
                 ) : (
                   <>

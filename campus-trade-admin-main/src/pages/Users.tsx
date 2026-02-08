@@ -15,6 +15,7 @@ import { Search, Mail, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ITEMS_PER_PAGE = 10;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -246,28 +247,39 @@ export default function Users() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-card rounded-xl border border-border p-4">
-            <p className="text-sm text-muted-foreground">Total Users</p>
-            <p className="text-2xl font-bold text-foreground">{totalUsers}</p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4">
-            <p className="text-sm text-muted-foreground">Active</p>
-            <p className="text-2xl font-bold text-success">
-              {activeCount}
-            </p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4">
-            <p className="text-sm text-muted-foreground">Inactive</p>
-            <p className="text-2xl font-bold text-muted-foreground">
-              {inactiveCount}
-            </p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4">
-            <p className="text-sm text-muted-foreground">Suspended</p>
-            <p className="text-2xl font-bold text-destructive">
-              {suspendedCount}
-            </p>
-          </div>
+          {loading ? (
+            Array.from({ length: 4 }, (_, index) => (
+              <div key={`user-stat-skeleton-${index}`} className="bg-card rounded-xl border border-border p-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="mt-3 h-7 w-16" />
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-sm text-muted-foreground">Total Users</p>
+                <p className="text-2xl font-bold text-foreground">{totalUsers}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-sm text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold text-success">
+                  {activeCount}
+                </p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-sm text-muted-foreground">Inactive</p>
+                <p className="text-2xl font-bold text-muted-foreground">
+                  {inactiveCount}
+                </p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-sm text-muted-foreground">Suspended</p>
+                <p className="text-2xl font-bold text-destructive">
+                  {suspendedCount}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Filters */}
@@ -311,19 +323,45 @@ export default function Users() {
             {error}
           </div>
         )}
-        <DataTable 
-          columns={columns} 
-          data={loading ? [] : filteredUsers}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={(page) => {
-            if (loading) {
-              return;
-            }
-            setCurrentPage(page);
-          }}
-          onRowClick={(user) => navigate(`/users/${user.id}`)}
-        />
+        {loading ? (
+          <div className="rounded-lg border border-border bg-card">
+            <div className="border-b border-border px-4 py-3">
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <div className="divide-y divide-border">
+              {Array.from({ length: ITEMS_PER_PAGE }, (_, index) => (
+                <div key={`user-row-skeleton-${index}`} className="flex items-center justify-between gap-4 px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-56" />
+                    </div>
+                  </div>
+                  <div className="hidden md:flex items-center gap-6">
+                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <DataTable 
+            columns={columns} 
+            data={filteredUsers}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => {
+              if (loading) {
+                return;
+              }
+              setCurrentPage(page);
+            }}
+            onRowClick={(user) => navigate(`/users/${user.id}`)}
+          />
+        )}
       </div>
     </DashboardLayout>
   );

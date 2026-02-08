@@ -9,7 +9,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  ShoppingBag
+  ShoppingBag,
+  MessageCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ const navItems = [
   { path: '/categories', icon: Tags, label: 'Categories' },
   { path: '/conditions', icon: Star, label: 'Conditions' },
   { path: '/users', icon: Users, label: 'Users' },
+  { path: '/chat', icon: MessageCircle, label: 'Chat' },
 ];
 
 export function Sidebar() {

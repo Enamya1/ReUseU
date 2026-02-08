@@ -14,6 +14,7 @@ import Conditions from "./pages/Conditions";
 import Users from "./pages/Users";
 import UserDetail from "./pages/UserDetail";
 import ProductDetail from "./pages/ProductDetail";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/users" element={<Users />} />
             <Route path="/users/:id" element={<UserDetail />} />
             <Route path="/products/:id" element={<ProductDetail />} />
+            <Route path="/chat" element={<Chat />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
