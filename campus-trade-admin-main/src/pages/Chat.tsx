@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -156,6 +157,7 @@ const buildUser = (user: ApiUser): User => {
 };
 
 export default function Chat() {
+  const navigate = useNavigate();
   const { admin } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -545,12 +547,12 @@ export default function Chat() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 min-h-[calc(100vh-7rem)] flex flex-col">
+      <div className="space-y-6 h-[calc(100vh-7rem)] min-h-0 flex flex-col">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Chat</h1>
           <p className="text-muted-foreground">Send messages to users and broadcast updates</p>
         </div>
-        <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-6 flex-1">
+        <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-6 flex-1 min-h-0">
           <div className="bg-card rounded-xl border border-border p-4 flex flex-col gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -731,7 +733,7 @@ export default function Chat() {
               )}
             </div>
           </div>
-          <div className="flex flex-col gap-6 h-full">
+          <div className="flex flex-col gap-6 min-h-0">
             <div className="bg-card rounded-xl border border-border flex flex-col flex-1 min-h-0">
               <div className="border-b border-border p-4 flex items-center justify-between">
                 {isUsersLoading ? (
@@ -757,7 +759,13 @@ export default function Chat() {
                       </div>
                     )}
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{activeUser.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/users/${activeUser.id}`)}
+                        className="text-sm font-semibold text-foreground transition-colors hover:text-primary"
+                      >
+                        {activeUser.name}
+                      </button>
                       <p className="text-xs text-muted-foreground">{activeUser.email}</p>
                     </div>
                     <Badge
@@ -783,7 +791,7 @@ export default function Chat() {
                   </div>
                 ) : null}
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                 {isChatLoading ? (
                   <div className="space-y-4">
                     {Array.from({ length: 6 }, (_, index) => {

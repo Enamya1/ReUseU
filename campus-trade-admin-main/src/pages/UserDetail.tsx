@@ -212,6 +212,23 @@ const formatMessageTime = (value: string | null | undefined): string => {
   return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+const resolveLanguageLabel = (language: string | null | undefined): string => {
+  if (!language) {
+    return '';
+  }
+  const normalized = language.trim().toLowerCase();
+  if (normalized === 'en' || normalized === 'english') {
+    return 'English';
+  }
+  if (normalized === 'ar' || normalized === 'arabic') {
+    return 'Arabic';
+  }
+  if (normalized === 'zh' || normalized === 'mandarin' || normalized === 'mandarin chinese') {
+    return 'Mandarin Chinese';
+  }
+  return language.trim();
+};
+
 const buildProductRouteId = (product: UploadedProduct): string => {
   if (product.id) {
     return product.id;
@@ -305,6 +322,7 @@ export default function UserDetail() {
   
   const [formData, setFormData] = useState<Partial<User>>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [profitPeriod, setProfitPeriod] = useState('last6Months');
   const [chatInput, setChatInput] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -663,8 +681,113 @@ export default function UserDetail() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-96">
-          <p className="text-xl text-muted-foreground mb-4">Loading user...</p>
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10 rounded-md" />
+            <div className="flex-1">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="mt-2 h-4 w-64" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex flex-col items-center text-center">
+                <Skeleton className="w-24 h-24 rounded-full mb-4" />
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="mt-2 h-4 w-48" />
+                <div className="flex items-center gap-2 mt-4">
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+                <div className="w-full border-t border-border my-6" />
+                <div className="w-full space-y-4">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                </div>
+                <div className="w-full border-t border-border my-6" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-card rounded-xl border border-border p-6">
+                <Skeleton className="h-5 w-32 mb-4" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <div key={`user-stat-skeleton-${index}`} className="bg-secondary/50 rounded-lg p-4">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="mt-3 h-6 w-16" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-6">
+                <Skeleton className="h-5 w-40 mb-4" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <div key={`user-form-skeleton-${index}`} className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-9 w-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Array.from({ length: PRODUCTS_PAGE_SIZE }, (_, index) => (
+                    <div key={`product-skeleton-loading-${index}`} className="bg-secondary/50 rounded-lg p-4">
+                      <div className="flex items-start gap-4">
+                        <Skeleton className="h-16 w-16 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/5" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <Skeleton className="h-5 w-48 mb-2" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="h-9 w-44" />
+                </div>
+                <Skeleton className="h-[260px] w-full rounded-lg" />
+              </div>
+            </div>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -746,9 +869,103 @@ export default function UserDetail() {
     },
   };
 
-  const handleSave = () => {
-    toast.success('User updated successfully');
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (isSaving) {
+      return;
+    }
+    if (!admin || !id) {
+      toast.error('Unauthorized: Only administrators can access this endpoint.');
+      return;
+    }
+    const payload: Record<string, string> = {};
+    const trimmedStudentId = formData.studentId?.trim();
+    const trimmedName = formData.name?.trim();
+    const trimmedUsername = formData.username?.trim();
+    const trimmedEmail = formData.email?.trim();
+    const trimmedPhone = formData.phone?.trim();
+    if (trimmedStudentId) {
+      payload.student_id = trimmedStudentId;
+    }
+    if (trimmedName) {
+      payload.full_name = trimmedName;
+    }
+    if (trimmedUsername) {
+      payload.username = trimmedUsername;
+    }
+    if (trimmedEmail) {
+      payload.email = trimmedEmail;
+    }
+    if (trimmedPhone) {
+      payload.phone_number = trimmedPhone;
+    }
+    if (formData.role) {
+      payload.role = formData.role;
+    }
+    if (formData.gender) {
+      payload.gender = formData.gender;
+    }
+    if (formData.language) {
+      payload.language = formData.language;
+    }
+    const hasPayload = Object.keys(payload).length > 0;
+    if (!hasPayload) {
+      toast.info('No changes to save.');
+      setIsEditing(false);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `${admin.tokenType} ${admin.token}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const data:
+        | { message?: string; updated_at?: string; errors?: Record<string, string[]> }
+        | undefined = await response.json().catch(() => undefined);
+      if (!response.ok) {
+        const validationErrors =
+          data && data.errors ? Object.values(data.errors).flat().filter(Boolean).join(' ') : '';
+        const message =
+          validationErrors ||
+          (data && typeof data.message === 'string'
+            ? data.message
+            : response.status === 403
+            ? 'Unauthorized: Only administrators can access this endpoint.'
+            : response.status === 404
+            ? 'User not found.'
+            : response.status === 422
+            ? 'Validation Error'
+            : 'Failed to update user');
+        toast.error(message);
+        return;
+      }
+      if (user) {
+        const updatedUser: User = {
+          ...user,
+          name: trimmedName || user.name,
+          username: trimmedUsername || user.username,
+          email: trimmedEmail || user.email,
+          phone: trimmedPhone || user.phone,
+          role: formData.role || user.role,
+          gender: formData.gender || user.gender,
+          language: formData.language || user.language,
+          studentId: trimmedStudentId || user.studentId,
+        };
+        setUser(updatedUser);
+        setFormData(updatedUser);
+      }
+      toast.success(data?.message || 'User updated successfully');
+      setIsEditing(false);
+    } catch {
+      toast.error('Failed to update user');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleStatusToggle = async () => {
@@ -945,9 +1162,9 @@ export default function UserDetail() {
                 <Button variant="outline" onClick={() => setIsEditing(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave} className="gradient-primary text-primary-foreground">
+                <Button onClick={handleSave} className="gradient-primary text-primary-foreground" disabled={isSaving}>
                   <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </>
             ) : (
@@ -962,15 +1179,34 @@ export default function UserDetail() {
           {/* Profile Card */}
           <div className="bg-card rounded-xl border border-border p-6">
             <div className="flex flex-col items-center text-center">
-              <div className="w-24 h-24 rounded-full border border-border bg-secondary/50 overflow-hidden flex items-center justify-center mb-4">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={user.name} className="h-full w-full object-cover" />
-                ) : (
+              {avatarUrl ? (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-24 h-24 rounded-full border border-border bg-secondary/50 overflow-hidden flex items-center justify-center mb-4 transition hover:ring-2 hover:ring-primary/40"
+                    >
+                      <img src={avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl p-0 overflow-hidden">
+                    <DialogHeader className="px-6 pt-6">
+                      <DialogTitle>{user.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="px-6 pb-6">
+                      <div className="aspect-square w-full overflow-hidden rounded-xl bg-secondary/50 border border-border">
+                        <img src={avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <div className="w-24 h-24 rounded-full border border-border bg-secondary/50 overflow-hidden flex items-center justify-center mb-4">
                   <span className="text-3xl font-bold text-primary">
                     {user.name.split(' ').map(n => n[0]).join('')}
                   </span>
-                )}
-              </div>
+                </div>
+              )}
               <h2 className="text-xl font-bold text-foreground">{user.name}</h2>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <span>{user.email}</span>
@@ -1068,7 +1304,7 @@ export default function UserDetail() {
                   <Languages className="w-5 h-5 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Language</p>
-                    <p className="text-sm text-foreground">{user.language || 'N/A'}</p>
+                    <p className="text-sm text-foreground">{resolveLanguageLabel(user.language) || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -1132,11 +1368,31 @@ export default function UserDetail() {
               <h3 className="text-lg font-semibold text-foreground mb-4">Profile Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label htmlFor="studentId">Student ID</Label>
+                  <Input
+                    id="studentId"
+                    value={formData.studentId || ''}
+                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-secondary/50"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
                     value={formData.name || ''}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-secondary/50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    value={formData.username || ''}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     disabled={!isEditing}
                     className="bg-secondary/50"
                   />
@@ -1176,6 +1432,39 @@ export default function UserDetail() {
                       <SelectItem value="user">User</SelectItem>
                       <SelectItem value="moderator">Moderator</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select
+                    value={formData.gender || ''}
+                    onValueChange={(value: 'male' | 'female') => setFormData({ ...formData, gender: value })}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger className="bg-secondary/50">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="language">Language</Label>
+                  <Select
+                    value={formData.language || ''}
+                    onValueChange={(value: 'en' | 'ar' | 'zh') => setFormData({ ...formData, language: value })}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger className="bg-secondary/50">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="ar">Arabic</SelectItem>
+                      <SelectItem value="zh">Mandarin Chinese</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
