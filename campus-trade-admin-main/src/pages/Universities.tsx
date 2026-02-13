@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -17,47 +18,13 @@ import { University } from '@/lib/dummyData';
 import { Plus, GraduationCap, MapPin, Users, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import AMapLoader from '@amap/amap-jsapi-loader';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
-
-const defaultIconPrototype = L.Icon.Default.prototype as unknown as { _getIconUrl?: string };
-delete defaultIconPrototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-const universityIcon = new L.Icon({
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-type LocationMarkerProps = {
-  position: [number, number] | null;
-  onSelect: (lat: number, lng: number) => void;
-};
-
-function LocationMarker({ position, onSelect }: LocationMarkerProps) {
-  useMapEvents({
-    click(event) {
-      onSelect(event.latlng.lat, event.latlng.lng);
-    },
-  });
-  if (!position) {
-    return null;
-  }
-  return <Marker position={position} icon={universityIcon} />;
-}
+const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
+const AMAP_SECURITY_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE ?? '';
+const defaultCenter: [number, number] = [-98.5795, 39.8283];
 
 type ApiUniversity = {
   id: number | string;
@@ -67,17 +34,73 @@ type ApiUniversity = {
   lat?: number | null;
   lng?: number | null;
   location?: string | null;
+  address?: string | null;
   created_at?: string | null;
   createdAt?: string | null;
   students_count?: number | string | null;
   student_count?: number | string | null;
+  users_count?: number | string | null;
   dormitories_count?: number | string | null;
   dormitoriesCount?: number | string | null;
 };
 
 type UniversitiesResponse = {
   message: string;
-  universities: ApiUniversity[];
+  universities:
+    | ApiUniversity[]
+    | {
+        current_page?: number;
+        data?: ApiUniversity[];
+        last_page?: number;
+        per_page?: number;
+        total?: number;
+      };
+};
+
+type AddressSuggestion = {
+  text: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+};
+
+type AMapLngLat = { lng: number; lat: number } | [number, number];
+
+type AMapPoi = {
+  name?: string;
+  address?: string;
+  location?: AMapLngLat;
+};
+
+type AMapGeocodeResult = {
+  regeocode?: {
+    formattedAddress?: string;
+    pois?: AMapPoi[];
+  };
+};
+
+type AMapMap = {
+  setCenter: (center: [number, number]) => void;
+  setZoom: (zoom: number) => void;
+  on: (event: 'click', handler: (event: { lnglat: { lng: number; lat: number } }) => void) => void;
+  resize: () => void;
+  destroy?: () => void;
+};
+
+type AMapMarker = {
+  setPosition: (position: [number, number]) => void;
+  setMap: (map: AMapMap | null) => void;
+};
+
+type AMapGeocoder = {
+  getAddress: (lnglat: [number, number], callback: (status: string, result: AMapGeocodeResult) => void) => void;
+};
+
+type AMapNamespace = {
+  Map: new (container: HTMLDivElement, options: { zoom: number; center: [number, number]; mapStyle?: string }) => AMapMap;
+  Marker: new (options: { position: [number, number]; map: AMapMap }) => AMapMarker;
+  Geocoder: new (options: { radius: number; extensions: string }) => AMapGeocoder;
 };
 
 const formatLocation = (lat: number | null, lng: number | null, location?: string | null) => {
@@ -107,16 +130,16 @@ const buildUniversity = (university: ApiUniversity): University => {
   const location = formatLocation(
     Number.isFinite(latValue) ? latValue : null,
     Number.isFinite(lngValue) ? lngValue : null,
-    university.location ?? null,
+    university.address ?? university.location ?? null,
   );
   const createdAt =
     typeof university.created_at === 'string'
       ? university.created_at.split('T')[0]
       : typeof university.createdAt === 'string'
       ? university.createdAt.split('T')[0]
-      : new Date().toISOString().split('T')[0];
+      : 'N/A';
   const studentCount =
-    Number(university.students_count ?? university.student_count ?? 0) || 0;
+    Number(university.students_count ?? university.student_count ?? university.users_count ?? 0) || 0;
   const dormitoriesCount =
     Number(university.dormitories_count ?? university.dormitoriesCount ?? 0) || 0;
   return {
@@ -133,12 +156,24 @@ const buildUniversity = (university: ApiUniversity): University => {
 
 export default function Universities() {
   const { admin } = useAuth();
+  const navigate = useNavigate();
   const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isMapOpen, setIsMapOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createStep, setCreateStep] = useState(1);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<AMapMap | null>(null);
+  const markerRef = useRef<AMapMarker | null>(null);
+  const geocoderRef = useRef<AMapGeocoder | null>(null);
+  const amapRef = useRef<AMapNamespace | null>(null);
   const [newUniversity, setNewUniversity] = useState({
     name: '',
     domain: '',
@@ -146,6 +181,7 @@ export default function Universities() {
     latitude: '',
     longitude: '',
   });
+  const ITEMS_PER_PAGE = 10;
 
   const selectedPosition = useMemo<[number, number] | null>(() => {
     const lat = Number(newUniversity.latitude);
@@ -156,11 +192,122 @@ export default function Universities() {
     return null;
   }, [newUniversity.latitude, newUniversity.longitude]);
 
-  const mapCenter: [number, number] = selectedPosition ?? [39.8283, -98.5795];
+  useEffect(() => {
+    if (!isDialogOpen) {
+      setAddressSuggestions([]);
+      setSelectedAddress(null);
+    }
+  }, [isDialogOpen]);
+
+  useEffect(() => {
+    if (!isDialogOpen || createStep !== 3 || !mapContainerRef.current || !AMAP_JS_KEY || !AMAP_SECURITY_CODE) {
+      return;
+    }
+    const amapWindow = window as Window & { _AMapSecurityConfig?: { securityJsCode: string } };
+    amapWindow._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_CODE };
+    let cancelled = false;
+    AMapLoader.load({ key: AMAP_JS_KEY, version: '2.0', plugins: ['AMap.Geocoder'] })
+      .then((AMap: AMapNamespace) => {
+        if (cancelled || !mapContainerRef.current) {
+          return;
+        }
+        amapRef.current = AMap;
+        if (!mapRef.current) {
+          mapRef.current = new AMap.Map(mapContainerRef.current, {
+            zoom: 4,
+            center: defaultCenter,
+            mapStyle: 'amap://styles/dark',
+          });
+          geocoderRef.current = new AMap.Geocoder({ radius: 1000, extensions: 'all' });
+          mapRef.current.on('click', (event) => {
+            const { lng, lat } = event.lnglat;
+            setNewUniversity((prev) => ({
+              ...prev,
+              latitude: lat.toFixed(6),
+              longitude: lng.toFixed(6),
+            }));
+            setSelectedAddress(null);
+            if (geocoderRef.current) {
+              geocoderRef.current.getAddress([lng, lat], (status, result) => {
+                if (status !== 'complete' || !result?.regeocode) {
+                  setAddressSuggestions([]);
+                  return;
+                }
+                const suggestions: AddressSuggestion[] = [];
+                const formatted = result.regeocode.formattedAddress;
+                if (formatted) {
+                  suggestions.push({ text: formatted, location: { lat, lng } });
+                  setSelectedAddress(formatted);
+                }
+                if (Array.isArray(result.regeocode.pois)) {
+                  result.regeocode.pois.forEach((poi) => {
+                    const location = poi.location;
+                    if (!location) {
+                      return;
+                    }
+                    const coords = Array.isArray(location)
+                      ? { lng: location[0], lat: location[1] }
+                      : { lng: location.lng, lat: location.lat };
+                    if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
+                      return;
+                    }
+                    const poiText = `${poi.name ?? ''}${poi.address ? ` · ${poi.address}` : ''}`.trim();
+                    suggestions.push({
+                      text: poiText || 'Unknown location',
+                      location: { lat: coords.lat, lng: coords.lng },
+                    });
+                  });
+                }
+                setAddressSuggestions(suggestions);
+              });
+            }
+          });
+        } else {
+          mapRef.current.resize();
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (mapRef.current?.destroy) {
+        mapRef.current.destroy();
+      }
+      mapRef.current = null;
+      markerRef.current = null;
+      geocoderRef.current = null;
+      amapRef.current = null;
+    };
+  }, [isDialogOpen, createStep]);
+
+  useEffect(() => {
+    if (!mapRef.current || !amapRef.current) {
+      return;
+    }
+    const position: [number, number] | null = selectedPosition ? [selectedPosition[1], selectedPosition[0]] : null;
+    if (position) {
+      mapRef.current.setCenter(position);
+      mapRef.current.setZoom(13);
+      if (!markerRef.current) {
+        markerRef.current = new amapRef.current.Marker({ position, map: mapRef.current });
+      } else {
+        markerRef.current.setPosition(position);
+        markerRef.current.setMap(mapRef.current);
+      }
+    } else {
+      mapRef.current.setCenter(defaultCenter);
+      mapRef.current.setZoom(4);
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+        markerRef.current = null;
+      }
+    }
+  }, [selectedPosition]);
 
   useEffect(() => {
     if (!admin) {
       setUniversities([]);
+      setTotalPages(1);
+      setTotalCount(0);
       return;
     }
     let ignore = false;
@@ -168,15 +315,22 @@ export default function Universities() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/universities`, {
+        const response = await fetch(
+          `${API_BASE_URL}/api/admin/universities?per_page=${ITEMS_PER_PAGE}&page=${currentPage}`,
+          {
           method: 'GET',
           headers: {
             Authorization: `${admin.tokenType} ${admin.token}`,
             Accept: 'application/json',
           },
-        });
+          },
+        );
         const data: UniversitiesResponse | undefined = await response.json().catch(() => undefined);
-        if (!response.ok || !data?.universities) {
+        const universitiesPayload = data?.universities;
+        const pagedData = Array.isArray(universitiesPayload)
+          ? universitiesPayload
+          : universitiesPayload?.data ?? [];
+        if (!response.ok || !universitiesPayload) {
           const message =
             data && typeof data.message === 'string'
               ? data.message
@@ -191,9 +345,20 @@ export default function Universities() {
           }
           return;
         }
-        const mapped = data.universities.map(buildUniversity);
+        const mapped = pagedData.map(buildUniversity);
+        const lastPageValue = Array.isArray(universitiesPayload)
+          ? 1
+          : Math.max(1, Number(universitiesPayload?.last_page ?? 1));
+        const totalValue = Array.isArray(universitiesPayload)
+          ? mapped.length
+          : Number(universitiesPayload?.total ?? mapped.length);
         if (!ignore) {
           setUniversities(mapped);
+          setTotalPages(lastPageValue);
+          setTotalCount(totalValue);
+          if (currentPage > lastPageValue) {
+            setCurrentPage(lastPageValue);
+          }
         }
       } catch {
         if (!ignore) {
@@ -210,7 +375,7 @@ export default function Universities() {
     return () => {
       ignore = true;
     };
-  }, [admin]);
+  }, [admin, currentPage]);
 
   const columns = [
     {
@@ -288,6 +453,7 @@ export default function Universities() {
           domain: newUniversity.domain.trim(),
           latitude,
           longitude,
+          address: selectedAddress?.trim() || null,
           pic: newUniversity.imageUrl.trim() || null,
         }),
       });
@@ -317,7 +483,11 @@ export default function Universities() {
           ? createdUniversity.created_at.split('T')[0]
           : new Date().toISOString().split('T')[0];
       const location =
-        latitude !== null && longitude !== null
+        typeof createdUniversity?.address === 'string' && createdUniversity.address.trim()
+          ? createdUniversity.address.trim()
+          : selectedAddress?.trim()
+          ? selectedAddress.trim()
+          : latitude !== null && longitude !== null
           ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
           : 'N/A';
       const university: University = {
@@ -338,14 +508,30 @@ export default function Universities() {
         latitude: '',
         longitude: '',
       });
+      setSelectedAddress(null);
+      setImageFile(null);
+      setCreateStep(1);
       setIsDialogOpen(false);
-      setIsMapOpen(false);
       toast.success('University created successfully');
     } catch {
       toast.error('Failed to create university');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleNextStep = () => {
+    if (createStep === 1) {
+      if (!newUniversity.name.trim() || !newUniversity.domain.trim()) {
+        toast.error('Please fill in required fields');
+        return;
+      }
+    }
+    setCreateStep((step) => Math.min(step + 1, 3));
+  };
+
+  const handlePreviousStep = () => {
+    setCreateStep((step) => Math.max(step - 1, 1));
   };
 
   return (
@@ -361,8 +547,8 @@ export default function Universities() {
             open={isDialogOpen}
             onOpenChange={(open) => {
               setIsDialogOpen(open);
-              if (!open) {
-                setIsMapOpen(false);
+              if (open) {
+                setCreateStep(1);
               }
             }}
           >
@@ -372,7 +558,7 @@ export default function Universities() {
                 Add University
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-border">
+            <DialogContent className="bg-card border-border w-[92vw] max-w-4xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-foreground">Create University</DialogTitle>
                 <DialogDescription className="text-muted-foreground">
@@ -381,103 +567,188 @@ export default function Universities() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">University Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="e.g., MIT"
-                    value={newUniversity.name}
-                    onChange={(e) => setNewUniversity({ ...newUniversity, name: e.target.value })}
-                    className="bg-secondary/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="domain">University Domain</Label>
-                  <Input
-                    id="domain"
-                    placeholder="e.g., mit.edu"
-                    value={newUniversity.domain}
-                    onChange={(e) => setNewUniversity({ ...newUniversity, domain: e.target.value })}
-                    className="bg-secondary/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Image URL</Label>
-                  <Input
-                    id="imageUrl"
-                    placeholder="https://example.com/university.jpg"
-                    value={newUniversity.imageUrl}
-                    onChange={(e) => setNewUniversity({ ...newUniversity, imageUrl: e.target.value })}
-                    className="bg-secondary/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Location</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input
-                      id="latitude"
-                      placeholder="Latitude"
-                      value={newUniversity.latitude}
-                      onChange={(e) => setNewUniversity({ ...newUniversity, latitude: e.target.value })}
-                      className="bg-secondary/50"
+                  <div className="text-xs text-muted-foreground">Step {createStep} of 3</div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        createStep >= 1
+                          ? 'h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/20'
+                          : 'h-2.5 w-2.5 rounded-full bg-muted'
+                      }
                     />
-                    <Input
-                      id="longitude"
-                      placeholder="Longitude"
-                      value={newUniversity.longitude}
-                      onChange={(e) => setNewUniversity({ ...newUniversity, longitude: e.target.value })}
-                      className="bg-secondary/50"
+                    <span className={createStep >= 2 ? 'h-0.5 flex-1 bg-primary' : 'h-0.5 flex-1 bg-muted'} />
+                    <span
+                      className={
+                        createStep >= 2
+                          ? 'h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/20'
+                          : 'h-2.5 w-2.5 rounded-full bg-muted'
+                      }
+                    />
+                    <span className={createStep >= 3 ? 'h-0.5 flex-1 bg-primary' : 'h-0.5 flex-1 bg-muted'} />
+                    <span
+                      className={
+                        createStep >= 3
+                          ? 'h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/20'
+                          : 'h-2.5 w-2.5 rounded-full bg-muted'
+                      }
                     />
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <Button type="button" variant="outline" onClick={() => setIsMapOpen((prev) => !prev)}>
-                      Select location
-                    </Button>
-                    {selectedPosition ? (
-                      <span className="text-xs text-muted-foreground">
-                        {selectedPosition[0].toFixed(5)}, {selectedPosition[1].toFixed(5)}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No location selected</span>
-                    )}
-                  </div>
-                  {isMapOpen && (
-                    <div className="h-[260px] rounded-lg overflow-hidden border border-border">
-                      <MapContainer
-                        center={mapCenter}
-                        zoom={selectedPosition ? 13 : 4}
-                        style={{ height: '100%', width: '100%' }}
-                        className="z-0"
-                      >
-                        <TileLayer
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                        />
-                        <LocationMarker
-                          position={selectedPosition}
-                          onSelect={(lat, lng) =>
-                            setNewUniversity({
-                              ...newUniversity,
-                              latitude: lat.toFixed(6),
-                              longitude: lng.toFixed(6),
-                            })
-                          }
-                        />
-                      </MapContainer>
+                </div>
+                {createStep === 1 && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">University Name</Label>
+                      <Input
+                        id="name"
+                        placeholder="e.g., MIT"
+                        value={newUniversity.name}
+                        onChange={(e) => setNewUniversity({ ...newUniversity, name: e.target.value })}
+                        className="bg-secondary/50"
+                      />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="domain">University Domain</Label>
+                      <Input
+                        id="domain"
+                        placeholder="e.g., mit.edu"
+                        value={newUniversity.domain}
+                        onChange={(e) => setNewUniversity({ ...newUniversity, domain: e.target.value })}
+                        className="bg-secondary/50"
+                      />
+                    </div>
+                  </div>
+                )}
+                {createStep === 2 && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="imageUrl">Image URL</Label>
+                      <Input
+                        id="imageUrl"
+                        placeholder="https://example.com/university.jpg"
+                        value={newUniversity.imageUrl}
+                        onChange={(e) => setNewUniversity({ ...newUniversity, imageUrl: e.target.value })}
+                        className="bg-secondary/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="imageFile">Upload Image</Label>
+                      <Input
+                        id="imageFile"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                        className="bg-secondary/50"
+                      />
+                      {imageFile ? (
+                        <p className="text-xs text-muted-foreground">{imageFile.name}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No image selected</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {createStep === 3 && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Map</Label>
+                      <div className="flex items-center justify-between gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={
+                            selectedPosition
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-muted-foreground/40 text-muted-foreground'
+                          }
+                        >
+                          {selectedPosition ? 'Location selected' : 'Select a location'}
+                        </Button>
+                        {selectedPosition ? (
+                          <span className="text-xs text-muted-foreground">
+                            {selectedPosition[0].toFixed(5)}, {selectedPosition[1].toFixed(5)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No location selected</span>
+                        )}
+                      </div>
+                      <div className="h-[320px] rounded-lg overflow-hidden border border-border">
+                        {AMAP_JS_KEY && AMAP_SECURITY_CODE ? (
+                          <div ref={mapContainerRef} className="h-full w-full" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                            Missing AMap keys.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                      <p className="text-xs font-medium text-foreground">Suggested address</p>
+                      {addressSuggestions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          {selectedPosition
+                            ? 'No address suggestions found for this location.'
+                            : 'Click on the map to generate address suggestions.'}
+                        </p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {addressSuggestions.map((item, index) => (
+                            <button
+                              key={`${item.text}-${index}`}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAddress(item.text);
+                                setNewUniversity((prev) => ({
+                                  ...prev,
+                                  latitude: item.location.lat.toFixed(6),
+                                  longitude: item.location.lng.toFixed(6),
+                                }));
+                              }}
+                              className={
+                                selectedAddress === item.text
+                                  ? 'w-full rounded-md border border-primary bg-primary/10 px-3 py-2 text-left text-xs text-foreground'
+                                  : 'w-full rounded-md border border-border bg-background/40 px-3 py-2 text-left text-xs text-muted-foreground'
+                              }
+                            >
+                              {item.text}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {selectedPosition && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Selected coordinates: {selectedPosition[0].toFixed(5)}, {selectedPosition[1].toFixed(5)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="gap-2 sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  {createStep > 1 && (
+                    <Button variant="outline" onClick={handlePreviousStep}>
+                      Back
+                    </Button>
                   )}
                 </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreate}
-                  className="gradient-primary text-primary-foreground"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Creating...' : 'Create'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {createStep < 3 ? (
+                    <Button onClick={handleNextStep} className="gradient-primary text-primary-foreground">
+                      Next
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleCreate}
+                      className="gradient-primary text-primary-foreground"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Creating...' : 'Create'}
+                    </Button>
+                  )}
+                </div>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -494,9 +765,9 @@ export default function Universities() {
             ))
           ) : (
             <>
-              <div className="bg-card rounded-xl border border-border p-4">
+            <div className="bg-card rounded-xl border border-border p-4">
                 <p className="text-sm text-muted-foreground">Total Universities</p>
-                <p className="text-2xl font-bold text-foreground">{universities.length}</p>
+              <p className="text-2xl font-bold text-foreground">{totalCount}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4">
                 <p className="text-sm text-muted-foreground">Total Students</p>
@@ -524,7 +795,7 @@ export default function Universities() {
               <Skeleton className="h-4 w-48" />
             </div>
             <div className="divide-y divide-border">
-              {Array.from({ length: 6 }, (_, index) => (
+              {Array.from({ length: ITEMS_PER_PAGE }, (_, index) => (
                 <div key={`universities-row-skeleton-${index}`} className="flex items-center justify-between gap-4 px-4 py-4">
                   <div className="flex items-center gap-3">
                     <Skeleton className="h-10 w-10 rounded-full" />
@@ -543,7 +814,19 @@ export default function Universities() {
             </div>
           </div>
         ) : (
-          <DataTable columns={columns} data={universities} />
+          <DataTable
+            columns={columns}
+            data={universities}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => {
+              if (page < 1 || page > totalPages) {
+                return;
+              }
+              setCurrentPage(page);
+            }}
+            onRowClick={(row) => navigate(`/university/${row.id}`)}
+          />
         )}
       </div>
     </DashboardLayout>

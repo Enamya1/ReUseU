@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import AMapLoader from '@amap/amap-jsapi-loader';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,23 +17,21 @@ import { ArrowLeft, CalendarDays, DollarSign, MapPin, Package, Tag, Heart, Eye, 
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
-const defaultIconPrototype = L.Icon.Default.prototype as unknown as { _getIconUrl?: string };
-delete defaultIconPrototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+type AMapMap = {
+  setZoom: (zoom: number) => void;
+  setCenter: (center: [number, number]) => void;
+  destroy?: () => void;
+};
 
-const productLocationIcon = new L.Icon({
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
+type AMapMarker = {
+  setPosition: (position: [number, number]) => void;
+  setMap: (map: AMapMap | null) => void;
+};
+
+type AMapNamespace = {
+  Map: new (container: HTMLDivElement, options: { zoom: number; center: [number, number]; mapStyle?: string }) => AMapMap;
+  Marker: new (options: { position: [number, number]; map: AMapMap }) => AMapMarker;
+};
 
 type ProductDetailStateProduct = {
   id: string;
@@ -145,6 +141,8 @@ type ProductResponse = {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 const PRODUCT_IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL ?? API_BASE_URL ?? 'http://127.0.0.1:8000';
+const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
+const AMAP_SECURITY_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE ?? '';
 
 const normalizeProductStatus = (status: string | null | undefined): 'active' | 'sold' | 'reserved' | 'blocked' => {
   const normalized = status?.toLowerCase();
@@ -275,6 +273,10 @@ export default function ProductDetail() {
   const [blockReason, setBlockReason] = useState('');
   const [blockError, setBlockError] = useState<string | null>(null);
   const [isBlocking, setIsBlocking] = useState(false);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<AMapMap | null>(null);
+  const markerRef = useRef<AMapMarker | null>(null);
+  const amapRef = useRef<AMapNamespace | null>(null);
 
   useEffect(() => {
     if (!id || !admin) {
@@ -332,12 +334,90 @@ export default function ProductDetail() {
   const hasCoordinates = typeof product?.locationLat === 'number' && typeof product?.locationLng === 'number';
   const universityLocation = universities.find((item) => item.name === product?.universityName);
   const sellerInitial = product?.sellerName?.trim().charAt(0).toUpperCase() || 'U';
-  const mapCenter: [number, number] = hasCoordinates
-    ? [product?.locationLat ?? 39.8283, product?.locationLng ?? -98.5795]
-    : universityLocation
-    ? [universityLocation.lat, universityLocation.lng]
-    : [39.8283, -98.5795];
+  const universityCoords = useMemo(() => {
+    if (!universityLocation) {
+      return null;
+    }
+    return { lat: universityLocation.lat, lng: universityLocation.lng };
+  }, [universityLocation]);
+  const mapCenter = useMemo<[number, number]>(() => {
+    if (hasCoordinates) {
+      return [product?.locationLat ?? 39.8283, product?.locationLng ?? -98.5795];
+    }
+    if (universityCoords) {
+      return [universityCoords.lat, universityCoords.lng];
+    }
+    return [39.8283, -98.5795];
+  }, [hasCoordinates, product?.locationLat, product?.locationLng, universityCoords]);
   const mapZoom = hasCoordinates || universityLocation ? 12 : 3;
+
+  const updateLocationMarker = useCallback(() => {
+    if (!mapRef.current || !amapRef.current) {
+      return;
+    }
+    const AMap = amapRef.current;
+    const position: [number, number] | null = hasCoordinates
+      ? [product?.locationLng ?? mapCenter[1], product?.locationLat ?? mapCenter[0]]
+      : universityCoords
+      ? [universityCoords.lng, universityCoords.lat]
+      : null;
+    if (position) {
+      if (!markerRef.current) {
+        markerRef.current = new AMap.Marker({ position, map: mapRef.current });
+      } else {
+        markerRef.current.setPosition(position);
+        markerRef.current.setMap(mapRef.current);
+      }
+    } else if (markerRef.current) {
+      markerRef.current.setMap(null);
+      markerRef.current = null;
+    }
+  }, [hasCoordinates, mapCenter, product?.locationLat, product?.locationLng, universityCoords]);
+
+  useEffect(() => {
+    if (!mapContainerRef.current || !AMAP_JS_KEY || !AMAP_SECURITY_CODE) {
+      return;
+    }
+    const amapWindow = window as Window & { _AMapSecurityConfig?: { securityJsCode: string } };
+    amapWindow._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_CODE };
+    let cancelled = false;
+    AMapLoader.load({ key: AMAP_JS_KEY, version: '2.0' })
+      .then((AMap) => {
+        if (cancelled || !mapContainerRef.current) {
+          return;
+        }
+        amapRef.current = AMap;
+        if (!mapRef.current) {
+          mapRef.current = new AMap.Map(mapContainerRef.current, {
+            zoom: mapZoom,
+            center: [mapCenter[1], mapCenter[0]],
+            mapStyle: 'amap://styles/dark',
+          });
+        }
+        mapRef.current.setZoom(mapZoom);
+        mapRef.current.setCenter([mapCenter[1], mapCenter[0]]);
+        updateLocationMarker();
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (mapRef.current?.destroy) {
+        mapRef.current.destroy();
+      }
+      mapRef.current = null;
+      markerRef.current = null;
+      amapRef.current = null;
+    };
+  }, [mapCenter, mapZoom, updateLocationMarker]);
+
+  useEffect(() => {
+    if (!mapRef.current || !amapRef.current) {
+      return;
+    }
+    mapRef.current.setZoom(mapZoom);
+    mapRef.current.setCenter([mapCenter[1], mapCenter[0]]);
+    updateLocationMarker();
+  }, [mapCenter, mapZoom, updateLocationMarker]);
 
   const handleBlockProduct = async () => {
     if (!product || !admin) {
@@ -673,23 +753,13 @@ export default function ProductDetail() {
                 <span>Location Map</span>
               </div>
               <div className="h-56 rounded-lg overflow-hidden border border-border">
-                <MapContainer
-                  center={mapCenter}
-                  zoom={mapZoom}
-                  style={{ height: '100%', width: '100%' }}
-                  className="z-0"
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                  />
-                  {hasCoordinates && (
-                    <Marker position={[product.locationLat as number, product.locationLng as number]} icon={productLocationIcon} />
-                  )}
-                  {!hasCoordinates && universityLocation && (
-                    <Marker position={[universityLocation.lat, universityLocation.lng]} icon={productLocationIcon} />
-                  )}
-                </MapContainer>
+                {AMAP_JS_KEY && AMAP_SECURITY_CODE ? (
+                  <div ref={mapContainerRef} className="h-full w-full" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    Missing AMap keys.
+                  </div>
+                )}
               </div>
             </div>
           </div>

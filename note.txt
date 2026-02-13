@@ -1,0 +1,5 @@
+to update the domain conected to the Amap Api :
+    .go to the C:\Windows\System32\drivers\etc\hosts
+    .update the last line 
+    . copy the  address 
+    . update the domain list in the Amap platform 

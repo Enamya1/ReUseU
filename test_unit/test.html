@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AMap Pointer + Address Suggestions</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 400px;
+      margin-top: 10px;
+    }
+    select, button {
+      padding: 6px;
+      margin-right: 5px;
+    }
+    #suggestions {
+      margin-top: 10px;
+      background: #f9f9f9;
+      border: 1px solid #ccc;
+      max-width: 600px;
+    }
+    .item {
+      padding: 6px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+    }
+    .item:hover {
+      background: #e6f7ff;
+    }
+  </style>
+</head>
+<body>
+
+<h3>AMap Pointer → Address Suggestions</h3>
+
+<button id="pointerBtn" onclick="enablePointerMode()">Set Pointer</button>
+
+<select id="styleSelect" onchange="changeStyle()">
+  <option value="normal">Normal</option>
+  <option value="dark">Dark</option>
+  <option value="light">Light</option>
+  <option value="fresh">Fresh</option>
+  <option value="grey">Grey</option>
+  <option value="macaron">Macaron</option>
+  <option value="blue">Blue</option>
+</select>
+
+<div id="map"></div>
+<div id="suggestions"></div>
+
+<script>
+  /* =====================
+     🔑 CONFIG (EDIT HERE)
+     ===================== */
+  const AMAP_JS_KEY = "e00b7655186023fba1274ba1d9528369";
+  const AMAP_SECURITY_CODE = "1ecb3c08792aa9ec7b6732480b6a7a10";
+  const DEFAULT_CENTER = [116.397428, 39.90923];
+  const DEFAULT_ZOOM = 15;
+</script>
+
+<!-- REQUIRED SECURITY CONFIG -->
+<script>
+  window._AMapSecurityConfig = {
+    securityJsCode: AMAP_SECURITY_CODE
+  };
+</script>
+
+<!-- Load AMap -->
+<script src="https://webapi.amap.com/maps?v=2.0&key=e00b7655186023fba1274ba1d9528369&plugin=AMap.Geocoder"></script>
+
+<script>
+  const map = new AMap.Map('map', {
+    zoom: DEFAULT_ZOOM,
+    center: DEFAULT_CENTER,
+    mapStyle: 'amap://styles/normal'
+  });
+
+  const geocoder = new AMap.Geocoder({
+    radius: 1000,
+    extensions: 'all'
+  });
+
+  let pointerMode = false;
+  let marker = null;
+
+  function changeStyle() {
+    const style = document.getElementById('styleSelect').value;
+    map.setMapStyle('amap://styles/' + style);
+  }
+
+  function enablePointerMode() {
+    pointerMode = true;
+    document.getElementById('pointerBtn').innerText = 'Click on Map...';
+  }
+
+  map.on('click', function (e) {
+    if (!pointerMode) return;
+
+    const lnglat = e.lnglat;
+
+    if (!marker) {
+      marker = new AMap.Marker({ map });
+    }
+    marker.setPosition(lnglat);
+
+    reverseGeocode(lnglat);
+
+    pointerMode = false;
+    document.getElementById('pointerBtn').innerText = 'Set Pointer';
+  });
+
+  function reverseGeocode(lnglat) {
+    geocoder.getAddress(lnglat, function (status, result) {
+      if (status !== 'complete' || !result.regeocode) {
+        console.error('❌ Reverse geocode failed');
+        return;
+      }
+
+      const container = document.getElementById('suggestions');
+      container.innerHTML = '';
+
+      // Main formatted address
+      addItem(result.regeocode.formattedAddress, lnglat);
+
+      // Nearby POIs (universities, buildings, etc.)
+      result.regeocode.pois.forEach(poi => {
+        if (poi.location) {
+          addItem(
+            poi.name + ' · ' + (poi.address || ''),
+            poi.location
+          );
+        }
+      });
+    });
+  }
+
+  function addItem(text, location) {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerText = text;
+
+    div.onclick = () => {
+      marker.setPosition(location);
+      map.setCenter(location);
+
+      console.clear();
+      console.log('✅ Final Location Selected');
+      console.log('Longitude:', location.lng);
+      console.log('Latitude:', location.lat);
+    };
+
+    document.getElementById('suggestions').appendChild(div);
+  }
+</script>
+
+</body>
+</html>
