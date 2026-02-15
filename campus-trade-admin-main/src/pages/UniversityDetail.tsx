@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { universities } from '@/lib/dummyData';
@@ -8,7 +8,38 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/ui/stat-card';
-import { ArrowLeft, Building2, Globe, GraduationCap, Image, Mail, MapPin, Phone, ShoppingBag, Star, Users } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronLeft, ChevronRight, Globe, GraduationCap, Mail, MapPin, Phone, ShoppingBag, Users } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import AMapLoader from '@amap/amap-jsapi-loader';
+import { toast } from 'sonner';
+const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
+const AMAP_SECURITY_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE ?? '';
+const defaultCenter: [number, number] = [104.1954, 35.8617];
+
+type AMapMap = {
+  setCenter: (center: [number, number]) => void;
+  setZoom: (zoom: number) => void;
+  on: (event: 'click', handler: (event: { lnglat: { lng: number; lat: number } }) => void) => void;
+  resize: () => void;
+  destroy?: () => void;
+};
+
+type AMapMarker = {
+  setPosition: (position: [number, number]) => void;
+  setMap: (map: AMapMap | null) => void;
+};
+
+type AMapGeocoder = {
+  getAddress: (lnglat: [number, number], callback: (status: string, result: { regeocode?: { formattedAddress?: string; pois?: Array<{ name?: string; address?: string; location?: { lng: number; lat: number } | [number, number] }> } }) => void) => void;
+};
+
+type AMapNamespace = {
+  Map: new (container: HTMLDivElement, options: { zoom: number; center: [number, number]; mapStyle?: string }) => AMapMap;
+  Marker: new (options: { position: [number, number]; map: AMapMap }) => AMapMarker;
+  Geocoder: new (options: { radius: number; extensions: string }) => AMapGeocoder;
+};
 
 type UniversityProfile = {
   id: string;
@@ -42,8 +73,8 @@ type UniversityAdmin = {
 type UniversityListing = {
   id: string;
   title: string;
-  price: string;
-  status: 'active' | 'pending' | 'sold';
+  price?: string;
+  status?: 'active' | 'pending' | 'sold';
   seller: string;
   createdAt: string;
 };
@@ -51,6 +82,7 @@ type UniversityListing = {
 export default function UniversityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { admin } = useAuth();
   const baseUniversity = universities.find((item) => item.id === id);
   const [profile, setProfile] = useState<UniversityProfile>({
     id: id ?? 'new-university',
@@ -68,12 +100,44 @@ export default function UniversityDetail() {
     status: 'active',
   });
 
-  const mediaItems: UniversityMedia[] = [
-    { id: 'media-1', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80', label: 'Main campus' },
-    { id: 'media-2', url: 'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&w=900&q=80', label: 'Student center' },
-    { id: 'media-3', url: 'https://images.unsplash.com/photo-1462536943532-57a629f6cc60?auto=format&fit=crop&w=900&q=80', label: 'Library hub' },
-    { id: 'media-4', url: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80', label: 'Dormitory row' },
-  ];
+  const [mediaItems, setMediaItems] = useState<UniversityMedia[]>([
+    { id: 'media-1', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80', label: 'Campus' },
+    { id: 'media-2', url: 'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&w=900&q=80', label: 'Campus' },
+    { id: 'media-3', url: 'https://images.unsplash.com/photo-1462536943532-57a629f6cc60?auto=format&fit=crop&w=900&q=80', label: 'Campus' },
+    { id: 'media-4', url: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80', label: 'Campus' },
+  ]);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const mediaCount = mediaItems.length;
+
+  useEffect(() => {
+    if (mediaCount === 0) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setActiveMediaIndex((prev) => (prev + 1) % mediaCount);
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [mediaCount]);
+
+  const handlePrevMedia = () => {
+    if (mediaCount === 0) {
+      return;
+    }
+
+    setActiveMediaIndex((prev) => (prev - 1 + mediaCount) % mediaCount);
+  };
+
+  const handleNextMedia = () => {
+    if (mediaCount === 0) {
+      return;
+    }
+
+    setActiveMediaIndex((prev) => (prev + 1) % mediaCount);
+  };
 
   const admins: UniversityAdmin[] = [
     { id: 'admin-1', name: 'Maya Chen', role: 'Super Admin', email: 'maya.chen@svu.edu', status: 'active' },
@@ -81,11 +145,270 @@ export default function UniversityDetail() {
     { id: 'admin-3', name: 'Lina Patel', role: 'Safety Moderator', email: 'lina.patel@svu.edu', status: 'pending' },
   ];
 
-  const listings: UniversityListing[] = [
-    { id: 'list-1', title: 'Engineering Textbooks Bundle', price: '$85', status: 'active', seller: 'A. Kim', createdAt: '2026-02-10' },
-    { id: 'list-2', title: 'Dorm Mini Fridge', price: '$65', status: 'pending', seller: 'J. Park', createdAt: '2026-02-11' },
-    { id: 'list-3', title: 'Studio Headphones', price: '$120', status: 'sold', seller: 'R. Gomez', createdAt: '2026-02-08' },
-  ];
+  const [listings, setListings] = useState<UniversityListing[]>([
+    { id: 'list-1', title: 'Engineering Textbooks Bundle', seller: 'A. Kim', createdAt: '2026-02-10' },
+    { id: 'list-2', title: 'Dorm Mini Fridge', seller: 'J. Park', createdAt: '2026-02-11' },
+    { id: 'list-3', title: 'Studio Headphones', seller: 'R. Gomez', createdAt: '2026-02-08' },
+  ]);
+  const [usersCount, setUsersCount] = useState<number>(0);
+  const [dormitoriesCount, setDormitoriesCount] = useState<number>(0);
+  const [listingsTotal, setListingsTotal] = useState<number>(0);
+  const [categoriesTotal, setCategoriesTotal] = useState<number>(0);
+  const [categoryChartData, setCategoryChartData] = useState<{ name: string; count: number }[]>([
+    { name: 'Electronics', count: 42 },
+    { name: 'Books', count: 28 },
+    { name: 'Dorm', count: 18 },
+    { name: 'Apparel', count: 24 },
+    { name: 'Sports', count: 12 },
+  ]);
+  const [averageOrderValue, setAverageOrderValue] = useState<number>(0);
+  const [averageDailyUploads, setAverageDailyUploads] = useState<number>(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<
+    { text: string; location: { lat: number; lng: number } }[]
+  >([]);
+  const [suggestionsPage, setSuggestionsPage] = useState(1);
+  const SUGGESTIONS_PER_PAGE = 6;
+  const [selectedPosition, setSelectedPosition] = useState<[number, number] | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<AMapMap | null>(null);
+  const markerRef = useRef<AMapMarker | null>(null);
+  const geocoderRef = useRef<AMapGeocoder | null>(null);
+  const amapRef = useRef<AMapNamespace | null>(null);
+
+  useEffect(() => {
+    if (!admin || !id) {
+      return;
+    }
+    let ignore = false;
+    const fetchUniversity = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/universities/${id}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `${admin.tokenType} ${admin.token}`,
+            Accept: 'application/json',
+          },
+        });
+        const data: {
+          message?: string;
+          university?: {
+            id: number | string;
+            name?: string | null;
+            domain?: string | null;
+            website?: string | null;
+            latitude?: number | null;
+            longitude?: number | null;
+            address?: string | null;
+            pic?: string[] | null;
+            contact_email?: string | null;
+            contact_phone?: string | null;
+            description?: string | null;
+            created_at?: string | null;
+            dormitories_count?: number | string | null;
+            users_count?: number | string | null;
+            listings_total?: number | string | null;
+            recent_listings?: Array<{ id: number | string; title?: string | null; seller_name?: string | null; date?: string | null }>;
+            categories_total?: number | string | null;
+            categories?: Array<{ id: number | string; name?: string | null; product_count?: number | string | null }>;
+            average_order_value?: number | string | null;
+            average_daily_uploads?: number | string | null;
+          };
+        } | undefined = await response.json().catch(() => undefined);
+        if (!response.ok || !data?.university) {
+          return;
+        }
+        const uni = data.university;
+        if (!ignore) {
+          setProfile((prev) => ({
+            ...prev,
+            id: String(uni.id ?? prev.id),
+            name: uni.name?.trim() || prev.name,
+            domain: uni.domain?.trim() || prev.domain,
+            address: uni.address?.trim() || prev.address,
+            latitude: typeof uni.latitude === 'number' ? uni.latitude.toFixed(6) : prev.latitude,
+            longitude: typeof uni.longitude === 'number' ? uni.longitude.toFixed(6) : prev.longitude,
+            website: typeof uni.website === 'string' && uni.website?.trim() ? uni.website.trim() : prev.website,
+            contactEmail: uni.contact_email?.trim() || prev.contactEmail,
+            contactPhone: uni.contact_phone?.trim() || prev.contactPhone,
+            description: uni.description?.trim() || prev.description,
+            createdAt:
+              typeof uni.created_at === 'string' && uni.created_at ? uni.created_at : prev.createdAt,
+            status: prev.status,
+          }));
+          const pics = Array.isArray(uni.pic) ? uni.pic.filter((u) => typeof u === 'string' && u.trim().length > 0) : [];
+          if (pics.length > 0) {
+            setMediaItems(pics.map((url, idx) => ({ id: `api-pic-${idx}`, url, label: 'Campus' })));
+            setActiveMediaIndex(0);
+          }
+          setUsersCount(Number(uni.users_count ?? 0) || 0);
+          setDormitoriesCount(Number(uni.dormitories_count ?? 0) || 0);
+          setListingsTotal(Number(uni.listings_total ?? 0) || 0);
+          const recent = Array.isArray(uni.recent_listings) ? uni.recent_listings : [];
+          setListings(
+            recent.map((item) => ({
+              id: String(item.id),
+              title: item.title ?? 'Untitled',
+              seller: item.seller_name ?? 'N/A',
+              createdAt: item.date ?? '',
+            })),
+          );
+          const categories = Array.isArray(uni.categories) ? uni.categories : [];
+          const mappedCategories =
+            categories.length > 0
+              ? categories
+                  .filter((c) => typeof c?.name === 'string' && c.name?.trim())
+                  .map((c) => ({
+                    name: c.name!.trim(),
+                    count: Number(c.product_count ?? 0) || 0,
+                  }))
+              : null;
+          if (mappedCategories) {
+            setCategoryChartData(mappedCategories);
+          }
+          setCategoriesTotal(Number(uni.categories_total ?? mappedCategories?.length ?? 0) || 0);
+          setAverageOrderValue(Number(uni.average_order_value ?? 0) || 0);
+          setAverageDailyUploads(Number(uni.average_daily_uploads ?? 0) || 0);
+        }
+      } catch {
+        // silently ignore; keep fallback UI
+      }
+    };
+    fetchUniversity();
+    return () => {
+      ignore = true;
+    };
+  }, [admin, id]);
+
+  useEffect(() => {
+    if (!isLocationPickerOpen) {
+      return;
+    }
+    const lat = Number(profile.latitude);
+    const lng = Number(profile.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setSelectedPosition([lat, lng]);
+    } else {
+      setSelectedPosition(null);
+    }
+    setSelectedAddress(null);
+    setSuggestionsPage(1);
+  }, [isLocationPickerOpen, profile.latitude, profile.longitude]);
+
+  useEffect(() => {
+    if (!isLocationPickerOpen || !mapContainerRef.current || !AMAP_JS_KEY || !AMAP_SECURITY_CODE) {
+      return;
+    }
+    const amapWindow = window as Window & { _AMapSecurityConfig?: { securityJsCode: string } };
+    amapWindow._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_CODE };
+    let cancelled = false;
+    AMapLoader.load({ key: AMAP_JS_KEY, version: '2.0', plugins: ['AMap.Geocoder'] })
+      .then((AMap: AMapNamespace) => {
+        if (cancelled || !mapContainerRef.current) {
+          return;
+        }
+        amapRef.current = AMap;
+        if (!mapRef.current) {
+          const center: [number, number] = selectedPosition
+            ? [selectedPosition[1], selectedPosition[0]]
+            : defaultCenter;
+          mapRef.current = new AMap.Map(mapContainerRef.current, {
+            zoom: selectedPosition ? 12 : 4,
+            center,
+            mapStyle: 'amap://styles/dark',
+          });
+          geocoderRef.current = new AMap.Geocoder({ radius: 1000, extensions: 'all' });
+          mapRef.current.on('click', (event) => {
+            const { lng, lat } = event.lnglat;
+            setSelectedPosition([lat, lng]);
+            setSelectedAddress(null);
+            if (geocoderRef.current) {
+              geocoderRef.current.getAddress([lng, lat], (status, result) => {
+                if (status !== 'complete' || !result?.regeocode) {
+                  setAddressSuggestions([]);
+                  return;
+                }
+                const suggestions: { text: string; location: { lat: number; lng: number } }[] = [];
+                const formatted = result.regeocode.formattedAddress;
+                if (formatted) {
+                  suggestions.push({ text: formatted, location: { lat, lng } });
+                  setSelectedAddress(formatted);
+                }
+                const pois = result.regeocode.pois ?? [];
+                pois.forEach((poi) => {
+                  const loc = poi.location;
+                  if (!loc) {
+                    return;
+                  }
+                  const coords = Array.isArray(loc) ? { lng: loc[0], lat: loc[1] } : { lng: loc.lng, lat: loc.lat };
+                  if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
+                    return;
+                  }
+                  const poiText = `${poi.name ?? ''}${poi.address ? ` · ${poi.address}` : ''}`.trim();
+                  suggestions.push({
+                    text: poiText || 'Unknown location',
+                    location: { lat: coords.lat, lng: coords.lng },
+                  });
+                });
+                setAddressSuggestions(suggestions);
+              });
+            }
+          });
+        } else {
+          mapRef.current.resize();
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (mapRef.current?.destroy) {
+        mapRef.current.destroy();
+      }
+      mapRef.current = null;
+      markerRef.current = null;
+      geocoderRef.current = null;
+      amapRef.current = null;
+    };
+  }, [isLocationPickerOpen, selectedPosition]);
+
+  const totalSuggestionPages = useMemo(
+    () => Math.max(1, Math.ceil(addressSuggestions.length / SUGGESTIONS_PER_PAGE)),
+    [addressSuggestions.length],
+  );
+  const pagedSuggestions = useMemo(
+    () =>
+      addressSuggestions.slice(
+        (suggestionsPage - 1) * SUGGESTIONS_PER_PAGE,
+        suggestionsPage * SUGGESTIONS_PER_PAGE,
+      ),
+    [addressSuggestions, suggestionsPage],
+  );
+
+  useEffect(() => {
+    if (!isLocationPickerOpen || !mapRef.current || !amapRef.current) {
+      return;
+    }
+    const position: [number, number] | null = selectedPosition ? [selectedPosition[1], selectedPosition[0]] : null;
+    if (position) {
+      mapRef.current.setCenter(position);
+      mapRef.current.setZoom(13);
+      if (!markerRef.current) {
+        markerRef.current = new amapRef.current.Marker({ position, map: mapRef.current });
+      } else {
+        markerRef.current.setPosition(position);
+        markerRef.current.setMap(mapRef.current);
+      }
+    } else {
+      mapRef.current.setCenter(defaultCenter);
+      mapRef.current.setZoom(4);
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+        markerRef.current = null;
+      }
+    }
+  }, [isLocationPickerOpen, selectedPosition]);
 
   return (
     <DashboardLayout>
@@ -109,17 +432,215 @@ export default function UniversityDetail() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline">Preview Listing</Button>
-            <Button variant="outline">Disable University</Button>
-            <Button>Save Changes</Button>
+            <Button
+              onClick={async () => {
+                if (!admin || !id) {
+                  return;
+                }
+                const name = profile.name.trim();
+                const domain = profile.domain.trim();
+                const website = profile.website.trim();
+                const contact_email = profile.contactEmail.trim();
+                const contact_phone = profile.contactPhone.trim();
+                const description = profile.description.trim();
+                const address = selectedAddress?.trim() || profile.address.trim() || null;
+                const latFromPicker = selectedPosition ? selectedPosition[0] : null;
+                const lngFromPicker = selectedPosition ? selectedPosition[1] : null;
+                const latParsed = profile.latitude.trim()
+                  ? Number(profile.latitude.trim())
+                  : null;
+                const lngParsed = profile.longitude.trim()
+                  ? Number(profile.longitude.trim())
+                  : null;
+                const latitude =
+                  latFromPicker !== null
+                    ? latFromPicker
+                    : latParsed !== null && Number.isFinite(latParsed)
+                    ? latParsed
+                    : null;
+                const longitude =
+                  lngFromPicker !== null
+                    ? lngFromPicker
+                    : lngParsed !== null && Number.isFinite(lngParsed)
+                    ? lngParsed
+                    : null;
+                if (latitude !== null && (latitude < -90 || latitude > 90)) {
+                  toast.error('Latitude must be between -90 and 90');
+                  return;
+                }
+                if (longitude !== null && (longitude < -180 || longitude > 180)) {
+                  toast.error('Longitude must be between -180 and 180');
+                  return;
+                }
+                const picCandidates = mediaItems
+                  .filter((m) => typeof m.url === 'string' && m.url.trim().length > 0 && m.id.startsWith('api-pic-'))
+                  .map((m) => m.url.trim());
+                const body = {
+                  name: name || undefined,
+                  domain: domain || undefined,
+                  website: website ? website : null,
+                  latitude,
+                  longitude,
+                  address,
+                  pic: picCandidates.length > 0 ? picCandidates : null,
+                  contact_email: contact_email ? contact_email : null,
+                  contact_phone: contact_phone ? contact_phone : null,
+                  description: description ? description : null,
+                };
+                setIsSaving(true);
+                try {
+                  const response = await fetch(`${API_BASE_URL}/api/admin/universities/${id}`, {
+                    method: 'PATCH',
+                    headers: {
+                      Authorization: `${admin.tokenType} ${admin.token}`,
+                      Accept: 'application/json',
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body),
+                  });
+                  const data: {
+                    message?: string;
+                    university?: {
+                      id?: number | string;
+                      name?: string | null;
+                      domain?: string | null;
+                      website?: string | null;
+                      latitude?: number | null;
+                      longitude?: number | null;
+                      address?: string | null;
+                      pic?: string[] | null;
+                      contact_email?: string | null;
+                      contact_phone?: string | null;
+                      description?: string | null;
+                      created_at?: string | null;
+                      dormitories_count?: number | string | null;
+                      users_count?: number | string | null;
+                      listings_total?: number | string | null;
+                      categories_total?: number | string | null;
+                      average_order_value?: number | string | null;
+                      average_daily_uploads?: number | string | null;
+                    };
+                    errors?: Record<string, unknown>;
+                  } | undefined = await response.json().catch(() => undefined);
+                  if (!response.ok || !data?.university) {
+                    if (response.status === 422 && data?.errors) {
+                      const messages = Object.values(data.errors)
+                        .flat()
+                        .filter((v) => typeof v === 'string') as string[];
+                      if (messages.length > 0) {
+                        toast.error(messages.join(', '));
+                        return;
+                      }
+                    }
+                    const message =
+                      data && typeof data.message === 'string'
+                        ? data.message
+                        : response.status === 403
+                        ? 'Unauthorized: Only administrators can access this endpoint.'
+                        : response.status === 404
+                        ? 'University not found.'
+                        : 'Failed to update university';
+                    toast.error(message);
+                    return;
+                  }
+                  const uni = data.university;
+                  setProfile((prev) => ({
+                    ...prev,
+                    name: uni.name?.trim() || prev.name,
+                    domain: uni.domain?.trim() || prev.domain,
+                    address: uni.address?.trim() || prev.address,
+                    latitude:
+                      typeof uni.latitude === 'number'
+                        ? uni.latitude.toFixed(6)
+                        : prev.latitude,
+                    longitude:
+                      typeof uni.longitude === 'number'
+                        ? uni.longitude.toFixed(6)
+                        : prev.longitude,
+                    website:
+                      typeof uni.website === 'string' && uni.website?.trim()
+                        ? uni.website.trim()
+                        : prev.website,
+                    contactEmail: uni.contact_email?.trim() || prev.contactEmail,
+                    contactPhone: uni.contact_phone?.trim() || prev.contactPhone,
+                    description: uni.description?.trim() || prev.description,
+                    createdAt:
+                      typeof uni.created_at === 'string' && uni.created_at
+                        ? uni.created_at
+                        : prev.createdAt,
+                  }));
+                  const pics = Array.isArray(uni.pic)
+                    ? uni.pic.filter((u) => typeof u === 'string' && u.trim().length > 0)
+                    : [];
+                  if (pics.length > 0) {
+                    setMediaItems(pics.map((url, idx) => ({ id: `api-pic-${idx}`, url, label: 'Campus' })));
+                    setActiveMediaIndex(0);
+                  }
+                  setUsersCount(Number(uni.users_count ?? usersCount) || usersCount);
+                  setDormitoriesCount(Number(uni.dormitories_count ?? dormitoriesCount) || dormitoriesCount);
+                  setListingsTotal(Number(uni.listings_total ?? listingsTotal) || listingsTotal);
+                  setCategoriesTotal(Number(uni.categories_total ?? categoriesTotal) || categoriesTotal);
+                  setAverageOrderValue(Number(uni.average_order_value ?? averageOrderValue) || averageOrderValue);
+                  setAverageDailyUploads(Number(uni.average_daily_uploads ?? averageDailyUploads) || averageDailyUploads);
+                  toast.success('University updated successfully');
+                } catch {
+                  toast.error('Failed to update university');
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              disabled={isSaving}
+              className="gradient-primary text-primary-foreground"
+            >
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Active Users" value="1,248" icon={<Users className="w-6 h-6" />} />
-          <StatCard title="Live Listings" value="326" icon={<ShoppingBag className="w-6 h-6" />} />
-          <StatCard title="Dormitories" value="18" icon={<Building2 className="w-6 h-6" />} />
-          <StatCard title="Trust Score" value="4.8" icon={<Star className="w-6 h-6" />} />
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="relative h-56 w-full sm:h-64 lg:h-72">
+            <div
+              className="flex h-full transition-transform duration-700 ease-in-out"
+              style={{ transform: `translateX(-${activeMediaIndex * 100}%)` }}
+            >
+              {mediaItems.map((item) => (
+                <div key={item.id} className="h-full w-full shrink-0">
+                  <img src={item.url} alt={item.label} className="h-full w-full object-cover" />
+                </div>
+              ))}
+            </div>
+            <div className="absolute inset-x-0 bottom-4 flex items-center justify-between px-4">
+              <Button variant="secondary" size="icon" onClick={handlePrevMedia}>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <Button variant="secondary" size="icon" onClick={handleNextMedia}>
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+            <span>{mediaItems[activeMediaIndex]?.label ?? 'Campus'}</span>
+            <span>
+              {activeMediaIndex + 1} / {mediaCount}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard
+            title="Active Users"
+            value={usersCount.toLocaleString()}
+            icon={<Users className="w-6 h-6" />}
+            onClick={() => {
+              if (usersCount === 0) {
+                toast.info('This university has no users at the moment');
+                return;
+              }
+              navigate(`/users?university=${encodeURIComponent(profile.name)}`);
+            }}
+          />
+          <StatCard title="Live Listings" value={listingsTotal.toLocaleString()} icon={<ShoppingBag className="w-6 h-6" />} />
+          <StatCard title="Dormitories" value={dormitoriesCount.toLocaleString()} icon={<Building2 className="w-6 h-6" />} />
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
@@ -154,21 +675,6 @@ export default function UniversityDetail() {
             </div>
 
             <div className="bg-card rounded-xl border border-border p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Image className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">Campus Media</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {mediaItems.map((item) => (
-                  <div key={item.id} className="overflow-hidden rounded-lg border border-border">
-                    <img src={item.url} alt={item.label} className="h-40 w-full object-cover" />
-                    <div className="px-3 py-2 text-xs text-muted-foreground">{item.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl border border-border p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Recent Listings</h3>
               <div className="space-y-3">
                 {listings.map((listing) => (
@@ -179,22 +685,51 @@ export default function UniversityDetail() {
                         {listing.seller} · {listing.createdAt}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-foreground">{listing.price}</span>
-                      <Badge
-                        variant={
-                          listing.status === 'active'
-                            ? 'default'
-                            : listing.status === 'pending'
-                            ? 'secondary'
-                            : 'outline'
-                        }
-                      >
-                        {listing.status}
-                      </Badge>
-                    </div>
+                    {listing.price || listing.status ? (
+                      <div className="flex items-center gap-3">
+                        {listing.price ? <span className="text-sm text-foreground">{listing.price}</span> : null}
+                        {listing.status ? (
+                          <Badge
+                            variant={
+                              listing.status === 'active'
+                                ? 'default'
+                                : listing.status === 'pending'
+                                ? 'secondary'
+                                : 'outline'
+                            }
+                          >
+                            {listing.status}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Category Uploads</h3>
+                <span className="text-xs text-muted-foreground">Listings by category</span>
+              </div>
+              <div className="h-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={categoryChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
+                    <XAxis dataKey="name" stroke="hsl(215 20% 55%)" fontSize={12} />
+                    <YAxis stroke="hsl(215 20% 55%)" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(222 47% 8%)',
+                        border: '1px solid hsl(222 30% 18%)',
+                        borderRadius: '8px',
+                        color: 'hsl(210 40% 98%)',
+                      }}
+                    />
+                    <Bar dataKey="count" fill="hsl(174 72% 50%)" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
@@ -230,25 +765,118 @@ export default function UniversityDetail() {
                     className="bg-secondary/50"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="university-lat">Latitude</Label>
-                    <Input
-                      id="university-lat"
-                      value={profile.latitude}
-                      onChange={(event) => setProfile((prev) => ({ ...prev, latitude: event.target.value }))}
-                      className="bg-secondary/50"
-                    />
+                <div className="space-y-2">
+                  <Label>Location</Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={
+                        selectedPosition
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-muted-foreground/40 text-muted-foreground'
+                      }
+                      onClick={() => setIsLocationPickerOpen((prev) => !prev)}
+                    >
+                      {isLocationPickerOpen ? 'Close Location Picker' : 'Update Location'}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {selectedAddress && selectedAddress.trim().length > 0
+                        ? selectedAddress
+                        : 'No address selected'}
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="university-lng">Longitude</Label>
-                    <Input
-                      id="university-lng"
-                      value={profile.longitude}
-                      onChange={(event) => setProfile((prev) => ({ ...prev, longitude: event.target.value }))}
-                      className="bg-secondary/50"
-                    />
-                  </div>
+                  {isLocationPickerOpen && (
+                    <div className="space-y-3">
+                      <div className="h-[320px] rounded-lg overflow-hidden border border-border">
+                        {AMAP_JS_KEY && AMAP_SECURITY_CODE ? (
+                          <div ref={mapContainerRef} className="h-full w-full" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                            Missing AMap keys.
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                        <p className="text-xs font-medium text-foreground">Suggested address</p>
+                        {addressSuggestions.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            {selectedPosition
+                              ? 'No address suggestions found for this location.'
+                              : 'Click on the map to generate address suggestions.'}
+                          </p>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            {pagedSuggestions.map((item, index) => (
+                              <button
+                                key={`${item.text}-${(suggestionsPage - 1) * SUGGESTIONS_PER_PAGE + index}`}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAddress(item.text);
+                                  setSelectedPosition([item.location.lat, item.location.lng]);
+                                }}
+                                className={
+                                  selectedAddress === item.text
+                                    ? 'w-full rounded-md border border-primary bg-primary/10 px-3 py-2 text-left text-xs text-foreground'
+                                    : 'w-full rounded-md border border-border bg-background/40 px-3 py-2 text-left text-xs text-muted-foreground'
+                                }
+                              >
+                                {item.text}
+                              </button>
+                            ))}
+                            {totalSuggestionPages > 1 && (
+                              <div className="flex items-center justify-between pt-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  disabled={suggestionsPage <= 1}
+                                  onClick={() => setSuggestionsPage((p) => Math.max(1, p - 1))}
+                                >
+                                  Previous
+                                </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  Page {suggestionsPage} of {totalSuggestionPages}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  disabled={suggestionsPage >= totalSuggestionPages}
+                                  onClick={() =>
+                                    setSuggestionsPage((p) => Math.min(totalSuggestionPages, p + 1))
+                                  }
+                                >
+                                  Next
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {selectedPosition && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Selected coordinates: {selectedPosition[0].toFixed(5)}, {selectedPosition[1].toFixed(5)}
+                          </p>
+                        )}
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              const lat = selectedPosition ? selectedPosition[0] : null;
+                              const lng = selectedPosition ? selectedPosition[1] : null;
+                              console.log({
+                                address: selectedAddress ?? null,
+                                latitude: lat,
+                                longitude: lng,
+                              });
+                              setIsLocationPickerOpen(false);
+                            }}
+                            className="gradient-primary text-primary-foreground"
+                          >
+                            Confirm
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="university-website">Website</Label>
@@ -328,11 +956,11 @@ export default function UniversityDetail() {
               <div className="space-y-3 text-sm text-muted-foreground">
                 <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-4 py-3">
                   <span>Average order value</span>
-                  <span className="text-foreground">$42.80</span>
+                  <span className="text-foreground">${averageOrderValue.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-4 py-3">
-                  <span>Dispute resolution</span>
-                  <span className="text-foreground">98% in 24h</span>
+                  <span>Average daily uploads</span>
+                  <span className="text-foreground">{averageDailyUploads.toFixed(1)} per day</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-4 py-3">
                   <span>Top category</span>

@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { University } from '@/lib/dummyData';
-import { Plus, GraduationCap, MapPin, Users, Building2 } from 'lucide-react';
+import { Plus, GraduationCap, MapPin, Users, Building2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import AMapLoader from '@amap/amap-jsapi-loader';
@@ -24,7 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
 const AMAP_SECURITY_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE ?? '';
-const defaultCenter: [number, number] = [-98.5795, 39.8283];
+const defaultCenter: [number, number] = [104.1954, 35.8617];
 
 type ApiUniversity = {
   id: number | string;
@@ -158,6 +158,7 @@ export default function Universities() {
   const { admin } = useAuth();
   const navigate = useNavigate();
   const [universities, setUniversities] = useState<University[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -177,7 +178,7 @@ export default function Universities() {
   const [newUniversity, setNewUniversity] = useState({
     name: '',
     domain: '',
-    imageUrl: '',
+    imageUrls: [''],
     latitude: '',
     longitude: '',
   });
@@ -377,6 +378,14 @@ export default function Universities() {
     };
   }, [admin, currentPage]);
 
+  const filteredUniversities = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      return universities;
+    }
+    return universities.filter((u) => u.name.toLowerCase().includes(q));
+  }, [searchQuery, universities]);
+
   const columns = [
     {
       header: 'University',
@@ -454,7 +463,12 @@ export default function Universities() {
           latitude,
           longitude,
           address: selectedAddress?.trim() || null,
-          pic: newUniversity.imageUrl.trim() || null,
+          pic: (() => {
+            const urls = (newUniversity.imageUrls ?? [])
+              .map((u) => u.trim())
+              .filter((u) => u.length > 0);
+            return urls.length > 0 ? urls : null;
+          })(),
         }),
       });
       const data = await response.json().catch(() => undefined);
@@ -504,7 +518,7 @@ export default function Universities() {
       setNewUniversity({
         name: '',
         domain: '',
-        imageUrl: '',
+        imageUrls: [''],
         latitude: '',
         longitude: '',
       });
@@ -543,6 +557,16 @@ export default function Universities() {
             <h1 className="text-2xl font-bold text-foreground">Universities</h1>
             <p className="text-muted-foreground">Manage universities on the platform</p>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-secondary/50 w-56 pl-9"
+              />
+            </div>
           <Dialog
             open={isDialogOpen}
             onOpenChange={(open) => {
@@ -621,14 +645,30 @@ export default function Universities() {
                 {createStep === 2 && (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="imageUrl">Image URL</Label>
-                      <Input
-                        id="imageUrl"
-                        placeholder="https://example.com/university.jpg"
-                        value={newUniversity.imageUrl}
-                        onChange={(e) => setNewUniversity({ ...newUniversity, imageUrl: e.target.value })}
-                        className="bg-secondary/50"
-                      />
+                      <Label>Image URLs</Label>
+                      <div className="space-y-2">
+                        {newUniversity.imageUrls.map((value, index) => (
+                          <Input
+                            key={`image-url-${index}`}
+                            placeholder={`https://example.com/university-${index + 1}.jpg`}
+                            value={value}
+                            onChange={(e) => {
+                              const next = [...newUniversity.imageUrls];
+                              next[index] = e.target.value;
+                              const isLast = index === next.length - 1;
+                              const canGrow = next.length < 6;
+                              if (isLast && canGrow && e.target.value.trim().length > 0) {
+                                next.push('');
+                              }
+                              setNewUniversity({ ...newUniversity, imageUrls: next });
+                            }}
+                            className="bg-secondary/50"
+                          />
+                        ))}
+                        {newUniversity.imageUrls.length >= 6 && (
+                          <p className="text-xs text-muted-foreground">You reached the max images you can upload.</p>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="imageFile">Upload Image</Label>
@@ -752,6 +792,7 @@ export default function Universities() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Stats */}
@@ -816,7 +857,7 @@ export default function Universities() {
         ) : (
           <DataTable
             columns={columns}
-            data={universities}
+            data={filteredUniversities}
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={(page) => {

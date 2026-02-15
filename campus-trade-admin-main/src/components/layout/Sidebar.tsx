@@ -17,6 +17,10 @@ import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
+type SidebarProps = {
+  onCollapsedChange?: (collapsed: boolean) => void;
+};
+
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/universities', icon: GraduationCap, label: 'Universities' },
@@ -27,7 +31,7 @@ const navItems = [
   { path: '/chat', icon: MessageCircle, label: 'Chat' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onCollapsedChange }: SidebarProps) {
   const location = useLocation();
   const { admin, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
@@ -115,7 +119,11 @@ export function Sidebar() {
 
       {/* Collapse Toggle */}
       <button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={() => {
+          const next = !collapsed;
+          setCollapsed(next);
+          onCollapsedChange?.(next);
+        }}
         className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
       >
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}

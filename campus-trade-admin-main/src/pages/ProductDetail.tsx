@@ -342,12 +342,12 @@ export default function ProductDetail() {
   }, [universityLocation]);
   const mapCenter = useMemo<[number, number]>(() => {
     if (hasCoordinates) {
-      return [product?.locationLat ?? 39.8283, product?.locationLng ?? -98.5795];
+      return [product?.locationLat ?? 35.8617, product?.locationLng ?? 104.1954];
     }
     if (universityCoords) {
       return [universityCoords.lat, universityCoords.lng];
     }
-    return [39.8283, -98.5795];
+    return [35.8617, 104.1954];
   }, [hasCoordinates, product?.locationLat, product?.locationLng, universityCoords]);
   const mapZoom = hasCoordinates || universityLocation ? 12 : 3;
 

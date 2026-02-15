@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
@@ -12,6 +12,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { isAuthenticated, admin } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -19,10 +20,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
+      <Sidebar onCollapsedChange={setSidebarCollapsed} />
       
       {/* Main Content */}
-      <div className="ml-64 min-h-screen transition-all duration-300">
+      <div className={sidebarCollapsed ? "ml-16 min-h-screen transition-all duration-300" : "ml-64 min-h-screen transition-all duration-300"}>
         {/* Header */}
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center justify-between px-6">
           <div className="flex items-center gap-4 flex-1">

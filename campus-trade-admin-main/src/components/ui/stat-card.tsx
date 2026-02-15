@@ -9,14 +9,21 @@ interface StatCardProps {
   icon: ReactNode;
   trend?: 'up' | 'down';
   className?: string;
+  onClick?: () => void;
 }
 
-export function StatCard({ title, value, change, icon, trend, className }: StatCardProps) {
+export function StatCard({ title, value, change, icon, trend, className, onClick }: StatCardProps) {
   return (
-    <div className={cn(
-      "bg-card rounded-xl p-6 border border-border stat-card-shadow animate-fade-in",
-      className
-    )}>
+    <div
+      className={cn(
+        "bg-card rounded-xl p-6 border border-border stat-card-shadow animate-fade-in",
+        onClick ? "cursor-pointer hover:bg-secondary/40 transition-colors" : "",
+        className
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-muted-foreground mb-1">{title}</p>

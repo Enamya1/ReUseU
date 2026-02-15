@@ -6,7 +6,7 @@ import { MapPin } from 'lucide-react';
 
 const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
 const AMAP_SECURITY_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE ?? '';
-const defaultCenter: [number, number] = [-98.5795, 39.8283];
+const defaultCenter: [number, number] = [104.1954, 35.8617];
 
 type AMapMap = {
   destroy?: () => void;

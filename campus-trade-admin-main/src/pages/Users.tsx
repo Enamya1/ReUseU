@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
@@ -72,16 +72,26 @@ const buildUser = (user: ApiUser): User => ({
 
 export default function Users() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { admin } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [universityFilter, setUniversityFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [users, setUsers] = useState<User[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const uni = params.get('university');
+    if (uni && uni.trim().length > 0) {
+      setUniversityFilter(uni.trim());
+    }
+  }, [location.search]);
 
   useEffect(() => {
     let ignore = false;
@@ -141,6 +151,29 @@ export default function Users() {
     };
   }, [admin, currentPage]);
 
+  const universityOptions = useMemo(() => {
+    const uniqueNames = new Set<string>();
+    users.forEach((user) => {
+      const name = user.universityName?.trim();
+      if (name) {
+        uniqueNames.add(name);
+      }
+    });
+    return Array.from(uniqueNames).sort((a, b) => a.localeCompare(b));
+  }, [users]);
+
+  useEffect(() => {
+    if (universityFilter === 'all') {
+      return;
+    }
+    if (universityOptions.length === 0) {
+      return;
+    }
+    if (!universityOptions.includes(universityFilter)) {
+      setUniversityFilter('all');
+    }
+  }, [universityFilter, universityOptions]);
+
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const matchesSearch =
@@ -148,9 +181,10 @@ export default function Users() {
         user.email.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
       const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-      return matchesSearch && matchesStatus && matchesRole;
+      const matchesUniversity = universityFilter === 'all' || user.universityName === universityFilter;
+      return matchesSearch && matchesStatus && matchesRole && matchesUniversity;
     });
-  }, [users, search, statusFilter, roleFilter]);
+  }, [users, search, statusFilter, roleFilter, universityFilter]);
 
   const activeCount = filteredUsers.filter((user) => user.status === 'active').length;
   const inactiveCount = filteredUsers.filter((user) => user.status === 'inactive').length;
@@ -313,6 +347,19 @@ export default function Users() {
               <SelectItem value="admin">Admin</SelectItem>
               <SelectItem value="moderator">Moderator</SelectItem>
               <SelectItem value="user">User</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={universityFilter} onValueChange={setUniversityFilter}>
+            <SelectTrigger className="w-52 bg-card">
+              <SelectValue placeholder="University" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Universities</SelectItem>
+              {universityOptions.map((university) => (
+                <SelectItem key={university} value={university}>
+                  {university}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
