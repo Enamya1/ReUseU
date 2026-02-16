@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/ui/stat-card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ArrowLeft, Building2, ChevronLeft, ChevronRight, Globe, GraduationCap, Mail, MapPin, Phone, ShoppingBag, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -139,11 +141,7 @@ export default function UniversityDetail() {
     setActiveMediaIndex((prev) => (prev + 1) % mediaCount);
   };
 
-  const admins: UniversityAdmin[] = [
-    { id: 'admin-1', name: 'Maya Chen', role: 'Super Admin', email: 'maya.chen@svu.edu', status: 'active' },
-    { id: 'admin-2', name: 'Omar Ellis', role: 'Marketplace Lead', email: 'omar.ellis@svu.edu', status: 'active' },
-    { id: 'admin-3', name: 'Lina Patel', role: 'Safety Moderator', email: 'lina.patel@svu.edu', status: 'pending' },
-  ];
+  const [admins, setAdmins] = useState<UniversityAdmin[]>([]);
 
   const [listings, setListings] = useState<UniversityListing[]>([
     { id: 'list-1', title: 'Engineering Textbooks Bundle', seller: 'A. Kim', createdAt: '2026-02-10' },
@@ -164,6 +162,9 @@ export default function UniversityDetail() {
   const [averageOrderValue, setAverageOrderValue] = useState<number>(0);
   const [averageDailyUploads, setAverageDailyUploads] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteChoice, setDeleteChoice] = useState<string>('');
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<
@@ -177,6 +178,60 @@ export default function UniversityDetail() {
   const markerRef = useRef<AMapMarker | null>(null);
   const geocoderRef = useRef<AMapGeocoder | null>(null);
   const amapRef = useRef<AMapNamespace | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    const fetchAdmins = async () => {
+      if (!admin) {
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/admins`, {
+          method: 'GET',
+          headers: {
+            Authorization: `${admin.tokenType} ${admin.token}`,
+            Accept: 'application/json',
+          },
+        });
+        const data: {
+          message?: string;
+          admins?: Array<{ id: number | string; full_name?: string | null; email?: string | null; status?: string | null; role?: string | null }>;
+        } | undefined = await response.json().catch(() => undefined);
+        if (!response.ok || !data?.admins) {
+          const message =
+            data && typeof data.message === 'string'
+              ? data.message
+              : response.status === 403
+              ? 'Unauthorized: Only administrators can access this endpoint.'
+              : 'Failed to load admins';
+          toast.error(message);
+          return;
+        }
+        const mapped = data.admins.map((a, idx) => {
+          const statusText = String(a.status ?? '').toLowerCase();
+          const normalizedStatus: 'active' | 'pending' = statusText === 'active' ? 'active' : 'pending';
+          const name = (a.full_name ?? '').trim();
+          const email = (a.email ?? '').trim();
+          return {
+            id: String(a.id ?? idx),
+            name: name || email || 'Admin',
+            role: (a.role ?? 'admin').toString().toLowerCase() === 'admin' ? 'Admin' : 'Moderator',
+            email: email || 'N/A',
+            status: normalizedStatus,
+          } as UniversityAdmin;
+        });
+        if (!ignore) {
+          setAdmins(mapped);
+        }
+      } catch {
+        toast.error('Failed to load admins');
+      }
+    };
+    fetchAdmins();
+    return () => {
+      ignore = true;
+    };
+  }, [admin]);
 
   useEffect(() => {
     if (!admin || !id) {
@@ -432,6 +487,82 @@ export default function UniversityDetail() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <Button
+                variant="destructive"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete University'}
+              </Button>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete University</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <Label>Confirm action</Label>
+                  <RadioGroup value={deleteChoice} onValueChange={setDeleteChoice} className="gap-3">
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="confirm" id="delete-confirm" />
+                      <Label htmlFor="delete-confirm">Yes, delete this university</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      if (!admin || !id) {
+                        return;
+                      }
+                      if (deleteChoice !== 'confirm') {
+                        toast.error('Please confirm deletion');
+                        return;
+                      }
+                      setIsDeleting(true);
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/admin/universities/${id}`, {
+                          method: 'DELETE',
+                          headers: {
+                            Authorization: `${admin.tokenType} ${admin.token}`,
+                            Accept: 'application/json',
+                          },
+                        });
+                        const data: { message?: string; deleted_id?: number | string } | undefined = await response.json().catch(() => undefined);
+                        if (!response.ok) {
+                          const message =
+                            data && typeof data.message === 'string'
+                              ? data.message
+                              : response.status === 403
+                              ? 'Unauthorized: Only administrators can access this endpoint.'
+                              : response.status === 404
+                              ? 'University not found.'
+                              : response.status === 409
+                              ? 'Cannot delete university with existing dormitories.'
+                              : 'Failed to delete university';
+                          toast.error(message);
+                          return;
+                        }
+                        toast.success('University deleted successfully');
+                        setIsDeleteDialogOpen(false);
+                        navigate('/universities');
+                      } catch {
+                        toast.error('Failed to delete university');
+                      } finally {
+                        setIsDeleting(false);
+                        setDeleteChoice('');
+                      }
+                    }}
+                    disabled={isDeleting}
+                  >
+                    Delete
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Button
               onClick={async () => {
                 if (!admin || !id) {
