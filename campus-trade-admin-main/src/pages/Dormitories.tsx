@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,7 @@ type AMapNamespace = {
 };
 
 export default function Dormitories() {
+  const navigate = useNavigate();
   const { admin } = useAuth();
   const [dormitories, setDormitories] = useState<Dormitory[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -765,6 +767,7 @@ export default function Dormitories() {
             if (page < 1 || page > totalPages) return;
             setCurrentPage(page);
           }}
+          onRowClick={(row) => navigate(`/dormitory/${row.id}`)}
         />
       </div>
     </DashboardLayout>

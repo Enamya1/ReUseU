@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Universities from "./pages/Universities";
 import UniversityDetail from "./pages/UniversityDetail";
 import Dormitories from "./pages/Dormitories";
+import DormitoryDetail from "./pages/DormitoryDetail";
 import Categories from "./pages/Categories";
 import Conditions from "./pages/Conditions";
 import Users from "./pages/Users";
@@ -32,6 +33,8 @@ const App = () => (
             <Route path="/universities" element={<Universities />} />
             <Route path="/university/:id" element={<UniversityDetail />} />
             <Route path="/dormitories" element={<Dormitories />} />
+            <Route path="/dormitories/:id" element={<DormitoryDetail />} />
+            <Route path="/dormitory/:id" element={<DormitoryDetail />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/conditions" element={<Conditions />} />
             <Route path="/users" element={<Users />} />
