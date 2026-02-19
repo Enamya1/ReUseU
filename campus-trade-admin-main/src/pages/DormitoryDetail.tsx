@@ -1,15 +1,23 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Building2, ArrowLeft, Users, MapPin, Calendar, Globe, CircleDot, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dormitory, categories } from '@/lib/dummyData';
 import { DataTable } from '@/components/ui/data-table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/AuthContext';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+import AMapLoader from '@amap/amap-jsapi-loader';
+const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
+const AMAP_SECURITY_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE ?? '';
+const defaultCenter: [number, number] = [104.1954, 35.8617];
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Sector } from 'recharts';
 
 type RecentListing = {
@@ -22,11 +30,8 @@ type RecentListing = {
 export default function DormitoryDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { admin } = useAuth();
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
-  }, []);
 
   const [profile, setProfile] = useState<Dormitory>(() => ({
     id: id || '1',
@@ -42,6 +47,54 @@ export default function DormitoryDetail() {
   const [domain, setDomain] = useState('maple-hall.example.edu');
   const [description, setDescription] = useState('Mixed-year residence hall with study lounges and a community kitchen.');
   const [website, setWebsite] = useState('https://maple-hall.example.edu');
+  const [apiNumbers, setApiNumbers] = useState<{ verifiedUsers: number; unverifiedUsers: number; totalUsers: number }>({
+    verifiedUsers: 0,
+    unverifiedUsers: 0,
+    totalUsers: 0,
+  });
+  type AMapMap = {
+    setCenter: (center: [number, number]) => void;
+    setZoom: (zoom: number) => void;
+    on: (event: 'click', handler: (event: { lnglat: { lng: number; lat: number } }) => void) => void;
+    resize: () => void;
+    destroy?: () => void;
+  };
+  type AMapMarker = {
+    setPosition: (position: [number, number]) => void;
+    setMap: (map: AMapMap | null) => void;
+  };
+  type AMapGeocoder = {
+    getAddress: (lnglat: [number, number], callback: (status: string, result: { regeocode?: { formattedAddress?: string; pois?: Array<{ name?: string; address?: string; location?: { lng: number; lat: number } | [number, number] }> } }) => void) => void;
+  };
+  type AMapNamespace = {
+    Map: new (container: HTMLDivElement, options: { zoom: number; center: [number, number]; mapStyle?: string }) => AMapMap;
+    Marker: new (options: { position: [number, number]; map: AMapMap }) => AMapMarker;
+    Geocoder: new (options: { radius: number; extensions: string }) => AMapGeocoder;
+  };
+  type AddressSuggestion = { text: string; location: { lat: number; lng: number } };
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<AMapMap | null>(null);
+  const markerRef = useRef<AMapMarker | null>(null);
+  const geocoderRef = useRef<AMapGeocoder | null>(null);
+  const amapRef = useRef<AMapNamespace | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<[number, number] | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const SUGGESTIONS_PER_PAGE = 6;
+  const [suggestionsPage, setSuggestionsPage] = useState(1);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const totalSuggestionPages = useMemo(() => Math.max(1, Math.ceil(addressSuggestions.length / SUGGESTIONS_PER_PAGE)), [addressSuggestions.length]);
+  const pagedSuggestions = useMemo(() => addressSuggestions.slice((suggestionsPage - 1) * SUGGESTIONS_PER_PAGE, suggestionsPage * SUGGESTIONS_PER_PAGE), [addressSuggestions, suggestionsPage]);
+  useEffect(() => {
+    if (!isLocationPickerOpen) {
+      return;
+    }
+    setSelectedAddress(null);
+    setSuggestionsPage(1);
+  }, [isLocationPickerOpen, selectedPosition]);
 
   const stats = useMemo(
     () => [
@@ -53,21 +106,19 @@ export default function DormitoryDetail() {
     [profile],
   );
 
-  const platformUsers = Math.round(profile.occupancy * 0.7);
-  const verifiedUsers = Math.round(platformUsers * 0.6);
-  const unverifiedUsers = Math.max(0, platformUsers - verifiedUsers);
-  const nonPlatformResidents = Math.max(0, profile.occupancy - platformUsers);
-  const pieData = [
-    { name: 'Verified', value: verifiedUsers },
-    { name: 'Unverified', value: unverifiedUsers },
-    { name: 'Not on Platform', value: nonPlatformResidents },
-  ];
+  const pieData = useMemo(() => {
+    const nonPlatformResidents = Math.max(0, Number(profile.occupancy) - Number(apiNumbers.totalUsers));
+    return [
+      { name: 'Verified', value: Number(apiNumbers.verifiedUsers) },
+      { name: 'Unverified', value: Number(apiNumbers.unverifiedUsers) },
+      { name: 'Not on Platform', value: nonPlatformResidents },
+    ];
+  }, [profile.occupancy, apiNumbers]);
   const pieColors = ['#0992C2', '#0AC4E0', '#EB4C4C'];
 
-  const categoryData = categories.slice(0, 6).map((c) => ({
-    name: c.name,
-    count: (c.productCount % 100) + 1,
-  }));
+  const [categoryData, setCategoryData] = useState<{ name: string; count: number }[]>(
+    categories.slice(0, 6).map((c) => ({ name: c.name, count: (c.productCount % 100) + 1 })),
+  );
   const [hoverIndex, setHoverIndex] = useState<number>(-1);
   const RADIAN = Math.PI / 180;
   type ActiveShapeProps = {
@@ -149,11 +200,220 @@ export default function DormitoryDetail() {
     'Not on Platform': 'Dorm residents who are not registered in the platform.',
   };
 
-  const recentListings: RecentListing[] = [
+  const [recentListings, setRecentListings] = useState<RecentListing[]>([
     { id: 'p-1001', title: 'Gaming Chair', seller: 'Alex Kim', createdAt: '2026-01-15' },
     { id: 'p-1002', title: 'Mini Fridge', seller: 'Priya Singh', createdAt: '2026-01-14' },
     { id: 'p-1003', title: 'LED Desk Lamp', seller: 'Diego Lopez', createdAt: '2026-01-13' },
-  ];
+  ]);
+
+  useEffect(() => {
+    if (!admin || !id) {
+      return;
+    }
+    let ignore = false;
+    const fetchDormitory = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/dormitories/${id}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `${admin.tokenType} ${admin.token}`,
+            Accept: 'application/json',
+          },
+        });
+        const data:
+          | {
+              message?: string;
+              dormitory?: {
+                id?: number | string;
+                name?: string | null;
+                domain?: string | null;
+                longitude?: number | null;
+                latitude?: number | null;
+                address?: string | null;
+                users_count?: number | string | null;
+                residents?: number | string | null;
+                verified_users?: number | string | null;
+                unverified_users?: number | string | null;
+                total_users?: number | string | null;
+                description?: string | null;
+                full_capacity?: number | string | null;
+                created_at?: string | null;
+                university_id?: number | string | null;
+                university_name?: string | null;
+              };
+              recent_listings?: Array<{ id: number | string; name?: string | null; uploader_name?: string | null; created_at?: string | null }>;
+              categories?: Array<{ id: number | string; name?: string | null; product_count?: number | string | null }>;
+            }
+          | undefined = await response.json().catch(() => undefined);
+        if (!response.ok || !data?.dormitory) {
+          const message =
+            data && typeof data.message === 'string'
+              ? data.message
+              : response.status === 403
+              ? 'Unauthorized: Only administrators can access this endpoint.'
+              : response.status === 404
+              ? 'Dormitory not found.'
+              : 'Failed to load dormitory';
+          if (!ignore) {
+            toast.error(message);
+            setLoading(false);
+          }
+          return;
+        }
+        const d = data.dormitory;
+        const capacity = Number(d?.full_capacity) || 0;
+        const occupancy = Number(d?.residents ?? d?.users_count) || 0;
+        const uniId = d?.university_id != null ? String(d.university_id) : '';
+        const uniName = (d?.university_name ?? '').trim() || 'N/A';
+        const addr = (d?.address ?? '').trim() || 'N/A';
+        const createdAt = d?.created_at ?? '';
+        const name = (d?.name ?? '').trim() || 'Dormitory';
+        const domainStr = (d?.domain ?? '').trim();
+        const descStr = (d?.description ?? '') || '';
+        const verified = Number(d?.verified_users) || 0;
+        const unverified = Number(d?.unverified_users) || 0;
+        const totalUsers = Number(d?.total_users) || verified + unverified;
+        if (!ignore) {
+          setProfile((prev) => ({
+            ...prev,
+            id: String(d?.id ?? prev.id),
+            name,
+            universityId: uniId || prev.universityId,
+            universityName: uniName || prev.universityName,
+            capacity,
+            occupancy,
+            address: addr,
+            createdAt: createdAt || prev.createdAt,
+          }));
+          if (domainStr) {
+            setDomain(domainStr);
+            setWebsite(/^https?:\/\//.test(domainStr) ? domainStr : `https://${domainStr}`);
+          }
+          if (descStr) {
+            setDescription(descStr);
+          }
+          setApiNumbers({ verifiedUsers: verified, unverifiedUsers: unverified, totalUsers });
+          const cats = Array.isArray(data.categories) ? data.categories : [];
+          setCategoryData(
+            cats.map((c) => ({
+              name: (c.name ?? '').trim() || 'Category',
+              count: Number(c.product_count) || 0,
+            })),
+          );
+          const listings = Array.isArray(data.recent_listings) ? data.recent_listings : [];
+          setRecentListings(
+            listings.map((item) => ({
+              id: String(item.id ?? ''),
+              title: (item.name ?? '').trim() || 'Listing',
+              seller: (item.uploader_name ?? '').trim() || 'Unknown',
+              createdAt: item.created_at ?? '',
+            })),
+          );
+          setLoading(false);
+        }
+      } catch {
+        if (!ignore) {
+          toast.error('Failed to load dormitory');
+          setLoading(false);
+        }
+      }
+    };
+    fetchDormitory();
+    return () => {
+      ignore = true;
+    };
+  }, [admin, id]);
+  useEffect(() => {
+    if (!isLocationPickerOpen || !mapContainerRef.current || !AMAP_JS_KEY || !AMAP_SECURITY_CODE) {
+      return;
+    }
+    const amapWindow = window as Window & { _AMapSecurityConfig?: { securityJsCode: string } };
+    amapWindow._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_CODE };
+    let cancelled = false;
+    AMapLoader.load({ key: AMAP_JS_KEY, version: '2.0', plugins: ['AMap.Geocoder'] })
+      .then((AMap: AMapNamespace) => {
+        if (cancelled || !mapContainerRef.current) {
+          return;
+        }
+        amapRef.current = AMap;
+        if (!mapRef.current) {
+          const center: [number, number] = selectedPosition ? [selectedPosition[1], selectedPosition[0]] : defaultCenter;
+          mapRef.current = new AMap.Map(mapContainerRef.current, {
+            zoom: selectedPosition ? 12 : 4,
+            center,
+            mapStyle: 'amap://styles/dark',
+          });
+          geocoderRef.current = new AMap.Geocoder({ radius: 1000, extensions: 'all' });
+          mapRef.current.on('click', (event) => {
+            const { lng, lat } = event.lnglat;
+            setSelectedPosition([lat, lng]);
+            setSelectedAddress(null);
+            setSuggestionsPage(1);
+            if (geocoderRef.current) {
+              geocoderRef.current.getAddress([lng, lat], (status, result) => {
+                if (status !== 'complete' || !result?.regeocode) {
+                  setAddressSuggestions([]);
+                  return;
+                }
+                const suggestions: AddressSuggestion[] = [];
+                const formatted = result.regeocode.formattedAddress;
+                if (formatted) {
+                  suggestions.push({ text: formatted, location: { lat, lng } });
+                  setSelectedAddress(formatted);
+                }
+                const pois = result.regeocode.pois ?? [];
+                pois.forEach((poi) => {
+                  const loc = poi.location;
+                  if (!loc) return;
+                  const coords = Array.isArray(loc) ? { lng: loc[0], lat: loc[1] } : { lng: loc.lng, lat: loc.lat };
+                  if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) return;
+                  const poiText = `${poi.name ?? ''}${poi.address ? ` · ${poi.address}` : ''}`.trim();
+                  suggestions.push({ text: poiText || 'Unknown location', location: { lat: coords.lat, lng: coords.lng } });
+                });
+                setAddressSuggestions(suggestions);
+              });
+            }
+          });
+        } else {
+          mapRef.current.resize();
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (mapRef.current?.destroy) {
+        mapRef.current.destroy();
+      }
+      mapRef.current = null;
+      markerRef.current = null;
+      geocoderRef.current = null;
+      amapRef.current = null;
+    };
+  }, [selectedPosition, isLocationPickerOpen]);
+  useEffect(() => {
+    if (!isLocationPickerOpen || !mapRef.current || !amapRef.current) {
+      return;
+    }
+    const position: [number, number] | null = selectedPosition ? [selectedPosition[1], selectedPosition[0]] : null;
+    if (position) {
+      mapRef.current.setCenter(position);
+      mapRef.current.setZoom(13);
+      if (!markerRef.current) {
+        markerRef.current = new amapRef.current.Marker({ position, map: mapRef.current });
+      } else {
+        markerRef.current.setPosition(position);
+        markerRef.current.setMap(mapRef.current);
+      }
+    } else {
+      mapRef.current.setCenter(defaultCenter);
+      mapRef.current.setZoom(4);
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+        markerRef.current = null;
+      }
+    }
+  }, [selectedPosition, isLocationPickerOpen]);
 
   const columns = [
     { header: 'Title', accessorKey: 'title' as keyof RecentListing },
@@ -312,6 +572,86 @@ export default function DormitoryDetail() {
               Save
             </Button>
             <Button onClick={() => navigate(`/university/${profile.universityId}`)}>View University</Button>
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <Button
+              variant="destructive"
+              onClick={() => setIsDeleteDialogOpen(true)}
+              disabled={isDeleting}
+            >
+              Delete Dormitory
+            </Button>
+            <DialogContent className="bg-card border-border w-[92vw] max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Delete Dormitory</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Deleting this dormitory will remove it from the platform. If the dormitory has existing users or products, the server may prevent deletion.
+                </p>
+                <div className="flex items-start gap-3 rounded-lg border border-border bg-secondary/30 p-3">
+                  <Checkbox
+                    checked={deleteConfirmChecked}
+                    onCheckedChange={(v) => setDeleteConfirmChecked(Boolean(v))}
+                  />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-foreground">I understand this action cannot be undone.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Proceeding will attempt to delete the dormitory and its associations. If users or products exist, deletion may be blocked.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={!deleteConfirmChecked || isDeleting}
+                  onClick={async () => {
+                    if (!admin || !id) {
+                      toast.error('Missing admin session or dormitory id');
+                      return;
+                    }
+                    setIsDeleting(true);
+                    try {
+                      const response = await fetch(`${API_BASE_URL}/api/admin/dormitories/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                          Authorization: `${admin.tokenType} ${admin.token}`,
+                          Accept: 'application/json',
+                        },
+                      });
+                      const data: { message?: string; deleted_id?: number | string } | undefined = await response.json().catch(() => undefined);
+                      if (!response.ok) {
+                        const message =
+                          data?.message ??
+                          (response.status === 404
+                            ? 'Dormitory not found.'
+                            : response.status === 403
+                            ? 'Unauthorized: Only administrators can access this endpoint.'
+                            : response.status === 409
+                            ? 'Cannot delete dormitory due to existing related records.'
+                            : 'Failed to delete dormitory');
+                        toast.error(message);
+                        setIsDeleting(false);
+                        return;
+                      }
+                      toast.success(data?.message ?? 'Dormitory deleted successfully');
+                      setIsDeleteDialogOpen(false);
+                      navigate('/dormitories');
+                    } catch {
+                      toast.error('Failed to delete dormitory');
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                >
+                  Confirm Delete
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           </div>
         </div>
 
@@ -328,7 +668,7 @@ export default function DormitoryDetail() {
         </div>
 
         <div className="columns-1 md:columns-2 xl:columns-3 gap-6">
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-6 break-inside-avoid mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">Dormitory Overview</h3>
                 <Badge variant="outline">Marketplace Partner</Badge>
@@ -455,23 +795,205 @@ export default function DormitoryDetail() {
             </div>
  
             <div className="bg-card rounded-xl border border-border p-6 break-inside-avoid mb-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Admin Notes</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Dormitory Data</h3>
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <Label>Domain</Label>
-                  <Input value={domain} onChange={(e) => setDomain(e.target.value)} className="bg-secondary/50" />
+                  <Label>Dormitory Name</Label>
+                  <Input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} className="bg-secondary/50" />
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
                   <Input value={description} onChange={(e) => setDescription(e.target.value)} className="bg-secondary/50" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Website</Label>
-                  <Input value={website} onChange={(e) => setWebsite(e.target.value)} className="bg-secondary/50" />
+                  <Label>Address</Label>
+                  <Input value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} className="bg-secondary/50" />
+                  <div className="flex items-center justify-between gap-3 mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={selectedPosition ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 text-muted-foreground'}
+                      onClick={() => setIsLocationPickerOpen((v) => !v)}
+                    >
+                      {selectedPosition ? 'Location selected' : 'Set location'}
+                    </Button>
+                    {selectedPosition ? (
+                      <span className="text-xs text-muted-foreground">
+                        {selectedPosition[0].toFixed(5)}, {selectedPosition[1].toFixed(5)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No location selected</span>
+                    )}
+                  </div>
+                  {isLocationPickerOpen && (
+                    <>
+                      <div className="h-[320px] rounded-lg overflow-hidden border border-border mt-2">
+                        {AMAP_JS_KEY && AMAP_SECURITY_CODE ? (
+                          <div ref={mapContainerRef} className="h-full w-full" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Missing AMap keys.</div>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-border bg-secondary/30 p-3 mt-3">
+                        <p className="text-xs font-medium text-foreground">Suggested address</p>
+                        {addressSuggestions.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            {selectedPosition ? 'No address suggestions found for this location.' : 'Click on the map to generate address suggestions.'}
+                          </p>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            {pagedSuggestions.map((item, index) => (
+                              <button
+                                key={`addr-suggestion-${index}`}
+                                type="button"
+                                className="w-full text-left rounded-md border border-border bg-card px-3 py-2 hover:border-primary hover:bg-primary/5"
+                                onClick={() => {
+                                  setProfile({ ...profile, address: item.text });
+                                  setSelectedAddress(item.text);
+                                  setSelectedPosition([item.location.lat, item.location.lng]);
+                                }}
+                              >
+                                <span className="block text-xs text-muted-foreground">{item.text}</span>
+                                <span className="block text-[10px] text-muted-foreground/70">
+                                  {item.location.lat.toFixed(5)}, {item.location.lng.toFixed(5)}
+                                </span>
+                              </button>
+                            ))}
+                            <div className="flex items-center justify-between pt-2">
+                              <Button variant="outline" size="sm" disabled={suggestionsPage <= 1} onClick={() => setSuggestionsPage((p) => Math.max(1, p - 1))}>
+                                Prev
+                              </Button>
+                              <span className="text-xs text-muted-foreground">
+                                Page {suggestionsPage} / {totalSuggestionPages}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={suggestionsPage >= totalSuggestionPages}
+                                onClick={() => setSuggestionsPage((p) => Math.min(totalSuggestionPages, p + 1))}
+                              >
+                                Next
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-end gap-2 mt-3">
+                          <Button variant="outline" size="sm" onClick={() => setIsLocationPickerOpen(false)}>
+                            Close
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (selectedAddress) {
+                                setProfile({ ...profile, address: selectedAddress });
+                              }
+                              setIsLocationPickerOpen(false);
+                            }}
+                          >
+                            Use Selected Location
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Domain</Label>
+                  <Input
+                    value={domain}
+                    onChange={(e) => {
+                      const value = e.target.value.trim();
+                      setDomain(value);
+                      if (value) {
+                        setWebsite(/^https?:\/\//.test(value) ? value : `https://${value}`);
+                      } else {
+                        setWebsite('');
+                      }
+                    }}
+                    className="bg-secondary/50"
+                    placeholder="e.g. dorm.example.edu"
+                  />
                 </div>
                 <Button
-                  onClick={() => {
-                    toast.success('Saved dummy changes');
+                  onClick={async () => {
+                    if (!admin || !id) {
+                      toast.error('Missing admin session or dormitory id');
+                      return;
+                    }
+                    const payload: Record<string, unknown> = {};
+                    const name = profile.name?.trim();
+                    const domainStr = domain?.trim();
+                    const addressStr = profile.address?.trim();
+                    const descStr = description?.trim();
+                    if (name) payload.name = name;
+                    if (domainStr) payload.domain = domainStr;
+                    if (Number.isFinite(selectedPosition?.[0]) && Number.isFinite(selectedPosition?.[1])) {
+                      payload.latitude = selectedPosition![0];
+                      payload.longitude = selectedPosition![1];
+                    }
+                    if (addressStr) payload.address = addressStr;
+                    if (descStr) payload.description = descStr;
+                    try {
+                      const response = await fetch(`${API_BASE_URL}/api/admin/dormitories/${id}`, {
+                        method: 'PATCH',
+                        headers: {
+                          Authorization: `${admin.tokenType} ${admin.token}`,
+                          Accept: 'application/json',
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                      });
+                      const data:
+                        | {
+                            message?: string;
+                            dormitory?: {
+                              id?: number | string;
+                              name?: string | null;
+                              domain?: string | null;
+                              latitude?: number | string | null;
+                              longitude?: number | string | null;
+                              address?: string | null;
+                              description?: string | null;
+                            };
+                            errors?: Record<string, string[]>;
+                          }
+                        | undefined = await response.json().catch(() => undefined);
+                      if (!response.ok) {
+                        const message =
+                          data?.message ??
+                          (response.status === 422
+                            ? 'Validation Error'
+                            : response.status === 404
+                            ? 'Dormitory not found.'
+                            : response.status === 403
+                            ? 'Unauthorized: Only administrators can access this endpoint.'
+                            : 'Failed to update dormitory');
+                        toast.error(message);
+                        return;
+                      }
+                      const d = data?.dormitory;
+                      if (d) {
+                        const lat = Number(d.latitude);
+                        const lng = Number(d.longitude);
+                        setProfile((prev) => ({
+                          ...prev,
+                          name: (d.name ?? prev.name) || prev.name,
+                          address: (d.address ?? prev.address) || prev.address,
+                        }));
+                        const newDomain = (d.domain ?? domain) ?? '';
+                        setDomain(newDomain);
+                        if (newDomain) {
+                          setWebsite(/^https?:\/\//.test(newDomain) ? newDomain : `https://${newDomain}`);
+                        }
+                        setDescription((d.description ?? description) || description);
+                        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                          setSelectedPosition([lat, lng]);
+                        }
+                      }
+                      toast.success(data?.message ?? 'Dormitory updated successfully');
+                    } catch {
+                      toast.error('Failed to update dormitory');
+                    }
                   }}
                   className="gradient-primary text-primary-foreground"
                 >
