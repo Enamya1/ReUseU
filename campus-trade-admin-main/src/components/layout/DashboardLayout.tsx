@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
 import { Bell, Search, Settings } from 'lucide-react';
@@ -40,8 +40,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <Bell className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <Settings className="w-5 h-5" />
+            <Button variant="ghost" size="icon" asChild className="text-muted-foreground hover:text-foreground">
+              <Link to="/settings" aria-label="Settings">
+                <Settings className="w-5 h-5" />
+              </Link>
             </Button>
             <div className="w-px h-6 bg-border mx-2" />
             <div className="flex items-center gap-3">

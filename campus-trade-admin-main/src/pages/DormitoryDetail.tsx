@@ -47,6 +47,7 @@ export default function DormitoryDetail() {
   const [domain, setDomain] = useState('maple-hall.example.edu');
   const [description, setDescription] = useState('Mixed-year residence hall with study lounges and a community kitchen.');
   const [website, setWebsite] = useState('https://maple-hall.example.edu');
+  const [topCategory, setTopCategory] = useState('N/A');
   const [apiNumbers, setApiNumbers] = useState<{ verifiedUsers: number; unverifiedUsers: number; totalUsers: number }>({
     verifiedUsers: 0,
     unverifiedUsers: 0,
@@ -236,6 +237,7 @@ export default function DormitoryDetail() {
                 verified_users?: number | string | null;
                 unverified_users?: number | string | null;
                 total_users?: number | string | null;
+                top_category?: string | null;
                 description?: string | null;
                 full_capacity?: number | string | null;
                 created_at?: string | null;
@@ -274,6 +276,7 @@ export default function DormitoryDetail() {
         const verified = Number(d?.verified_users) || 0;
         const unverified = Number(d?.unverified_users) || 0;
         const totalUsers = Number(d?.total_users) || verified + unverified;
+        const topCat = (d?.top_category ?? '').trim();
         if (!ignore) {
           setProfile((prev) => ({
             ...prev,
@@ -293,6 +296,7 @@ export default function DormitoryDetail() {
           if (descStr) {
             setDescription(descStr);
           }
+          setTopCategory(topCat || 'N/A');
           setApiNumbers({ verifiedUsers: verified, unverifiedUsers: unverified, totalUsers });
           const cats = Array.isArray(data.categories) ? data.categories : [];
           setCategoryData(
@@ -1018,7 +1022,7 @@ export default function DormitoryDetail() {
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-4 py-3">
                   <span>Top category</span>
-                  <span className="text-foreground">Furniture</span>
+                  <span className="text-foreground">{topCategory}</span>
                 </div>
               </div>
             </div>

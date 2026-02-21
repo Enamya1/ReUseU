@@ -95,6 +95,7 @@ export default function Dormitories() {
   const [capacityTouched, setCapacityTouched] = useState(false);
   const [addressTouched, setAddressTouched] = useState(false);
   const [locationTouched, setLocationTouched] = useState(false);
+  const [universityOptions, setUniversityOptions] = useState<Array<{ id: string; name: string }>>([]);
   const detailsErrors = useMemo(() => {
     const e: { name?: string; universityId?: string; domain?: string; capacity?: string } = {};
     if (!newDormitory.name.trim()) e.name = 'Name is required';
@@ -299,16 +300,64 @@ export default function Dormitories() {
       }
     }
   }, [isLocationPickerOpen, selectedPosition]);
-
-  const universityOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    dormitories.forEach((d) => {
-      if (d.universityId && d.universityName) {
-        map.set(d.universityId, d.universityName);
+ 
+  useEffect(() => {
+    let ignore = false;
+    const buildFallbackFromDorms = () => {
+      const map = new Map<string, string>();
+      dormitories.forEach((d) => {
+        if (d.universityId && d.universityName) {
+          map.set(d.universityId, d.universityName);
+        }
+      });
+      const list = Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+      setUniversityOptions(list);
+    };
+    const fetchUniversityOptions = async () => {
+      if (!admin) {
+        buildFallbackFromDorms();
+        return;
       }
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [dormitories]);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/universities/options`, {
+          method: 'GET',
+          headers: {
+            Authorization: `${admin.tokenType} ${admin.token}`,
+            Accept: 'application/json',
+          },
+        });
+        const data:
+          | {
+              message?: string;
+              universities?: Array<{ id: number | string; name?: string | null }>;
+            }
+          | undefined = await response.json().catch(() => undefined);
+        if (!response.ok || !data?.universities) {
+          const message =
+            data && typeof data.message === 'string'
+              ? data.message
+              : response.status === 403
+              ? 'Unauthorized: Only administrators can access this endpoint.'
+              : 'Failed to load universities';
+          toast.error(message);
+          buildFallbackFromDorms();
+          return;
+        }
+        if (!ignore) {
+          const list = data.universities
+            .map((u) => ({ id: String(u.id), name: (u.name ?? '').trim() || 'University' }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+          setUniversityOptions(list);
+        }
+      } catch {
+        buildFallbackFromDorms();
+      }
+    };
+    fetchUniversityOptions();
+    return () => {
+      ignore = true;
+    };
+  }, [admin, dormitories]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
