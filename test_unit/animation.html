@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D scroll stages – sphere implodes into random</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow-x: hidden;
+            font-family: 'Arial', sans-serif;
+            cursor: none;
+            min-height: 4000px; /* enough for 6 stages (0–1000,1000–1500,1500–2000,2000–2500,2500–3000,3000+) */
+            background-color: black;
+        }
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+        }
+        .stage-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: black;
+            font-size: 4rem;
+            font-weight: bold;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.3);
+            mix-blend-mode: difference;
+        }
+        .stage-message.visible {
+            opacity: 1;
+        }
+        .footer {
+            position: fixed;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #333;
+            font-size: 1.2rem;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            background: rgba(255,255,255,0.8);
+            padding: 12px;
+            backdrop-filter: blur(4px);
+            border-top: 1px solid #aaa;
+            pointer-events: none;
+        }
+        .footer.visible {
+            opacity: 1;
+        }
+
+        /* custom cursor */
+        .cursor-dot,
+        .cursor-ring {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+        }
+        .cursor-dot {
+            width: 25px;
+            height: 25px;
+            background: white;
+            mix-blend-mode: difference;
+            z-index: 10000;
+        }
+        .cursor-ring {
+            width: 40px;
+            height: 40px;
+            border: 2px solid white;
+            z-index: 9999;
+            transition: width 0.2s ease, height 0.2s ease, border 0.2s ease;
+            mix-blend-mode: difference;
+        }
+        .info {
+            position: fixed;
+            bottom: 100px;
+            left: 20px;
+            color: #888;
+            font-size: 0.9rem;
+            z-index: 5;
+            background: rgba(0,0,0,0.3);
+            padding: 4px 12px;
+            border-radius: 20px;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+        }
+    </style>
+    <!-- Three.js and simplex-noise -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "simplex-noise": "https://cdn.skypack.dev/simplex-noise@2.4.0"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <!-- UI overlays -->
+    <div class="stage-message" id="stage-text"></div>
+    <div class="footer" id="footer-text">© 2025 – The End</div>
+
+    <!-- custom cursor -->
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+
+    <div class="info">scroll ↓ sphere (move mouse to rotate) → implodes → random white → torus → terrain → cube → footer</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import SimplexNoise from 'simplex-noise';
+
+        // --- setup scene ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3, 22);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        // --- constants ---
+        const PARTICLE_COUNT = 4000;
+        const particleSize = 0.16;
+
+        // --- precompute shape positions ---
+        // sphere (stage 1)
+        const spherePositions = new Float32Array(PARTICLE_COUNT * 3);
+        // random (stage 2)
+        const randomPositions = new Float32Array(PARTICLE_COUNT * 3);
+        // torus (stage 3)
+        const torusPositions = new Float32Array(PARTICLE_COUNT * 3);
+        // grid base for terrain (stage 4)
+        const gridBasePositions = new Float32Array(PARTICLE_COUNT * 3);
+        // cube (stage 5)
+        const cubePositions = new Float32Array(PARTICLE_COUNT * 3);
+
+        // sphere: radius 5
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const r = 5.0;
+            spherePositions[i3] = r * Math.sin(phi) * Math.cos(theta);
+            spherePositions[i3+1] = r * Math.sin(phi) * Math.sin(theta);
+            spherePositions[i3+2] = r * Math.cos(phi);
+        }
+
+        // random: range -10..10
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3;
+            randomPositions[i3] = (Math.random() - 0.5) * 20;
+            randomPositions[i3+1] = (Math.random() - 0.5) * 20;
+            randomPositions[i3+2] = (Math.random() - 0.5) * 20;
+        }
+
+        // torus: major 6, minor 2
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3;
+            const u = Math.random() * Math.PI * 2;
+            const v = Math.random() * Math.PI * 2;
+            const R = 6.0, rTube = 2.0;
+            torusPositions[i3] = (R + rTube * Math.cos(v)) * Math.cos(u);
+            torusPositions[i3+1] = (R + rTube * Math.cos(v)) * Math.sin(u);
+            torusPositions[i3+2] = rTube * Math.sin(v);
+        }
+
+        // grid base for terrain
+        const gridSize = Math.floor(Math.sqrt(PARTICLE_COUNT));
+        const spacing = 0.45;
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3;
+            const row = Math.floor(i / gridSize);
+            const col = i % gridSize;
+            const x = (col - gridSize/2) * spacing;
+            const z = (row - gridSize/2) * spacing;
+            gridBasePositions[i3] = x;
+            gridBasePositions[i3+1] = 0;
+            gridBasePositions[i3+2] = z;
+        }
+
+        // cube: size 7
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3;
+            const face = Math.floor(Math.random() * 6);
+            const s = 7.0;
+            let x, y, z;
+            const u = (Math.random() * 2 - 1) * s;
+            const v = (Math.random() * 2 - 1) * s;
+            switch(face) {
+                case 0: x =  s; y = u; z = v; break;
+                case 1: x = -s; y = u; z = v; break;
+                case 2: x = u; y =  s; z = v; break;
+                case 3: x = u; y = -s; z = v; break;
+                case 4: x = u; y = v; z =  s; break;
+                case 5: x = u; y = v; z = -s; break;
+            }
+            cubePositions[i3] = x;
+            cubePositions[i3+1] = y;
+            cubePositions[i3+2] = z;
+        }
+
+        // --- geometry & material ---
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(spherePositions.slice(), 3));
+
+        function createCircleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(16, 16, 14, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.beginPath();
+            ctx.arc(16, 16, 10, 0, 2 * Math.PI);
+            ctx.fill();
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const material = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: particleSize,
+            map: createCircleTexture(),
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            depthWrite: false
+        });
+
+        const particleSystem = new THREE.Points(geometry, material);
+        scene.add(particleSystem);
+
+        // --- noise for terrain ---
+        const simplex = new SimplexNoise();
+
+        // --- mouse repel ---
+        const mouse = new THREE.Vector2(0, 0);
+        const repelPoint = new THREE.Vector3(0, 0, 0);
+        const repelRadius = 6.5;
+        const repelStrength = 0.35;
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // --- mouse-controlled rotation with momentum (only for stage1) ---
+        const targetRotation = { y: 0, x: 0 };
+        const rotLerp = 0.05;
+        const rotationVelocity = { y: 0, x: 0 };
+        const deceleration = 0.995; // Slower deceleration to maintain rotation longer
+        const minVelocity = 0.0005; // Very low minimum velocity to keep slow rotation
+        const baseRotationSpeed = 0.002; // Base slow rotation speed when velocity is low
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let isMouseMoving = false;
+        let mouseStopTimer = null;
+
+        window.addEventListener('mousemove', (e) => {
+            const nx = (e.clientX / window.innerWidth) * 2 - 1;
+            const ny = -(e.clientY / window.innerHeight) * 2 + 1;
+            
+            // Calculate mouse movement delta
+            const deltaX = nx - lastMouseX;
+            const deltaY = ny - lastMouseY;
+            
+            // Update velocity based on mouse movement (scaled for rotation speed)
+            rotationVelocity.y = deltaX * Math.PI * 0.5; // Horizontal movement affects Y rotation
+            rotationVelocity.x = deltaY * Math.PI * 0.2; // Vertical movement affects X rotation
+            
+            // Update target rotation based on current position + velocity
+            targetRotation.y += rotationVelocity.y;
+            targetRotation.x += rotationVelocity.x;
+            
+            lastMouseX = nx;
+            lastMouseY = ny;
+            isMouseMoving = true;
+            
+            // Clear existing timer
+            if (mouseStopTimer) {
+                clearTimeout(mouseStopTimer);
+            }
+            
+            // Set timer to detect when mouse stops moving
+            mouseStopTimer = setTimeout(() => {
+                isMouseMoving = false;
+            }, 50); // 50ms delay to detect mouse stop
+        });
+
+        window.addEventListener('mouseleave', () => {
+            isMouseMoving = false;
+            // Keep current velocity for deceleration effect
+        });
+
+        // --- scroll stages with custom implode transition ---
+        // stage1: sphere -> random implosion (0 - 1000px)
+        // stage2: random + white background (1000 - 1500px)
+        // stage3: torus (1500 - 2000px)
+        // stage4: terrain (2000 - 2500px)
+        // stage5: cube (2500 - 3000px)
+        // stage6: footer (3000+ px)
+        const scrollRanges = {
+            stage1: [0, 1000],
+            stage2: [1000, 1500],
+            stage3: [1500, 2000],
+            stage4: [2000, 2500],
+            stage5: [2500, 3000],
+            stage6: [3000, Infinity]
+        };
+
+        const stageTextEl = document.getElementById('stage-text');
+        const footerEl = document.getElementById('footer-text');
+
+        function getStageInfo(scrollY) {
+            if (scrollY < scrollRanges.stage1[1]) {
+                return { stage: 1, nextStage: 2, blend: scrollY / scrollRanges.stage1[1] }; // blend from sphere to random with implosion
+            } else if (scrollY >= scrollRanges.stage2[0] && scrollY < scrollRanges.stage2[1]) {
+                const blend = (scrollY - scrollRanges.stage2[0]) / (scrollRanges.stage2[1] - scrollRanges.stage2[0]);
+                return { stage: 2, nextStage: 3, blend };
+            } else if (scrollY >= scrollRanges.stage3[0] && scrollY < scrollRanges.stage3[1]) {
+                const blend = (scrollY - scrollRanges.stage3[0]) / (scrollRanges.stage3[1] - scrollRanges.stage3[0]);
+                return { stage: 3, nextStage: 4, blend };
+            } else if (scrollY >= scrollRanges.stage4[0] && scrollY < scrollRanges.stage4[1]) {
+                const blend = (scrollY - scrollRanges.stage4[0]) / (scrollRanges.stage4[1] - scrollRanges.stage4[0]);
+                return { stage: 4, nextStage: 5, blend };
+            } else if (scrollY >= scrollRanges.stage5[0] && scrollY < scrollRanges.stage5[1]) {
+                const blend = (scrollY - scrollRanges.stage5[0]) / (scrollRanges.stage5[1] - scrollRanges.stage5[0]);
+                return { stage: 5, nextStage: 6, blend };
+            } else {
+                return { stage: 6, nextStage: 6, blend: 1 };
+            }
+        }
+
+        function updateAppearance(stage) {
+            if (stage === 2) {
+                scene.background.set(0xffffff);
+                material.color.setHex(0xcccccc);
+                material.blending = THREE.NormalBlending;
+            } else {
+                scene.background.set(0x000000);
+                material.color.setHex(0xffffff);
+                material.blending = THREE.AdditiveBlending;
+            }
+
+            // stage text only for stage2
+            if (stage === 2) {
+                stageTextEl.textContent = 'Stage 2 – The Text';
+                stageTextEl.classList.add('visible');
+            } else {
+                stageTextEl.classList.remove('visible');
+            }
+
+            // footer for stage6
+            if (stage === 6) {
+                footerEl.classList.add('visible');
+            } else {
+                footerEl.classList.remove('visible');
+            }
+        }
+
+        // helper to get position for a given stage at index i (with time)
+        function getPosForStage(stageNum, idx, time) {
+            const j = idx * 3;
+            if (stageNum === 1 || stageNum === 2) {
+                // stage1 and stage2 use different base shapes, but we handle blending separately
+                // This function returns the "pure" shape for that stage (without blending)
+                if (stageNum === 1) {
+                    return new THREE.Vector3(spherePositions[j], spherePositions[j+1], spherePositions[j+2]);
+                } else {
+                    return new THREE.Vector3(randomPositions[j], randomPositions[j+1], randomPositions[j+2]);
+                }
+            } else if (stageNum === 3) {
+                return new THREE.Vector3(torusPositions[j], torusPositions[j+1], torusPositions[j+2]);
+            } else if (stageNum === 4) {
+                const gx = gridBasePositions[j];
+                const gz = gridBasePositions[j+2];
+                const y = simplex.noise3D(gx * 0.25, gz * 0.25, time * 0.3) * 2.8;
+                return new THREE.Vector3(gx, y, gz);
+            } else if (stageNum === 5) {
+                return new THREE.Vector3(cubePositions[j], cubePositions[j+1], cubePositions[j+2]);
+            }
+            return new THREE.Vector3(0, 0, 0);
+        }
+
+        // --- animation state ---
+        let time = 0;
+        let currentStage = 1;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.015;
+
+            const scrollY = window.scrollY;
+            const { stage, nextStage, blend } = getStageInfo(scrollY);
+            currentStage = stage;
+            updateAppearance(stage);
+
+            const positions = geometry.attributes.position.array;
+
+            // compute target positions for each particle
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+                let targetX, targetY, targetZ;
+
+                if (stage === 1) {
+                    // Special implosion effect: blend from sphere to random via center
+                    // t = blend (0..1). For t in [0,0.5] move sphere -> center, for [0.5,1] move center -> random
+                    const t = blend;
+                    let p1, p2;
+                    if (t <= 0.5) {
+                        // sphere to center
+                        const factor = t * 2; // 0..1
+                        const sphere = getPosForStage(1, i, time);
+                        p1 = sphere;
+                        p2 = new THREE.Vector3(0, 0, 0);
+                    } else {
+                        // center to random
+                        const factor = (t - 0.5) * 2; // 0..1
+                        p1 = new THREE.Vector3(0, 0, 0);
+                        p2 = getPosForStage(2, i, time);
+                    }
+                    // linear interpolation
+                    targetX = p1.x * (1 - (t <= 0.5 ? t*2 : (t-0.5)*2)) + p2.x * (t <= 0.5 ? t*2 : (t-0.5)*2);
+                    targetY = p1.y * (1 - (t <= 0.5 ? t*2 : (t-0.5)*2)) + p2.y * (t <= 0.5 ? t*2 : (t-0.5)*2);
+                    targetZ = p1.z * (1 - (t <= 0.5 ? t*2 : (t-0.5)*2)) + p2.z * (t <= 0.5 ? t*2 : (t-0.5)*2);
+                } else if (stage === 2) {
+                    // stage 2: blend from random to torus (nextStage = 3)
+                    const p1 = getPosForStage(2, i, time);
+                    const p2 = getPosForStage(3, i, time);
+                    targetX = p1.x * (1 - blend) + p2.x * blend;
+                    targetY = p1.y * (1 - blend) + p2.y * blend;
+                    targetZ = p1.z * (1 - blend) + p2.z * blend;
+                } else if (stage === 3) {
+                    // stage 3: blend from torus to terrain
+                    const p1 = getPosForStage(3, i, time);
+                    const p2 = getPosForStage(4, i, time);
+                    targetX = p1.x * (1 - blend) + p2.x * blend;
+                    targetY = p1.y * (1 - blend) + p2.y * blend;
+                    targetZ = p1.z * (1 - blend) + p2.z * blend;
+                } else if (stage === 4) {
+                    // stage 4: blend from terrain to cube
+                    const p1 = getPosForStage(4, i, time);
+                    const p2 = getPosForStage(5, i, time);
+                    targetX = p1.x * (1 - blend) + p2.x * blend;
+                    targetY = p1.y * (1 - blend) + p2.y * blend;
+                    targetZ = p1.z * (1 - blend) + p2.z * blend;
+                } else if (stage === 5) {
+                    // stage 5: blend from cube to ??? (but nextStage=6, no shape, so just cube)
+                    const p = getPosForStage(5, i, time);
+                    targetX = p.x; targetY = p.y; targetZ = p.z;
+                } else {
+                    // stage 6: keep cube (or could freeze)
+                    const p = getPosForStage(5, i, time);
+                    targetX = p.x; targetY = p.y; targetZ = p.z;
+                }
+
+                // smooth interpolation
+                positions[i3] += (targetX - positions[i3]) * 0.07;
+                positions[i3+1] += (targetY - positions[i3+1]) * 0.07;
+                positions[i3+2] += (targetZ - positions[i3+2]) * 0.07;
+            }
+
+            // mouse repel
+            repelPoint.x = mouse.x * 12;
+            repelPoint.y = mouse.y * 8;
+            repelPoint.z = 0;
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+                const dx = positions[i3] - repelPoint.x;
+                const dy = positions[i3+1] - repelPoint.y;
+                const dz = positions[i3+2] - repelPoint.z;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                if (dist < repelRadius && dist > 0.001) {
+                    const force = (1 - dist / repelRadius) * repelStrength;
+                    positions[i3] += dx / dist * force;
+                    positions[i3+1] += dy / dist * force;
+                    positions[i3+2] += dz / dist * force;
+                }
+            }
+
+            geometry.attributes.position.needsUpdate = true;
+
+            // --- rotation logic ---
+            if (stage === 1) {
+                // Mouse-follow rotation with momentum and deceleration
+                if (isMouseMoving) {
+                    // When mouse is moving, use normal interpolation to target rotation
+                    particleSystem.rotation.y += (targetRotation.y - particleSystem.rotation.y) * rotLerp;
+                    particleSystem.rotation.x += (targetRotation.x - particleSystem.rotation.x) * rotLerp;
+                } else {
+                    // When mouse stops, apply deceleration to velocity and continue rotating
+                    rotationVelocity.y *= deceleration;
+                    rotationVelocity.x *= deceleration;
+                    
+                    // Continue rotating with decelerated velocity
+                    particleSystem.rotation.y += rotationVelocity.y;
+                    particleSystem.rotation.x += rotationVelocity.x;
+                    
+                    // Maintain slow perpetual motion when velocity gets very low
+                    if (Math.abs(rotationVelocity.y) < minVelocity && Math.abs(rotationVelocity.x) < minVelocity) {
+                        // Instead of stopping, maintain a slow base rotation in the last direction
+                        if (Math.abs(rotationVelocity.y) > 0 || Math.abs(rotationVelocity.x) > 0) {
+                            // Keep a small amount of the last rotation direction
+                            rotationVelocity.y = Math.sign(rotationVelocity.y) * baseRotationSpeed || baseRotationSpeed;
+                            rotationVelocity.x = Math.sign(rotationVelocity.x) * baseRotationSpeed * 0.3 || 0;
+                        }
+                    }
+                }
+            } else if (stage === 2) {
+                // Stage 2 (random): maintain slow rotation from previous momentum
+                particleSystem.rotation.y += rotationVelocity.y * 0.5;
+                particleSystem.rotation.x += rotationVelocity.x * 0.5;
+            } else if (stage === 3 || stage === 4 || stage === 5 || stage === 6) {
+                // Continuous rotation for all remaining stages (torus, terrain, cube, footer)
+                particleSystem.rotation.y += 0.001;
+                particleSystem.rotation.x += 0.0003;
+            } else {
+                // Fallback: very slow rotation
+                particleSystem.rotation.y += 0.0005;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- resize ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- custom cursor (unchanged) ---
+        const dot = document.querySelector('.cursor-dot');
+        const ring = document.querySelector('.cursor-ring');
+        let mouseX = 0, mouseY = 0, ringX = 0, ringY = 0;
+        const cursorFollowSpeed = 0.15;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            dot.style.left = mouseX + 'px';
+            dot.style.top = mouseY + 'px';
+        });
+
+        function animateCursor() {
+            ringX += (mouseX - ringX) * cursorFollowSpeed;
+            ringY += (mouseY - ringY) * cursorFollowSpeed;
+            ring.style.left = ringX + 'px';
+            ring.style.top = ringY + 'px';
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        window.addEventListener('mousedown', () => {
+            ring.style.width = '30px';
+            ring.style.height = '30px';
+        });
+        window.addEventListener('mouseup', () => {
+            ring.style.width = '50px';
+            ring.style.height = '50px';
+        });
+    </script>
+</body>
+</html>
