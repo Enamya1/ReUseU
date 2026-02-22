@@ -1,20 +1,22 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Github, Twitter, Instagram } from 'lucide-react';
+import { Github, Twitter, Instagram } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const Footer: React.FC = () => {
   const { t } = useTranslation();
   return (
-    <footer className="border-t border-border bg-card mt-auto">
+    <footer className="border-t border-border bg-background mt-auto">
       <div className="container py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-primary">
-                <ShoppingBag className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img
+                src="/logo_enhanced.png"
+                alt="ReUseU"
+                className="h-9 w-9 rounded-lg object-contain"
+              />
               <span className="font-display text-xl font-bold text-foreground">
                 SCU
               </span>

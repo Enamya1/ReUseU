@@ -31,7 +31,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
     <Link
       to={linkTo || `/product/${product.id}`}
       className={cn(
-        "group block bg-card rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 animate-fade-in",
+        "group block bg-card/70 border border-white/10 rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 animate-fade-in",
         className
       )}
     >

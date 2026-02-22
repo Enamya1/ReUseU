@@ -47,13 +47,15 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between gap-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-primary">
-            <ShoppingBag className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <img
+            src="/logo_enhanced.png"
+            alt="ReUseU"
+            className="h-9 w-9 rounded-lg object-contain"
+          />
           <span className="font-display text-xl font-bold text-foreground hidden sm:block">
             SCU
           </span>

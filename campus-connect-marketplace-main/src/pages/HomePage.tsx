@@ -36,76 +36,88 @@ const HomePage: React.FC = () => {
 
   return (
     <MainLayout>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-hero py-16 md:py-24">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
-        
+      <section className="relative overflow-hidden bg-background py-10 md:py-16">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_55%)] opacity-40" />
         <div className="container relative">
-          <div className="max-w-3xl mx-auto text-center text-white">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-sm mb-6">
-              <Sparkles className="w-4 h-4" />
-              <span>{t('home.trustedBy')}</span>
+          <div className="grid gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+              <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-card/70 p-8 md:p-10 min-h-[360px]">
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_45%)]" />
+                <div className="relative">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 text-sm mb-6">
+                    <Sparkles className="w-4 h-4" />
+                    <span>{t('home.trustedBy')}</span>
+                  </div>
+
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-6 leading-tight text-foreground">
+                    {t('home.heroTitle')}{' '}
+                    <span className="text-gradient-primary">
+                      {t('home.heroHighlight')}
+                    </span>
+                  </h1>
+
+                  <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl">
+                    {t('home.heroSubtitle')}
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    {isAuthenticated ? (
+                      <>
+                        <Button variant="hero" size="xl" asChild>
+                          <Link to="/create-listing">
+                            {t('home.startSelling')}
+                            <ArrowRight className="w-5 h-5" />
+                          </Link>
+                        </Button>
+                        <Button variant="outline-white" size="xl" asChild>
+                          <a href="#browse">{t('home.browseItems')}</a>
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="hero" size="xl" asChild>
+                          <Link to="/signup">
+                            {t('home.getStarted')}
+                            <ArrowRight className="w-5 h-5" />
+                          </Link>
+                        </Button>
+                        <Button variant="outline-white" size="xl" asChild>
+                          <Link to="/login">{t('home.logIn')}</Link>
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-6 leading-tight">
-              {t('home.heroTitle')}{' '}
-              <span className="text-gradient-primary bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-                {t('home.heroHighlight')}
-              </span>
-            </h1>
-            
-            <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-              {t('home.heroSubtitle')}
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {isAuthenticated ? (
-                <>
-                  <Button variant="hero" size="xl" asChild>
-                    <Link to="/create-listing">
-                      {t('home.startSelling')}
-                      <ArrowRight className="w-5 h-5" />
-                    </Link>
-                  </Button>
-                  <Button variant="outline-white" size="xl" asChild>
-                    <a href="#browse">{t('home.browseItems')}</a>
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="hero" size="xl" asChild>
-                    <Link to="/signup">
-                      {t('home.getStarted')}
-                      <ArrowRight className="w-5 h-5" />
-                    </Link>
-                  </Button>
-                  <Button variant="outline-white" size="xl" asChild>
-                    <Link to="/login">{t('home.logIn')}</Link>
-                  </Button>
-                </>
-              )}
+
+            <div className="lg:col-span-5 grid gap-6 auto-rows-fr">
+              <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-card/40 min-h-[240px]">
+                <div className="absolute inset-4 rounded-[18px] border border-dashed border-white/20" />
+              </div>
+              <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-card/40 min-h-[240px]">
+                <div className="absolute inset-4 rounded-[18px] border border-dashed border-white/20" />
+              </div>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="mt-16 grid grid-cols-3 gap-4 max-w-2xl mx-auto">
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
             {stats.map((stat, index) => (
               <div
                 key={index}
-                className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm"
+                className="text-center p-4 rounded-xl border border-white/10 bg-card/60"
               >
-                <stat.icon className="w-6 h-6 mx-auto mb-2 text-white/80" />
-                <p className="text-2xl font-bold text-white">{stat.value}</p>
-                <p className="text-sm text-white/60">{stat.label}</p>
+                <stat.icon className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Featured Products */}
       {featuredProducts.length > 0 && (
-        <section className="py-12 md:py-16 bg-muted/30">
+        <section className="py-12 md:py-16 bg-background">
           <div className="container">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -128,7 +140,7 @@ const HomePage: React.FC = () => {
                 <Link
                   key={product.id}
                   to={`/product/${product.id}`}
-                  className="group relative aspect-[4/5] rounded-2xl overflow-hidden bg-muted"
+                  className="group relative aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 bg-card/40"
                 >
                   {product.images[0] && (
                     <img
@@ -137,6 +149,7 @@ const HomePage: React.FC = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                     <p className="text-lg font-bold">${product.price}</p>
                     <p className="text-sm text-white/80 line-clamp-1">{product.title}</p>
@@ -148,8 +161,25 @@ const HomePage: React.FC = () => {
         </section>
       )}
 
-      {/* Browse Products */}
-      <section id="browse" className="py-12 md:py-16">
+      <section className="py-12 md:py-16 bg-background">
+        <div className="container">
+          <div className="grid gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-7 relative overflow-hidden rounded-[28px] border border-white/10 bg-card/40 min-h-[320px]">
+              <div className="absolute inset-5 rounded-[22px] border border-dashed border-white/20" />
+            </div>
+            <div className="lg:col-span-5 grid gap-6 auto-rows-fr">
+              <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-card/40 min-h-[200px]">
+                <div className="absolute inset-4 rounded-[18px] border border-dashed border-white/20" />
+              </div>
+              <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-card/40 min-h-[200px]">
+                <div className="absolute inset-4 rounded-[18px] border border-dashed border-white/20" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="browse" className="py-12 md:py-16 bg-background">
         <div className="container">
           <div className="mb-8">
             <h2 className="text-2xl font-display font-bold text-foreground mb-4">
@@ -181,16 +211,16 @@ const HomePage: React.FC = () => {
 
       {/* CTA Section */}
       {!isAuthenticated && (
-        <section className="py-16 bg-gradient-primary">
+        <section className="py-16 bg-background">
           <div className="container">
-            <div className="max-w-2xl mx-auto text-center text-primary-foreground">
-              <h2 className="text-3xl font-display font-bold mb-4">
+            <div className="max-w-2xl mx-auto text-center border border-white/10 bg-card/70 rounded-[28px] p-10">
+              <h2 className="text-3xl font-display font-bold mb-4 text-foreground">
                 {t('home.ctaTitle')}
               </h2>
-              <p className="text-lg opacity-80 mb-8">
+              <p className="text-lg text-muted-foreground mb-8">
                 {t('home.ctaSubtitle')}
               </p>
-              <Button variant="secondary" size="xl" asChild>
+              <Button variant="hero" size="xl" asChild>
                 <Link to="/signup">
                   {t('home.ctaButton')}
                   <ArrowRight className="w-5 h-5" />

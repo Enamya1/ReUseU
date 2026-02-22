@@ -123,9 +123,11 @@ const SignupPage: React.FC = () => {
           {/* Logo */}
           <div className="text-center">
             <Link to="/" className="inline-flex items-center gap-2 mb-8">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-primary">
-                <ShoppingBag className="w-6 h-6 text-primary-foreground" />
-              </div>
+              <img
+                src="/logo_enhanced.png"
+                alt="ReUseU"
+                className="h-12 w-12 rounded-xl object-contain"
+              />
               <span className="font-display text-2xl font-bold text-foreground">
                 SCU
               </span>

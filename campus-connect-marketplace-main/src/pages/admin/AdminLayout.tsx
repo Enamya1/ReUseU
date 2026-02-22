@@ -8,7 +8,6 @@ import {
   Tags, 
   Layers, 
   LogOut,
-  ShoppingBag,
   Menu,
   X
 } from 'lucide-react';
@@ -43,9 +42,11 @@ const AdminLayout: React.FC = () => {
           {/* Logo */}
           <div className="p-6 border-b border-white/10">
             <Link to="/admin/dashboard" className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-primary">
-                <ShoppingBag className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img
+                src="/logo_enhanced.png"
+                alt="ReUseU"
+                className="h-10 w-10 rounded-lg object-contain"
+              />
               <div>
                 <span className="font-display text-lg font-bold text-white">SCU</span>
                 <span className="block text-xs text-white/60">Admin Console</span>
