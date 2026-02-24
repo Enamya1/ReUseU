@@ -3,20 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D scroll stages – sphere implodes into random</title>
+    <title>Suki - Campus Second-Hand Trading</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        
+        :root {
+            --primary: #000000;
+            --secondary: #ffffff;
+            --accent: #6366f1;
+            --text-muted: #888888;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
         body {
             overflow-x: hidden;
-            font-family: 'Arial', sans-serif;
+            font-family: 'Inter', sans-serif;
             cursor: none;
-            min-height: 4000px; /* enough for 6 stages (0–1000,1000–1500,1500–2000,2000–2500,2500–3000,3000+) */
-            background-color: black;
+            background-color: var(--primary);
+            color: var(--secondary);
+            min-height: 100vh;
         }
+        
+        /* Canvas Container */
         #canvas-container {
             position: fixed;
             top: 0;
@@ -24,48 +40,725 @@
             width: 100vw;
             height: 100vh;
             z-index: 0;
+            pointer-events: none;
         }
-        .stage-message {
+        
+        /* Navigation */
+        .nav {
             position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 24px 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            mix-blend-mode: difference;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-circle {
+            width: 48px;
+            height: 48px;
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+        
+        .logo-text {
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 40px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: opacity 0.3s ease;
+            position: relative;
+        }
+        
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: white;
+            transition: width 0.3s ease;
+        }
+        
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+        
+        .nav-cta {
+            padding: 12px 24px;
+            border: 1px solid white;
+            border-radius: 30px;
+            color: white;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-cta:hover {
+            background: white;
+            color: black;
+        }
+        
+        /* Hero Section */
+        .hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            padding: 0 48px;
+        }
+        
+        .hero-content {
+            text-align: center;
+            max-width: 900px;
+        }
+        
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 30px;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 32px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease forwards 0.3s;
+        }
+        
+        .hero-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 2s ease infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .hero-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(48px, 10vw, 120px);
+            font-weight: 600;
+            line-height: 1;
+            margin-bottom: 24px;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 1s ease forwards 0.5s;
+        }
+        
+        .hero-subtitle {
+            font-size: clamp(16px, 2vw, 22px);
+            font-weight: 300;
+            color: rgba(255,255,255,0.7);
+            max-width: 600px;
+            margin: 0 auto 48px;
+            line-height: 1.6;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease forwards 0.7s;
+        }
+        
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease forwards 0.9s;
+        }
+        
+        .btn-primary {
+            padding: 18px 40px;
+            background: white;
+            color: black;
+            border: none;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(255,255,255,0.2);
+        }
+        
+        .btn-secondary {
+            padding: 18px 40px;
+            background: transparent;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: white;
+            transform: translateY(-2px);
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Stats Bar */
+        .stats-bar {
+            position: absolute;
+            bottom: 48px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 80px;
+            padding: 0 48px;
+            z-index: 10;
+        }
+        
+        .stat-item {
+            text-align: center;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease forwards 1.1s;
+        }
+        
+        .stat-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        /* Section Styles */
+        .section {
+            position: relative;
+            min-height: 100vh;
+            padding: 120px 48px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .section-header {
+            margin-bottom: 80px;
+        }
+        
+        .section-label {
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 16px;
+        }
+        
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(36px, 5vw, 64px);
+            font-weight: 600;
+            line-height: 1.1;
+            max-width: 700px;
+        }
+        
+        /* About Section */
+        .about-section {
+            background: white;
+            color: black;
+        }
+        
+        .about-section .section-label {
+            color: rgba(0,0,0,0.5);
+        }
+        
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+        }
+        
+        .about-text {
+            font-size: 18px;
+            line-height: 1.8;
+            color: rgba(0,0,0,0.7);
+        }
+        
+        .about-text p {
+            margin-bottom: 24px;
+        }
+        
+        .about-features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+        
+        .about-feature {
+            padding: 32px;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .about-feature:hover {
+            border-color: black;
+            transform: translateY(-4px);
+        }
+        
+        .about-feature-icon {
+            width: 48px;
+            height: 48px;
+            background: black;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        
+        .about-feature-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .about-feature-desc {
+            font-size: 13px;
+            color: rgba(0,0,0,0.6);
+            line-height: 1.5;
+        }
+        
+        /* Features Section */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+        
+        .feature-card {
+            padding: 48px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(99,102,241,0.1), transparent);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+        
+        .feature-card:hover {
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-8px);
+        }
+        
+        .feature-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 48px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .feature-icon {
+            width: 64px;
+            height: 64px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+        
+        .feature-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .feature-desc {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.7;
+        }
+        
+        /* How It Works Section */
+        .how-section {
+            background: linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
+        }
+        
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 48px;
+        }
+        
+        .step {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            gap: 48px;
+            align-items: center;
+            padding: 48px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            transition: all 0.4s ease;
+        }
+        
+        .step:hover {
+            border-color: rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.02);
+        }
+        
+        .step-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 72px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.1);
+            line-height: 1;
+        }
+        
+        .step-content h3 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .step-content p {
+            font-size: 16px;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.7;
+            max-width: 500px;
+        }
+        
+        /* CTA Section */
+        .cta-section {
+            min-height: 80vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .cta-content {
+            max-width: 800px;
+        }
+        
+        .cta-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(42px, 6vw, 72px);
+            font-weight: 600;
+            margin-bottom: 24px;
+            line-height: 1.1;
+        }
+        
+        .cta-subtitle {
+            font-size: 18px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 48px;
+            line-height: 1.7;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        /* Footer */
+        .footer {
+            padding: 80px 48px 40px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            z-index: 10;
+            position: relative;
+        }
+        
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .footer-top {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 64px;
+            margin-bottom: 64px;
+        }
+        
+        .footer-brand {
+            max-width: 300px;
+        }
+        
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .footer-logo-circle {
+            width: 40px;
+            height: 40px;
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        .footer-logo-text {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        
+        .footer-desc {
+            font-size: 14px;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.7;
+        }
+        
+        .footer-column h4 {
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .footer-column ul {
+            list-style: none;
+        }
+        
+        .footer-column li {
+            margin-bottom: 12px;
+        }
+        
+        .footer-column a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+        
+        .footer-column a:hover {
+            color: white;
+        }
+        
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .footer-copyright {
+            font-size: 13px;
+            color: rgba(255,255,255,0.4);
+        }
+        
+        .footer-socials {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .footer-social {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .footer-social:hover {
+            background: white;
+            color: black;
+            border-color: white;
+        }
+        
+        /* Magnetic Contact Button */
+        .contact-button-container {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            z-index: 50;
+            pointer-events: all;
+            will-change: transform;
+        }
+        
+        .contact-button {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            cursor: pointer;
+            transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            will-change: transform;
+        }
+        
+        .contact-button.magnetic-active {
+            transition: transform 0.1s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        
+        .circular-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            animation: rotateText 20s linear infinite;
+        }
+        
+        @keyframes rotateText {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .circular-text svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .circular-text text {
+            fill: white;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .button-center {
+            position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: black;
-            font-size: 4rem;
-            font-weight: bold;
-            text-align: center;
-            z-index: 10;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            text-shadow: 2px 2px 4px rgba(255,255,255,0.3);
-            mix-blend-mode: difference;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
         }
-        .stage-message.visible {
-            opacity: 1;
+        
+        .contact-button:hover .button-center {
+            transform: translate(-50%, -50%) scale(1.1);
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.4);
         }
-        .footer {
-            position: fixed;
-            bottom: 30px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: #333;
-            font-size: 1.2rem;
-            z-index: 10;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-            background: rgba(255,255,255,0.8);
-            padding: 12px;
-            backdrop-filter: blur(4px);
-            border-top: 1px solid #aaa;
-            pointer-events: none;
-        }
-        .footer.visible {
-            opacity: 1;
-        }
-
-        /* custom cursor */
+        
+        /* Custom Cursor */
         .cursor-dot,
         .cursor-ring {
             position: fixed;
@@ -74,117 +767,425 @@
             transform: translate(-50%, -50%);
             z-index: 9999;
         }
+        
         .cursor-dot {
-            width: 25px;
-            height: 25px;
+            width: 8px;
+            height: 8px;
             background: white;
             mix-blend-mode: difference;
             z-index: 10000;
         }
+        
         .cursor-ring {
             width: 40px;
             height: 40px;
-            border: 2px solid white;
+            border: 1px solid white;
+            mix-blend-mode: difference;
             z-index: 9999;
             transition: width 0.2s ease, height 0.2s ease, border 0.2s ease;
-            mix-blend-mode: difference;
-        }
-        .info {
-            position: fixed;
-            bottom: 100px;
-            left: 20px;
-            color: #888;
-            font-size: 0.9rem;
-            z-index: 5;
-            background: rgba(0,0,0,0.3);
-            padding: 4px 12px;
-            border-radius: 20px;
-            pointer-events: none;
-            backdrop-filter: blur(2px);
         }
         
-        /* Page progress indicator */
-        .page-progress {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: rgba(255,255,255,0.1);
-            z-index: 100;
-            pointer-events: none;
+        .cursor-ring.hover {
+            width: 60px;
+            height: 60px;
+            border-color: white;
+            background: rgba(255,255,255,0.05);
         }
-        .page-progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #fff, #888);
-            width: 0%;
-            transition: width 0.1s ease;
+        
+        /* Scroll Reveal Animation */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
         }
-        .page-progress-stages {
-            position: fixed;
-            top: 4px;
-            left: 0;
-            width: 100%;
-            height: 20px;
-            z-index: 99;
-            pointer-events: none;
+        
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
         }
-        .stage-marker {
-            position: absolute;
-            top: 0;
-            width: 2px;
-            height: 20px;
-            background: rgba(255,255,255,0.3);
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .about-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .footer-top {
+                grid-template-columns: 1fr 1fr;
+            }
         }
-        .stage-label {
-            position: absolute;
-            top: 25px;
-            font-size: 10px;
-            color: rgba(255,255,255,0.5);
-            transform: translateX(-50%);
-            white-space: nowrap;
+        
+        @media (max-width: 768px) {
+            .nav {
+                padding: 16px 24px;
+            }
+            
+            .nav-links {
+                display: none;
+            }
+            
+            .hero {
+                padding: 0 24px;
+            }
+            
+            .hero-buttons {
+                flex-direction: column;
+            }
+            
+            .stats-bar {
+                flex-direction: column;
+                gap: 24px;
+                bottom: 24px;
+            }
+            
+            .section {
+                padding: 80px 24px;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .about-features {
+                grid-template-columns: 1fr;
+            }
+            
+            .step {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+            
+            .footer-top {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+            
+            .footer-bottom {
+                flex-direction: column;
+                gap: 24px;
+                text-align: center;
+            }
+            
+            .contact-button-container {
+                bottom: 20px;
+                right: 20px;
+            }
+            
+            .contact-button {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .cursor-dot, .cursor-ring {
+                display: none;
+            }
+            
+            body {
+                cursor: auto;
+            }
         }
     </style>
-    <!-- Three.js and simplex-noise -->
+<base target="_blank">
+</head>
+<body>
+    <!-- Canvas Container for 3D Particles -->
+    <div id="canvas-container"></div>
+    
+    <!-- Custom Cursor -->
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+    
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="logo">
+            <div class="logo-circle">S</div>
+            <span class="logo-text">Suki</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#about">About</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how">How It Works</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+        <a href="#download" class="nav-cta">Get App</a>
+    </nav>
+    
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">Now on 50+ Campuses</div>
+            <h1 class="hero-title">Trade Smarter.<br>Live Better.</h1>
+            <p class="hero-subtitle">The safest marketplace for university students to buy, sell, and trade second-hand items on campus. No shipping, no scams, just simple local exchanges.</p>
+            <div class="hero-buttons">
+                <button class="btn-primary">Download App</button>
+                <button class="btn-secondary">Learn More</button>
+            </div>
+        </div>
+        
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-number">50K+</div>
+                <div class="stat-label">Active Users</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">120K+</div>
+                <div class="stat-label">Items Traded</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">$2M+</div>
+                <div class="stat-label">Student Savings</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">50+</div>
+                <div class="stat-label">Universities</div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- About Section -->
+    <section class="section about-section" id="about">
+        <div class="section-content">
+            <div class="section-header reveal">
+                <div class="section-label">About Suki</div>
+                <h2 class="section-title">Built by students,<br>for students.</h2>
+            </div>
+            
+            <div class="about-grid">
+                <div class="about-text reveal">
+                    <p>Suki was born from a simple observation: students have stuff they don't need, and other students need stuff they can't afford new. We created a safe, campus-focused marketplace that eliminates the risks of traditional online trading.</p>
+                    <p>Every user is verified with their university email, every transaction happens on campus, and our community ratings ensure you're always dealing with trusted peers.</p>
+                </div>
+                
+                <div class="about-features">
+                    <div class="about-feature reveal">
+                        <div class="about-feature-icon">🔒</div>
+                        <div class="about-feature-title">Verified Users</div>
+                        <div class="about-feature-desc">Every account is tied to a valid university email for maximum security.</div>
+                    </div>
+                    <div class="about-feature reveal">
+                        <div class="about-feature-icon">📍</div>
+                        <div class="about-feature-title">On-Campus Only</div>
+                        <div class="about-feature-desc">Meet and exchange at designated safe spots on your campus.</div>
+                    </div>
+                    <div class="about-feature reveal">
+                        <div class="about-feature-icon">💬</div>
+                        <div class="about-feature-title">In-App Chat</div>
+                        <div class="about-feature-desc">Negotiate and arrange meetings without sharing personal info.</div>
+                    </div>
+                    <div class="about-feature reveal">
+                        <div class="about-feature-icon">⭐</div>
+                        <div class="about-feature-title">Trust Ratings</div>
+                        <div class="about-feature-desc">Build your reputation with every successful transaction.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Features Section -->
+    <section class="section" id="features">
+        <div class="section-content">
+            <div class="section-header reveal">
+                <div class="section-label">Features</div>
+                <h2 class="section-title">Everything you need<br>to trade with confidence.</h2>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-number">01</div>
+                    <div class="feature-icon">📸</div>
+                    <h3 class="feature-title">Smart Listings</h3>
+                    <p class="feature-desc">Snap a photo, add a description, and list your item in under 30 seconds. AI-powered suggestions help you price it right.</p>
+                </div>
+                
+                <div class="feature-card reveal">
+                    <div class="feature-number">02</div>
+                    <div class="feature-icon">🔍</div>
+                    <h3 class="feature-title">Campus Search</h3>
+                    <p class="feature-desc">Browse items available exclusively on your campus. Filter by category, price, and distance from your dorm.</p>
+                </div>
+                
+                <div class="feature-card reveal">
+                    <div class="feature-number">03</div>
+                    <div class="feature-icon">🛡️</div>
+                    <h3 class="feature-title">Secure Payments</h3>
+                    <p class="feature-desc">Optional in-app payment protection holds funds until both parties confirm the exchange is complete.</p>
+                </div>
+                
+                <div class="feature-card reveal">
+                    <div class="feature-number">04</div>
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="feature-title">Wishlist Alerts</h3>
+                    <p class="feature-desc">Looking for something specific? Set up alerts and get notified the moment it becomes available.</p>
+                </div>
+                
+                <div class="feature-card reveal">
+                    <div class="feature-number">05</div>
+                    <div class="feature-icon">🌱</div>
+                    <h3 class="feature-title">Sustainable Impact</h3>
+                    <p class="feature-desc">Track your environmental contribution. Every item traded is one less in a landfill.</p>
+                </div>
+                
+                <div class="feature-card reveal">
+                    <div class="feature-number">06</div>
+                    <div class="feature-icon">🎓</div>
+                    <h3 class="feature-title">Graduation Sale</h3>
+                    <p class="feature-desc">Special tools for graduating seniors to quickly sell everything before moving out.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- How It Works Section -->
+    <section class="section how-section" id="how">
+        <div class="section-content">
+            <div class="section-header reveal">
+                <div class="section-label">How It Works</div>
+                <h2 class="section-title">Start trading in<br>three simple steps.</h2>
+            </div>
+            
+            <div class="steps">
+                <div class="step reveal">
+                    <div class="step-number">01</div>
+                    <div class="step-content">
+                        <h3>Sign Up with Your School Email</h3>
+                        <p>Download the app and verify your student status with your university email. It takes less than a minute, and your account is instantly linked to your campus community.</p>
+                    </div>
+                </div>
+                
+                <div class="step reveal">
+                    <div class="step-number">02</div>
+                    <div class="step-content">
+                        <h3>Browse or List Items</h3>
+                        <p>Looking to buy? Browse categories from textbooks to furniture. Selling? Snap photos, set your price, and publish. Your listing is visible only to students on your campus.</p>
+                    </div>
+                </div>
+                
+                <div class="step reveal">
+                    <div class="step-number">03</div>
+                    <div class="step-content">
+                        <h3>Meet & Exchange Safely</h3>
+                        <p>Use our in-app chat to arrange a meeting at one of your campus's designated safe exchange spots. Complete the trade and leave a rating to build trust.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- CTA Section -->
+    <section class="section cta-section" id="download">
+        <div class="cta-content reveal">
+            <h2 class="cta-title">Ready to start trading?</h2>
+            <p class="cta-subtitle">Join thousands of students already saving money and reducing waste on campus. Download Suki today and get your first trade fee-free.</p>
+            <div class="cta-buttons">
+                <button class="btn-primary">Download for iOS</button>
+                <button class="btn-secondary">Download for Android</button>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer class="footer" id="contact">
+        <div class="footer-content">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <div class="footer-logo">
+                        <div class="footer-logo-circle">S</div>
+                        <span class="footer-logo-text">Suki</span>
+                    </div>
+                    <p class="footer-desc">The safest marketplace for university students to buy, sell, and trade second-hand items on campus.</p>
+                </div>
+                
+                <div class="footer-column">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#">Features</a></li>
+                        <li><a href="#">How It Works</a></li>
+                        <li><a href="#">Pricing</a></li>
+                        <li><a href="#">Download App</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-column">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#">About Us</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Press</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-column">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#">Help Center</a></li>
+                        <li><a href="#">Safety Tips</a></li>
+                        <li><a href="#">Community Guidelines</a></li>
+                        <li><a href="#">Report an Issue</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p class="footer-copyright">© 2024 Suki. All rights reserved. Made with ❤️ for students.</p>
+                <div class="footer-socials">
+                    <a href="#" class="footer-social" aria-label="Instagram">IG</a>
+                    <a href="#" class="footer-social" aria-label="Twitter">X</a>
+                    <a href="#" class="footer-social" aria-label="TikTok">TT</a>
+                    <a href="#" class="footer-social" aria-label="LinkedIn">LI</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Magnetic Contact Button -->
+    <div class="contact-button-container">
+        <div class="contact-button" id="contact-btn">
+            <div class="circular-text">
+                <svg viewBox="0 0 120 120">
+                    <defs>
+                        <path id="circle-path" d="M60,60 m-50,0 a50,50 0 1,1 100,0 a50,50 0 1,1 -100,0"/>
+                    </defs>
+                    <text>
+                        <textPath href="#circle-path" startOffset="0%">
+                            GET STARTED WITH THE SUKI PLATFORM •
+                        </textPath>
+                    </text>
+                </svg>
+            </div>
+            <div class="button-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js Import Map -->
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
-                "simplex-noise": "https://cdn.skypack.dev/simplex-noise@2.4.0"
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
             }
         }
     </script>
-</head>
-<body>
-    <div id="canvas-container"></div>
-
-    <!-- UI overlays -->
-    <div class="stage-message" id="stage-text"></div>
-    <div class="footer" id="footer-text">© 2025 – The End</div>
-
-    <!-- Page progress indicator -->
-    <div class="page-progress">
-        <div class="page-progress-bar" id="progress-bar"></div>
-    </div>
-    <div class="page-progress-stages" id="progress-stages"></div>
-
-    <!-- custom cursor -->
-    <div class="cursor-dot"></div>
-    <div class="cursor-ring"></div>
-
-    <div class="info">scroll ↓ sphere (move mouse to rotate) → implodes → random white → torus → terrain → cube → footer</div>
 
     <script type="module">
         import * as THREE from 'three';
-        import SimplexNoise from 'simplex-noise';
 
-        // --- setup scene ---
+        // --- Three.js Particle System ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x000000);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 3, 22);
+        camera.position.set(0, 0, 25);
         camera.lookAt(0, 0, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -192,71 +1193,51 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         container.appendChild(renderer.domElement);
 
-        // --- constants ---
-        const PARTICLE_COUNT = 4000;
-        const particleSize = 0.16;
+        // Particle Configuration
+        const PARTICLE_COUNT = 2500;
+        const particleSize = 0.12;
 
-        // --- precompute shape positions ---
-        // sphere (stage 1)
+        // Precompute shape positions
         const spherePositions = new Float32Array(PARTICLE_COUNT * 3);
-        // random (stage 2)
         const randomPositions = new Float32Array(PARTICLE_COUNT * 3);
-        // torus (stage 3)
         const torusPositions = new Float32Array(PARTICLE_COUNT * 3);
-        // grid base for terrain (stage 4)
-        const gridBasePositions = new Float32Array(PARTICLE_COUNT * 3);
-        // cube (stage 5)
         const cubePositions = new Float32Array(PARTICLE_COUNT * 3);
 
-        // sphere: radius 5
+        // Sphere
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             const i3 = i * 3;
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(2 * Math.random() - 1);
-            const r = 5.0;
+            const r = 6.0;
             spherePositions[i3] = r * Math.sin(phi) * Math.cos(theta);
             spherePositions[i3+1] = r * Math.sin(phi) * Math.sin(theta);
             spherePositions[i3+2] = r * Math.cos(phi);
         }
 
-        // random: range -10..10
+        // Random
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             const i3 = i * 3;
-            randomPositions[i3] = (Math.random() - 0.5) * 20;
-            randomPositions[i3+1] = (Math.random() - 0.5) * 20;
-            randomPositions[i3+2] = (Math.random() - 0.5) * 20;
+            randomPositions[i3] = (Math.random() - 0.5) * 25;
+            randomPositions[i3+1] = (Math.random() - 0.5) * 25;
+            randomPositions[i3+2] = (Math.random() - 0.5) * 25;
         }
 
-        // torus: major 6, minor 2
+        // Torus
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             const i3 = i * 3;
             const u = Math.random() * Math.PI * 2;
             const v = Math.random() * Math.PI * 2;
-            const R = 6.0, rTube = 2.0;
+            const R = 7.0, rTube = 2.5;
             torusPositions[i3] = (R + rTube * Math.cos(v)) * Math.cos(u);
             torusPositions[i3+1] = (R + rTube * Math.cos(v)) * Math.sin(u);
             torusPositions[i3+2] = rTube * Math.sin(v);
         }
 
-        // grid base for terrain
-        const gridSize = Math.floor(Math.sqrt(PARTICLE_COUNT));
-        const spacing = 0.45;
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            const i3 = i * 3;
-            const row = Math.floor(i / gridSize);
-            const col = i % gridSize;
-            const x = (col - gridSize/2) * spacing;
-            const z = (row - gridSize/2) * spacing;
-            gridBasePositions[i3] = x;
-            gridBasePositions[i3+1] = 0;
-            gridBasePositions[i3+2] = z;
-        }
-
-        // cube: size 7
+        // Cube
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             const i3 = i * 3;
             const face = Math.floor(Math.random() * 6);
-            const s = 7.0;
+            const s = 8.0;
             let x, y, z;
             const u = (Math.random() * 2 - 1) * s;
             const v = (Math.random() * 2 - 1) * s;
@@ -273,7 +1254,7 @@
             cubePositions[i3+2] = z;
         }
 
-        // --- geometry & material ---
+        // Geometry & Material
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(spherePositions.slice(), 3));
 
@@ -286,11 +1267,6 @@
             ctx.beginPath();
             ctx.arc(16, 16, 14, 0, 2 * Math.PI);
             ctx.fill();
-            ctx.globalCompositeOperation = 'source-atop';
-            ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            ctx.beginPath();
-            ctx.arc(16, 16, 10, 0, 2 * Math.PI);
-            ctx.fill();
             return new THREE.CanvasTexture(canvas);
         }
 
@@ -300,245 +1276,90 @@
             map: createCircleTexture(),
             blending: THREE.AdditiveBlending,
             transparent: true,
+            opacity: 0.8,
             depthWrite: false
         });
 
         const particleSystem = new THREE.Points(geometry, material);
         scene.add(particleSystem);
 
-        // --- noise for terrain ---
-        const simplex = new SimplexNoise();
-
-        // --- mouse repel ---
+        // Mouse interaction
         const mouse = new THREE.Vector2(0, 0);
         const repelPoint = new THREE.Vector3(0, 0, 0);
-        const repelRadius = 6.5;
-        const repelStrength = 0.35;
+        const repelRadius = 5;
+        const repelStrength = 0.12;
 
         window.addEventListener('mousemove', (e) => {
             mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         });
 
-        // --- mouse-controlled rotation with momentum (only for stage1) ---
-        const targetRotation = { y: 0, x: 0 };
-        const rotLerp = 0.05;
-        const rotationVelocity = { y: 0, x: 0 };
-        const deceleration = 0.995; // Slower deceleration to maintain rotation longer
-        const minVelocity = 0.0005; // Very low minimum velocity to keep slow rotation
-        const baseRotationSpeed = 0.002; // Base slow rotation speed when velocity is low
-        let lastMouseX = 0;
-        let lastMouseY = 0;
-        let isMouseMoving = false;
-        let mouseStopTimer = null;
+        // Scroll-based shape morphing
+        let currentShape = 0; // 0: sphere, 1: random, 2: torus, 3: cube
+        let targetPositions = spherePositions;
+        let morphProgress = 0;
 
-        window.addEventListener('mousemove', (e) => {
-            const nx = (e.clientX / window.innerWidth) * 2 - 1;
-            const ny = -(e.clientY / window.innerHeight) * 2 + 1;
+        function updateShapeOnScroll() {
+            const scrollY = window.scrollY;
+            const windowHeight = window.innerHeight;
+            const scrollProgress = scrollY / (document.body.scrollHeight - windowHeight);
             
-            // Calculate mouse movement delta
-            const deltaX = nx - lastMouseX;
-            const deltaY = ny - lastMouseY;
+            // Determine target shape based on scroll
+            let newShape = 0;
+            let newTarget = spherePositions;
             
-            // Update velocity based on mouse movement (scaled for rotation speed)
-            rotationVelocity.y = deltaX * Math.PI * 0.5; // Horizontal movement affects Y rotation
-            rotationVelocity.x = deltaY * Math.PI * 0.2; // Vertical movement affects X rotation
-            
-            // Update target rotation based on current position + velocity
-            targetRotation.y += rotationVelocity.y;
-            targetRotation.x += rotationVelocity.x;
-            
-            lastMouseX = nx;
-            lastMouseY = ny;
-            isMouseMoving = true;
-            
-            // Clear existing timer
-            if (mouseStopTimer) {
-                clearTimeout(mouseStopTimer);
+            if (scrollProgress < 0.2) {
+                newShape = 0;
+                newTarget = spherePositions;
+            } else if (scrollProgress < 0.4) {
+                newShape = 1;
+                newTarget = randomPositions;
+            } else if (scrollProgress < 0.6) {
+                newShape = 2;
+                newTarget = torusPositions;
+            } else {
+                newShape = 3;
+                newTarget = cubePositions;
             }
             
-            // Set timer to detect when mouse stops moving
-            mouseStopTimer = setTimeout(() => {
-                isMouseMoving = false;
-            }, 50); // 50ms delay to detect mouse stop
-        });
-
-        window.addEventListener('mouseleave', () => {
-            isMouseMoving = false;
-            // Keep current velocity for deceleration effect
-        });
-
-        // --- scroll stages with custom implode transition ---
-        // stage1: sphere -> random implosion (0 - 1000px)
-        // stage2: random + white background (1000 - 1500px)
-        // stage3: torus (1500 - 2000px)
-        // stage4: terrain (2000 - 2500px)
-        // stage5: cube (2500 - 3000px)
-        // stage6: footer (3000+ px)
-        const scrollRanges = {
-            stage1: [0, 1000],
-            stage2: [1000, 1500],
-            stage3: [1500, 2000],
-            stage4: [2000, 2500],
-            stage5: [2500, 3000],
-            stage6: [3000, Infinity]
-        };
-
-        const stageTextEl = document.getElementById('stage-text');
-        const footerEl = document.getElementById('footer-text');
-
-        function getStageInfo(scrollY) {
-            if (scrollY < scrollRanges.stage1[1]) {
-                return { stage: 1, nextStage: 2, blend: scrollY / scrollRanges.stage1[1] }; // blend from sphere to random with implosion
-            } else if (scrollY >= scrollRanges.stage2[0] && scrollY < scrollRanges.stage2[1]) {
-                const blend = (scrollY - scrollRanges.stage2[0]) / (scrollRanges.stage2[1] - scrollRanges.stage2[0]);
-                return { stage: 2, nextStage: 3, blend };
-            } else if (scrollY >= scrollRanges.stage3[0] && scrollY < scrollRanges.stage3[1]) {
-                const blend = (scrollY - scrollRanges.stage3[0]) / (scrollRanges.stage3[1] - scrollRanges.stage3[0]);
-                return { stage: 3, nextStage: 4, blend };
-            } else if (scrollY >= scrollRanges.stage4[0] && scrollY < scrollRanges.stage4[1]) {
-                const blend = (scrollY - scrollRanges.stage4[0]) / (scrollRanges.stage4[1] - scrollRanges.stage4[0]);
-                return { stage: 4, nextStage: 5, blend };
-            } else if (scrollY >= scrollRanges.stage5[0] && scrollY < scrollRanges.stage5[1]) {
-                const blend = (scrollY - scrollRanges.stage5[0]) / (scrollRanges.stage5[1] - scrollRanges.stage5[0]);
-                return { stage: 5, nextStage: 6, blend };
-            } else {
-                return { stage: 6, nextStage: 6, blend: 1 };
+            if (newShape !== currentShape) {
+                currentShape = newShape;
+                targetPositions = newTarget;
             }
         }
 
-        function updateAppearance(stage) {
-            if (stage === 2) {
-                scene.background.set(0xffffff);
-                material.color.setHex(0xcccccc);
-                material.blending = THREE.NormalBlending;
-            } else {
-                scene.background.set(0x000000);
-                material.color.setHex(0xffffff);
-                material.blending = THREE.AdditiveBlending;
-            }
+        window.addEventListener('scroll', updateShapeOnScroll, { passive: true });
 
-            // stage text only for stage2
-            if (stage === 2) {
-                stageTextEl.textContent = 'Stage 2 – The Text';
-                stageTextEl.classList.add('visible');
-            } else {
-                stageTextEl.classList.remove('visible');
-            }
-
-            // footer for stage6
-            if (stage === 6) {
-                footerEl.classList.add('visible');
-            } else {
-                footerEl.classList.remove('visible');
-            }
-        }
-
-        // helper to get position for a given stage at index i (with time)
-        function getPosForStage(stageNum, idx, time) {
-            const j = idx * 3;
-            if (stageNum === 1 || stageNum === 2) {
-                // stage1 and stage2 use different base shapes, but we handle blending separately
-                // This function returns the "pure" shape for that stage (without blending)
-                if (stageNum === 1) {
-                    return new THREE.Vector3(spherePositions[j], spherePositions[j+1], spherePositions[j+2]);
-                } else {
-                    return new THREE.Vector3(randomPositions[j], randomPositions[j+1], randomPositions[j+2]);
-                }
-            } else if (stageNum === 3) {
-                return new THREE.Vector3(torusPositions[j], torusPositions[j+1], torusPositions[j+2]);
-            } else if (stageNum === 4) {
-                const gx = gridBasePositions[j];
-                const gz = gridBasePositions[j+2];
-                const y = simplex.noise3D(gx * 0.25, gz * 0.25, time * 0.3) * 2.8;
-                return new THREE.Vector3(gx, y, gz);
-            } else if (stageNum === 5) {
-                return new THREE.Vector3(cubePositions[j], cubePositions[j+1], cubePositions[j+2]);
-            }
-            return new THREE.Vector3(0, 0, 0);
-        }
-
-        // --- animation state ---
+        // Animation loop
         let time = 0;
-        let currentStage = 1;
+        const positions = geometry.attributes.position.array;
 
         function animate() {
             requestAnimationFrame(animate);
-            time += 0.015;
+            time += 0.008;
 
-            const scrollY = window.scrollY;
-            const { stage, nextStage, blend } = getStageInfo(scrollY);
-            currentStage = stage;
-            updateAppearance(stage);
-
-            const positions = geometry.attributes.position.array;
-
-            // compute target positions for each particle
+            // Smooth morph to target positions
+            const lerpFactor = 0.025;
             for (let i = 0; i < PARTICLE_COUNT; i++) {
                 const i3 = i * 3;
-                let targetX, targetY, targetZ;
-
-                if (stage === 1) {
-                    // Special implosion effect: blend from sphere to random via center
-                    // t = blend (0..1). For t in [0,0.5] move sphere -> center, for [0.5,1] move center -> random
-                    const t = blend;
-                    let p1, p2;
-                    if (t <= 0.5) {
-                        // sphere to center
-                        const factor = t * 2; // 0..1
-                        const sphere = getPosForStage(1, i, time);
-                        p1 = sphere;
-                        p2 = new THREE.Vector3(0, 0, 0);
-                    } else {
-                        // center to random
-                        const factor = (t - 0.5) * 2; // 0..1
-                        p1 = new THREE.Vector3(0, 0, 0);
-                        p2 = getPosForStage(2, i, time);
-                    }
-                    // linear interpolation
-                    targetX = p1.x * (1 - (t <= 0.5 ? t*2 : (t-0.5)*2)) + p2.x * (t <= 0.5 ? t*2 : (t-0.5)*2);
-                    targetY = p1.y * (1 - (t <= 0.5 ? t*2 : (t-0.5)*2)) + p2.y * (t <= 0.5 ? t*2 : (t-0.5)*2);
-                    targetZ = p1.z * (1 - (t <= 0.5 ? t*2 : (t-0.5)*2)) + p2.z * (t <= 0.5 ? t*2 : (t-0.5)*2);
-                } else if (stage === 2) {
-                    // stage 2: blend from random to torus (nextStage = 3)
-                    const p1 = getPosForStage(2, i, time);
-                    const p2 = getPosForStage(3, i, time);
-                    targetX = p1.x * (1 - blend) + p2.x * blend;
-                    targetY = p1.y * (1 - blend) + p2.y * blend;
-                    targetZ = p1.z * (1 - blend) + p2.z * blend;
-                } else if (stage === 3) {
-                    // stage 3: blend from torus to terrain
-                    const p1 = getPosForStage(3, i, time);
-                    const p2 = getPosForStage(4, i, time);
-                    targetX = p1.x * (1 - blend) + p2.x * blend;
-                    targetY = p1.y * (1 - blend) + p2.y * blend;
-                    targetZ = p1.z * (1 - blend) + p2.z * blend;
-                } else if (stage === 4) {
-                    // stage 4: blend from terrain to cube
-                    const p1 = getPosForStage(4, i, time);
-                    const p2 = getPosForStage(5, i, time);
-                    targetX = p1.x * (1 - blend) + p2.x * blend;
-                    targetY = p1.y * (1 - blend) + p2.y * blend;
-                    targetZ = p1.z * (1 - blend) + p2.z * blend;
-                } else if (stage === 5) {
-                    // stage 5: blend from cube to ??? (but nextStage=6, no shape, so just cube)
-                    const p = getPosForStage(5, i, time);
-                    targetX = p.x; targetY = p.y; targetZ = p.z;
-                } else {
-                    // stage 6: keep cube (or could freeze)
-                    const p = getPosForStage(5, i, time);
-                    targetX = p.x; targetY = p.y; targetZ = p.z;
-                }
-
-                // smooth interpolation
-                positions[i3] += (targetX - positions[i3]) * 0.07;
-                positions[i3+1] += (targetY - positions[i3+1]) * 0.07;
-                positions[i3+2] += (targetZ - positions[i3+2]) * 0.07;
+                
+                // Add subtle floating motion
+                const floatX = Math.sin(time + i * 0.1) * 0.03;
+                const floatY = Math.cos(time + i * 0.08) * 0.03;
+                const floatZ = Math.sin(time + i * 0.06) * 0.03;
+                
+                const targetX = targetPositions[i3] + floatX;
+                const targetY = targetPositions[i3+1] + floatY;
+                const targetZ = targetPositions[i3+2] + floatZ;
+                
+                positions[i3] += (targetX - positions[i3]) * lerpFactor;
+                positions[i3+1] += (targetY - positions[i3+1]) * lerpFactor;
+                positions[i3+2] += (targetZ - positions[i3+2]) * lerpFactor;
             }
 
-            // mouse repel
-            repelPoint.x = mouse.x * 12;
-            repelPoint.y = mouse.y * 8;
+            // Mouse repel effect
+            repelPoint.x = mouse.x * 15;
+            repelPoint.y = mouse.y * 10;
             repelPoint.z = 0;
 
             for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -547,6 +1368,7 @@
                 const dy = positions[i3+1] - repelPoint.y;
                 const dz = positions[i3+2] - repelPoint.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                
                 if (dist < repelRadius && dist > 0.001) {
                     const force = (1 - dist / repelRadius) * repelStrength;
                     positions[i3] += dx / dist * force;
@@ -557,97 +1379,27 @@
 
             geometry.attributes.position.needsUpdate = true;
 
-            // --- rotation logic ---
-            if (stage === 1) {
-                // Mouse-follow rotation with momentum and deceleration
-                if (isMouseMoving) {
-                    // When mouse is moving, use normal interpolation to target rotation
-                    particleSystem.rotation.y += (targetRotation.y - particleSystem.rotation.y) * rotLerp;
-                    particleSystem.rotation.x += (targetRotation.x - particleSystem.rotation.x) * rotLerp;
-                } else {
-                    // When mouse stops, apply deceleration to velocity and continue rotating
-                    rotationVelocity.y *= deceleration;
-                    rotationVelocity.x *= deceleration;
-                    
-                    // Continue rotating with decelerated velocity
-                    particleSystem.rotation.y += rotationVelocity.y;
-                    particleSystem.rotation.x += rotationVelocity.x;
-                    
-                    // Maintain slow perpetual motion when velocity gets very low
-                    if (Math.abs(rotationVelocity.y) < minVelocity && Math.abs(rotationVelocity.x) < minVelocity) {
-                        // Instead of stopping, maintain a slow base rotation in the last direction
-                        if (Math.abs(rotationVelocity.y) > 0 || Math.abs(rotationVelocity.x) > 0) {
-                            // Keep a small amount of the last rotation direction
-                            rotationVelocity.y = Math.sign(rotationVelocity.y) * baseRotationSpeed || baseRotationSpeed;
-                            rotationVelocity.x = Math.sign(rotationVelocity.x) * baseRotationSpeed * 0.3 || 0;
-                        }
-                    }
-                }
-            } else if (stage === 2) {
-                // Stage 2 (random): maintain slow rotation from previous momentum
-                particleSystem.rotation.y += rotationVelocity.y * 0.5;
-                particleSystem.rotation.x += rotationVelocity.x * 0.5;
-            } else if (stage === 3 || stage === 4 || stage === 5 || stage === 6) {
-                // Continuous rotation for all remaining stages (torus, terrain, cube, footer)
-                particleSystem.rotation.y += 0.001;
-                particleSystem.rotation.x += 0.0003;
-            } else {
-                // Fallback: very slow rotation
-                particleSystem.rotation.y += 0.0005;
-            }
+            // Continuous rotation
+            particleSystem.rotation.y += 0.0008;
+            particleSystem.rotation.x += 0.0003;
 
             renderer.render(scene, camera);
         }
 
         animate();
 
-        // --- page progress indicator ---
-        const progressBar = document.getElementById('progress-bar');
-        const progressStages = document.getElementById('progress-stages');
-        const totalHeight = 4000; // Match the min-height in CSS
-        
-        // Create stage markers
-        const stagePositions = [0, 1000, 1500, 2000, 2500, 3000];
-        const stageNames = ['Sphere', 'Random', 'Torus', 'Terrain', 'Cube', 'Footer'];
-        
-        stagePositions.forEach((pos, index) => {
-            const marker = document.createElement('div');
-            marker.className = 'stage-marker';
-            marker.style.left = (pos / totalHeight * 100) + '%';
-            
-            const label = document.createElement('div');
-            label.className = 'stage-label';
-            label.textContent = stageNames[index];
-            label.style.left = (pos / totalHeight * 100) + '%';
-            
-            progressStages.appendChild(marker);
-            progressStages.appendChild(label);
-        });
-        
-        // Update progress bar on scroll
-        function updateProgress() {
-            const scrollY = window.scrollY;
-            const maxScroll = totalHeight - window.innerHeight;
-            const progress = Math.min(scrollY / maxScroll * 100, 100);
-            progressBar.style.width = progress + '%';
-        }
-        
-        window.addEventListener('scroll', updateProgress);
-        updateProgress(); // Initial call
-
-        // --- resize ---
+        // Resize handler
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            updateProgress(); // Update progress on resize
         });
 
-        // --- custom cursor (unchanged) --
+        // --- Custom Cursor ---
         const dot = document.querySelector('.cursor-dot');
         const ring = document.querySelector('.cursor-ring');
         let mouseX = 0, mouseY = 0, ringX = 0, ringY = 0;
-        const cursorFollowSpeed = 0.15;
+        const cursorFollowSpeed = 0.12;
 
         window.addEventListener('mousemove', (e) => {
             mouseX = e.clientX;
@@ -665,13 +1417,112 @@
         }
         animateCursor();
 
-        window.addEventListener('mousedown', () => {
-            ring.style.width = '30px';
-            ring.style.height = '30px';
+        // Hover effect on interactive elements
+        const interactiveElements = document.querySelectorAll('a, button, .feature-card, .step, .about-feature');
+        interactiveElements.forEach(el => {
+            el.addEventListener('mouseenter', () => ring.classList.add('hover'));
+            el.addEventListener('mouseleave', () => ring.classList.remove('hover'));
         });
-        window.addEventListener('mouseup', () => {
-            ring.style.width = '50px';
-            ring.style.height = '50px';
+
+        // --- Magnetic Contact Button ---
+        const contactBtn = document.getElementById('contact-btn');
+        const buttonContainer = document.querySelector('.contact-button-container');
+        
+        let buttonTargetPos = { x: 0, y: 0 };
+        let buttonCurrentPos = { x: 0, y: 0 };
+        let originalButtonPos = { x: 40, y: 40 };
+        
+        function getButtonCenter() {
+            const rect = contactBtn.getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            };
+        }
+        
+        function getDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        }
+        
+        function handleMouseMove(e) {
+            const mousePos = { x: e.clientX, y: e.clientY };
+            const buttonCenter = getButtonCenter();
+            const distance = getDistance(mousePos, buttonCenter);
+            const magneticRadius = 180;
+            
+            if (distance < magneticRadius) {
+                contactBtn.classList.add('magnetic-active');
+                const force = Math.max(0, (magneticRadius - distance) / magneticRadius);
+                const offsetX = (mousePos.x - buttonCenter.x) * force * 0.4;
+                const offsetY = (mousePos.y - buttonCenter.y) * force * 0.4;
+                
+                buttonTargetPos.x = offsetX;
+                buttonTargetPos.y = offsetY;
+            } else {
+                contactBtn.classList.remove('magnetic-active');
+                buttonTargetPos.x = 0;
+                buttonTargetPos.y = 0;
+            }
+        }
+        
+        function animateButton() {
+            buttonCurrentPos.x += (buttonTargetPos.x - buttonCurrentPos.x) * 0.15;
+            buttonCurrentPos.y += (buttonTargetPos.y - buttonCurrentPos.y) * 0.15;
+            
+            buttonContainer.style.transform = `translate(${buttonCurrentPos.x}px, ${buttonCurrentPos.y}px)`;
+            requestAnimationFrame(animateButton);
+        }
+        
+        window.addEventListener('mousemove', handleMouseMove);
+        animateButton();
+        
+        contactBtn.addEventListener('click', () => {
+            contactBtn.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                contactBtn.style.transform = 'scale(1)';
+            }, 150);
+            
+            // Scroll to contact section
+            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // --- Scroll Reveal Animation ---
+        const revealElements = document.querySelectorAll('.reveal');
+        
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+        
+        revealElements.forEach(el => revealObserver.observe(el));
+
+        // --- Smooth Scroll for Navigation ---
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // --- Button Click Handlers ---
+        document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.textContent.includes('Download')) {
+                    alert('Coming soon! We\'re launching on iOS and Android very soon.');
+                } else if (this.textContent.includes('Learn')) {
+                    document.getElementById('about').scrollIntoView({ behavior: 'smooth' });
+                }
+            });
         });
     </script>
 </body>
