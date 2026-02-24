@@ -12,13 +12,11 @@ const Footer: React.FC = () => {
           {/* Brand */}
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <img
-                src="/logo_enhanced.png"
-                alt="ReUseU"
-                className="h-9 w-9 rounded-lg object-contain"
-              />
+              <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                S
+              </div>
               <span className="font-display text-xl font-bold text-foreground">
-                SCU
+                Suki
               </span>
             </Link>
             <p className="text-sm text-muted-foreground">

@@ -20,8 +20,7 @@
     "profile": "الملف الشخصي",
     "nearBy": "بالقرب",
     "favorites": "المفضلة",
-    "createListing": "إنشاء إعلان",
-    "admin": "الإدارة"
+    "createListing": "إنشاء إعلان"
   },
   "header": {
     "more": "المزيد",
@@ -44,7 +43,7 @@
     "terms": "شروط الخدمة",
     "privacy": "سياسة الخصوصية",
     "guidelines": "إرشادات المجتمع",
-    "copyright": "© {{year}} SCU. جميع الحقوق محفوظة.",
+    "copyright": "© {{year}} Suki. جميع الحقوق محفوظة.",
     "madeWith": "صُنع بحب لمجتمعات الحرم الجامعي"
   },
   "home": {
@@ -68,8 +67,148 @@
     "emptyCategory": "لا توجد عناصر في هذه الفئة بعد",
     "viewAllItems": "عرض جميع العناصر",
     "ctaTitle": "جاهز لبدء التداول؟",
-    "ctaSubtitle": "انضم لآلاف الطلاب الذين يستخدمون SCU للشراء والبيع داخل الحرم الجامعي.",
+    "ctaSubtitle": "انضم لآلاف الطلاب الذين يستخدمون Suki للشراء والبيع داخل الحرم الجامعي.",
     "ctaButton": "إنشاء حساب مجاني"
+  },
+  "landing": {
+    "nav": {
+      "about": "About",
+      "features": "Features",
+      "how": "How It Works",
+      "contact": "Contact"
+    },
+    "badge": "Now on 50+ Campuses",
+    "heroTitle": "Trade Smarter.",
+    "heroTitleAccent": "Live Better.",
+    "heroSubtitle": "The safest marketplace for university students to buy, sell, and trade second-hand items on campus. No shipping, no scams, just simple local exchanges.",
+    "primaryCta": "Download App",
+    "secondaryCta": "Learn More",
+    "primaryCtaAuthed": "Start Selling",
+    "secondaryCtaAuthed": "Explore Features",
+    "stats": {
+      "activeUsers": "Active Users",
+      "itemsTraded": "Items Traded",
+      "savings": "Student Savings",
+      "universities": "Universities"
+    },
+    "about": {
+      "label": "About Suki",
+      "titleLine1": "Built by students,",
+      "titleLine2": "for students.",
+      "text1": "Suki was born from a simple observation: students have stuff they do not need, and other students need stuff they cannot afford new. We created a safe, campus-focused marketplace that eliminates the risks of traditional online trading.",
+      "text2": "Every user is verified with their university email, every transaction happens on campus, and our community ratings ensure you are always dealing with trusted peers.",
+      "features": {
+        "verified": {
+          "title": "Verified Users",
+          "desc": "Every account is tied to a valid university email for maximum security."
+        },
+        "campus": {
+          "title": "On-Campus Only",
+          "desc": "Meet and exchange at designated safe spots on your campus."
+        },
+        "chat": {
+          "title": "In-App Chat",
+          "desc": "Negotiate and arrange meetings without sharing personal info."
+        },
+        "ratings": {
+          "title": "Trust Ratings",
+          "desc": "Build your reputation with every successful transaction."
+        }
+      }
+    },
+    "features": {
+      "label": "Features",
+      "titleLine1": "Everything you need",
+      "titleLine2": "to trade with confidence.",
+      "items": [
+        {
+          "number": "01",
+          "icon": "📸",
+          "title": "Smart Listings",
+          "desc": "Snap a photo, add a description, and list your item in under 30 seconds. AI-powered suggestions help you price it right."
+        },
+        {
+          "number": "02",
+          "icon": "🔍",
+          "title": "Campus Search",
+          "desc": "Browse items available exclusively on your campus. Filter by category, price, and distance from your dorm."
+        },
+        {
+          "number": "03",
+          "icon": "🛡️",
+          "title": "Secure Payments",
+          "desc": "Optional in-app payment protection holds funds until both parties confirm the exchange is complete."
+        },
+        {
+          "number": "04",
+          "icon": "🎯",
+          "title": "Wishlist Alerts",
+          "desc": "Looking for something specific? Set up alerts and get notified the moment it becomes available."
+        },
+        {
+          "number": "05",
+          "icon": "🌱",
+          "title": "Sustainable Impact",
+          "desc": "Track your environmental contribution. Every item traded is one less in a landfill."
+        },
+        {
+          "number": "06",
+          "icon": "🎓",
+          "title": "Graduation Sale",
+          "desc": "Special tools for graduating seniors to quickly sell everything before moving out."
+        }
+      ]
+    },
+    "how": {
+      "label": "How It Works",
+      "titleLine1": "Start trading in",
+      "titleLine2": "three simple steps.",
+      "steps": [
+        {
+          "number": "01",
+          "title": "Sign Up with Your School Email",
+          "desc": "Verify your student status with your university email. Your account is instantly linked to your campus community."
+        },
+        {
+          "number": "02",
+          "title": "Browse or List Items",
+          "desc": "Browse categories from textbooks to furniture. Selling? Snap photos, set your price, and publish to your campus."
+        },
+        {
+          "number": "03",
+          "title": "Meet and Exchange Safely",
+          "desc": "Arrange a meeting at a designated safe exchange spot and leave a rating after each trade."
+        }
+      ]
+    },
+    "cta": {
+      "title": "Ready to start trading?",
+      "subtitle": "Join thousands of students already saving money and reducing waste on campus.",
+      "primary": "Download for iOS",
+      "secondary": "Download for Android"
+    },
+    "footer": {
+      "desc": "The safest marketplace for university students to buy, sell, and trade second-hand items on campus.",
+      "product": "Product",
+      "company": "Company",
+      "support": "Support",
+      "links": {
+        "features": "Features",
+        "how": "How It Works",
+        "pricing": "Pricing",
+        "download": "Download App",
+        "about": "About Us",
+        "careers": "Careers",
+        "press": "Press",
+        "contact": "Contact",
+        "help": "Help Center",
+        "safety": "Safety Tips",
+        "guidelines": "Community Guidelines",
+        "report": "Report an Issue"
+      },
+      "copyright": "© 2026 Suki. All rights reserved. Made with ❤️ for students."
+    },
+    "floatingCta": "Get started with Suki •"
   },
   "login": {
     "welcomeBack": "مرحبًا بعودتك",
@@ -113,7 +252,7 @@
     "missingFields": "يرجى تعبئة جميع الحقول المطلوبة",
     "passwordMismatch": "يرجى التأكد من تطابق كلمتي المرور",
     "passwordTooShort": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
-    "success": "مرحبًا بك في SCU",
+    "success": "مرحبًا بك في Suki",
     "error": "حدث خطأ ما. حاول مرة أخرى."
   },
   "favorites": {
@@ -222,7 +361,7 @@
     "validationTitle": "خطأ في التحقق",
     "validationDesc": "يرجى مراجعة الحقول المظللة",
     "createSuccessTitle": "تم إنشاء الإعلان!",
-    "createSuccessDesc": "عنصرك متاح الآن على SCU",
+    "createSuccessDesc": "عنصرك متاح الآن على Suki",
     "createErrorDesc": "فشل إنشاء الإعلان",
     "missingFields": "يرجى تعبئة الحقول المطلوبة",
     "invalidPrice": "يجب أن يكون السعر 0.01 على الأقل",
@@ -242,7 +381,7 @@
     "favoriteRemovedDesc": "تمت إزالة العنصر من مفضلتك",
     "shareTitle": "تم نسخ الرابط!",
     "shareDesc": "تم نسخ رابط المنتج إلى الحافظة",
-    "shareText": "اطّلع على {{title}} على SCU!",
+    "shareText": "اطّلع على {{title}} على Suki!",
     "messageSent": "تم إرسال الرسالة!",
     "messageSentDesc": "سيتم إخطار البائع",
     "breadcrumbHome": "الرئيسية",
@@ -307,30 +446,6 @@
     "universitySaved": "تم تحديث الجامعة",
     "universitySavedDesc": "تم حفظ إعدادات الجامعة",
     "universityError": "فشل تحديث الجامعة"
-  },
-  "admin": {
-    "dashboard": "لوحة التحكم",
-    "users": "المستخدمون",
-    "universities": "الجامعات",
-    "dormitories": "السكن",
-    "categories": "الفئات",
-    "conditions": "مستويات الحالة",
-    "welcome": "مرحبًا مجددًا، أيها المسؤول",
-    "welcomeSubtitle": "إليك ما يحدث اليوم في SCU.",
-    "totalUsers": "إجمالي المستخدمين",
-    "activeListings": "العروض النشطة",
-    "totalSales": "إجمالي المبيعات",
-    "avgPrice": "متوسط السعر",
-    "recentUsers": "مستخدمون حديثون",
-    "recentListings": "عروض حديثة",
-    "adminConsole": "لوحة الإدارة",
-    "adminSubtitle": "سجّل الدخول لإدارة SCU",
-    "adminEmail": "بريد المسؤول",
-    "adminPassword": "كلمة المرور",
-    "signIn": "تسجيل الدخول",
-    "signingIn": "جارٍ تسجيل الدخول...",
-    "adminDemo": "استخدم بيانات اعتماد واجهة المسؤول للوصول إلى اللوحة",
-    "backToScu": "← الرجوع إلى SCU"
   },
   "notFound": {
     "title": "404",

@@ -612,7 +612,7 @@ const ProfilePage: React.FC = () => {
                 <h2 className="text-xl font-semibold">{user.full_name}</h2>
                 <p className="text-muted-foreground">@{user.username}</p>
                 <Badge variant="secondary" className="mt-2">
-                  {user.role === 'admin' ? 'Admin' : 'Student'}
+                  {user.role === 'admin' ? 'Staff' : 'Student'}
                 </Badge>
               </div>
             </div>

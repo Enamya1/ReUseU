@@ -1,4 +1,4 @@
-// Mock data for SCU Campus Trading App
+// Mock data for Suki Campus Trading App
 
 export interface User {
   id: number;
@@ -181,14 +181,6 @@ export const mockUsers: User[] = [
     bio: 'Senior year, clearing out my room!',
     dormitory_id: 2,
     role: 'user',
-    status: 'active',
-  },
-  {
-    id: 4,
-    full_name: 'Admin User',
-    username: 'admin',
-    email: 'admin@SCU.edu',
-    role: 'admin',
     status: 'active',
   },
 ];

@@ -75,8 +75,8 @@ const TimezoneMap: React.FC<TimezoneMapProps> = ({ selectedTimezone, onTimezoneS
     const minOffset = -12;
     const maxOffset = 11;
     const normalized = Math.min(1, Math.max(0, (offset - minOffset) / (maxOffset - minOffset)));
-    const hue = 220 - normalized * 220;
-    return `hsl(${hue}, 70%, 55%)`;
+    const lightness = 30 + normalized * 50;
+    return `hsl(0, 0%, ${lightness}%)`;
   };
 
   const clampOffset = (offset: number) => Math.max(-12, Math.min(11, offset));
@@ -105,7 +105,7 @@ const TimezoneMap: React.FC<TimezoneMapProps> = ({ selectedTimezone, onTimezoneS
             const tzid = offsetToTimezone.get(offset);
             const isSelected = selectedOffset === offset;
             const isUser = userOffset === offset;
-            const stroke = isSelected ? '#f43f5e' : isUser ? '#2563eb' : 'rgba(15, 23, 42, 0.35)';
+            const stroke = isSelected ? '#000000' : isUser ? '#ffffff' : 'rgba(0, 0, 0, 0.35)';
             const opacity = isSelected ? 0.75 : isUser ? 0.55 : 0.35;
             return (
               <rect

@@ -36,7 +36,6 @@ const Header: React.FC = () => {
   const moreNavItems = [
     { to: '/favorites', label: t('nav.favorites') },
     { to: '/create-listing', label: t('nav.createListing') },
-    { to: '/admin/dashboard', label: t('nav.admin') },
   ];
 
   const handleSearch = (e: React.FormEvent) => {
@@ -53,11 +52,11 @@ const Header: React.FC = () => {
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <img
             src="/logo_enhanced.png"
-            alt="ReUseU"
-            className="h-9 w-9 rounded-lg object-contain"
+            alt="Suki"
+            className="h-9 w-9 object-contain"
           />
           <span className="font-display text-xl font-bold text-foreground hidden sm:block">
-            SCU
+            Suki
           </span>
         </Link>
 

@@ -20,8 +20,7 @@
    "profile": "个人资料",
    "nearBy": "附近",
    "favorites": "收藏",
-   "createListing": "发布商品",
-   "admin": "管理"
+   "createListing": "发布商品"
  },
  "header": {
      "more": "更多",
@@ -44,7 +43,7 @@
       "terms": "服务条款",
       "privacy": "隐私政策",
       "guidelines": "社区指南",
-      "copyright": "© {{year}} SCU. 保留所有权利。",
+      "copyright": "© {{year}} Suki. 保留所有权利。",
       "madeWith": "为校园社区用心打造"
 },
 "home": {
@@ -70,6 +69,146 @@
     "ctaTitle": "准备开始交易？",
     "ctaSubtitle": "加入数千名学生，在校园内买卖物品。",
     "ctaButton": "创建免费账户"
+  },
+  "landing": {
+    "nav": {
+      "about": "About",
+      "features": "Features",
+      "how": "How It Works",
+      "contact": "Contact"
+    },
+    "badge": "Now on 50+ Campuses",
+    "heroTitle": "Trade Smarter.",
+    "heroTitleAccent": "Live Better.",
+    "heroSubtitle": "The safest marketplace for university students to buy, sell, and trade second-hand items on campus. No shipping, no scams, just simple local exchanges.",
+    "primaryCta": "Download App",
+    "secondaryCta": "Learn More",
+    "primaryCtaAuthed": "Start Selling",
+    "secondaryCtaAuthed": "Explore Features",
+    "stats": {
+      "activeUsers": "Active Users",
+      "itemsTraded": "Items Traded",
+      "savings": "Student Savings",
+      "universities": "Universities"
+    },
+    "about": {
+      "label": "About Suki",
+      "titleLine1": "Built by students,",
+      "titleLine2": "for students.",
+      "text1": "Suki was born from a simple observation: students have stuff they do not need, and other students need stuff they cannot afford new. We created a safe, campus-focused marketplace that eliminates the risks of traditional online trading.",
+      "text2": "Every user is verified with their university email, every transaction happens on campus, and our community ratings ensure you are always dealing with trusted peers.",
+      "features": {
+        "verified": {
+          "title": "Verified Users",
+          "desc": "Every account is tied to a valid university email for maximum security."
+        },
+        "campus": {
+          "title": "On-Campus Only",
+          "desc": "Meet and exchange at designated safe spots on your campus."
+        },
+        "chat": {
+          "title": "In-App Chat",
+          "desc": "Negotiate and arrange meetings without sharing personal info."
+        },
+        "ratings": {
+          "title": "Trust Ratings",
+          "desc": "Build your reputation with every successful transaction."
+        }
+      }
+    },
+    "features": {
+      "label": "Features",
+      "titleLine1": "Everything you need",
+      "titleLine2": "to trade with confidence.",
+      "items": [
+        {
+          "number": "01",
+          "icon": "📸",
+          "title": "Smart Listings",
+          "desc": "Snap a photo, add a description, and list your item in under 30 seconds. AI-powered suggestions help you price it right."
+        },
+        {
+          "number": "02",
+          "icon": "🔍",
+          "title": "Campus Search",
+          "desc": "Browse items available exclusively on your campus. Filter by category, price, and distance from your dorm."
+        },
+        {
+          "number": "03",
+          "icon": "🛡️",
+          "title": "Secure Payments",
+          "desc": "Optional in-app payment protection holds funds until both parties confirm the exchange is complete."
+        },
+        {
+          "number": "04",
+          "icon": "🎯",
+          "title": "Wishlist Alerts",
+          "desc": "Looking for something specific? Set up alerts and get notified the moment it becomes available."
+        },
+        {
+          "number": "05",
+          "icon": "🌱",
+          "title": "Sustainable Impact",
+          "desc": "Track your environmental contribution. Every item traded is one less in a landfill."
+        },
+        {
+          "number": "06",
+          "icon": "🎓",
+          "title": "Graduation Sale",
+          "desc": "Special tools for graduating seniors to quickly sell everything before moving out."
+        }
+      ]
+    },
+    "how": {
+      "label": "How It Works",
+      "titleLine1": "Start trading in",
+      "titleLine2": "three simple steps.",
+      "steps": [
+        {
+          "number": "01",
+          "title": "Sign Up with Your School Email",
+          "desc": "Verify your student status with your university email. Your account is instantly linked to your campus community."
+        },
+        {
+          "number": "02",
+          "title": "Browse or List Items",
+          "desc": "Browse categories from textbooks to furniture. Selling? Snap photos, set your price, and publish to your campus."
+        },
+        {
+          "number": "03",
+          "title": "Meet and Exchange Safely",
+          "desc": "Arrange a meeting at a designated safe exchange spot and leave a rating after each trade."
+        }
+      ]
+    },
+    "cta": {
+      "title": "Ready to start trading?",
+      "subtitle": "Join thousands of students already saving money and reducing waste on campus.",
+      "primary": "Download for iOS",
+      "secondary": "Download for Android"
+    },
+    "footer": {
+      "desc": "The safest marketplace for university students to buy, sell, and trade second-hand items on campus.",
+      "product": "Product",
+      "company": "Company",
+      "support": "Support",
+      "links": {
+        "features": "Features",
+        "how": "How It Works",
+        "pricing": "Pricing",
+        "download": "Download App",
+        "about": "About Us",
+        "careers": "Careers",
+        "press": "Press",
+        "contact": "Contact",
+        "help": "Help Center",
+        "safety": "Safety Tips",
+        "guidelines": "Community Guidelines",
+        "report": "Report an Issue"
+      },
+      "copyright": "© 2026 Suki. All rights reserved. Made with ❤️ for students."
+    },
+    "floatingCta": "Get started with Suki •"
   },
   "login": {
     "welcomeBack": "欢迎回来",
@@ -113,7 +252,7 @@
     "missingFields": "请填写所有必填字段",
     "passwordMismatch": "两次密码不一致",
     "passwordTooShort": "密码至少 8 个字符",
-    "success": "欢迎加入 SCU",
+    "success": "欢迎加入 Suki",
     "error": "出现错误，请重试。"
   },
   "favorites": {
@@ -222,7 +361,7 @@
     "validationTitle": "校验错误",
     "validationDesc": "请检查高亮字段",
     "createSuccessTitle": "发布成功！",
-    "createSuccessDesc": "你的商品已在 SCU 上架",
+    "createSuccessDesc": "你的商品已在 Suki 上架",
     "createErrorDesc": "发布失败",
     "missingFields": "请填写必填信息",
     "invalidPrice": "价格至少为 0.01",
@@ -242,7 +381,7 @@
     "favoriteRemovedDesc": "商品已从收藏移除",
     "shareTitle": "链接已复制！",
     "shareDesc": "商品链接已复制到剪贴板",
-    "shareText": "看看 SCU 上的 {{title}}！",
+    "shareText": "看看 Suki 上的 {{title}}！",
     "messageSent": "已发送消息！",
     "messageSentDesc": "卖家会收到通知",
     "breadcrumbHome": "首页",
@@ -307,30 +446,6 @@
     "universitySaved": "大学已更新",
     "universitySavedDesc": "大学设置已保存",
     "universityError": "更新大学失败"
-  },
-  "admin": {
-    "dashboard": "仪表盘",
-    "users": "用户",
-    "universities": "大学",
-    "dormitories": "宿舍",
-    "categories": "分类",
-    "conditions": "成色等级",
-    "welcome": "欢迎回来，管理员",
-    "welcomeSubtitle": "这是今天 SCU 的最新情况。",
-    "totalUsers": "用户总数",
-    "activeListings": "在售商品",
-    "totalSales": "总销售额",
-    "avgPrice": "平均价格",
-    "recentUsers": "最近用户",
-    "recentListings": "最近发布",
-    "adminConsole": "管理控制台",
-    "adminSubtitle": "登录以管理 SCU",
-    "adminEmail": "管理员邮箱",
-    "adminPassword": "密码",
-    "signIn": "登录",
-    "signingIn": "登录中...",
-    "adminDemo": "使用管理员 API 凭据访问控制台",
-    "backToScu": "← 返回 SCU"
   },
   "notFound": {
     "title": "404",
