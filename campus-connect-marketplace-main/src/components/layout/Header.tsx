@@ -46,27 +46,28 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="container flex h-16 items-center justify-between gap-4">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 shrink-0">
-          <img
-            src="/logo_enhanced.png"
-            alt="Suki"
-            className="h-9 w-9 object-contain"
-          />
-          <span className="font-display text-xl font-bold text-foreground hidden sm:block">
+    <header className="sticky top-0 z-50 w-full bg-transparent mix-blend-difference">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-6 py-6">
+        <Link to="/" className="flex items-center gap-3 landing-cursor-hover shrink-0 mr-6 xl:mr-10">
+          <div className="h-11 w-11 rounded-full border border-white flex items-center justify-center">
+            <img
+              src="/logo_enhanced.png"
+              alt="Suki"
+              className="h-8 w-8 object-contain"
+            />
+          </div>
+          <span className="text-xs font-medium tracking-[0.3em] uppercase text-white hidden sm:block">
             Suki
           </span>
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-4">
+        <nav className="hidden xl:flex items-center gap-8 text-[11px] tracking-[0.3em] uppercase">
           {primaryNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
-              activeClassName="text-primary"
+              className="relative text-white/90 hover:text-white transition-colors whitespace-nowrap pb-1 after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-0 after:h-[1px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full"
+              activeClassName="text-white"
             >
               {item.label}
             </NavLink>
@@ -75,7 +76,7 @@ const Header: React.FC = () => {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors inline-flex items-center gap-1"
+                className="relative inline-flex items-center gap-1 text-white/90 hover:text-white transition-colors whitespace-nowrap pb-1 after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-0 after:h-[1px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full"
               >
                 <span>{t('header.more')}</span>
                 <ChevronDown className="w-4 h-4" />
@@ -93,14 +94,14 @@ const Header: React.FC = () => {
           </DropdownMenu>
         </nav>
 
-        <nav className="hidden md:flex items-center gap-2">
-          <form onSubmit={handleSearch} className="w-64">
+        <nav className="hidden lg:flex items-center gap-2">
+          <form onSubmit={handleSearch} className="w-44 xl:w-52">
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
               <Input
                 type="search"
                 placeholder={t('header.searchPlaceholder')}
-                className="pl-10 pr-4 h-10 bg-muted/50 border-0 focus-visible:ring-1"
+                className="pl-11 pr-4 h-10 rounded-full bg-white/10 border border-white/20 text-white placeholder:text-white/60 focus-visible:ring-1 focus-visible:ring-white/40"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -108,7 +109,12 @@ const Header: React.FC = () => {
           </form>
           {isAuthenticated ? (
             <>
-              <Button variant="ghost" size="sm" asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full border border-white/30 text-white hover:bg-white hover:text-black px-4"
+                asChild
+              >
                 <Link to="/favorites" className="relative">
                   <Heart className="w-5 h-5" />
                   {favorites.length > 0 && (
@@ -119,8 +125,13 @@ const Header: React.FC = () => {
                 </Link>
               </Button>
               
-              <Button variant="default" size="sm" asChild>
-                <Link to="/create-listing">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full border border-white px-5 py-2 text-[11px] font-semibold tracking-[0.3em] uppercase text-white hover:bg-white hover:text-black whitespace-nowrap"
+                asChild
+              >
+                <Link to="/create-listing" className="gap-2 whitespace-nowrap">
                   <Plus className="w-4 h-4" />
                   <span>{t('header.sell')}</span>
                 </Link>
@@ -128,7 +139,11 @@ const Header: React.FC = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full border border-white/30 text-white hover:bg-white hover:text-black"
+                  >
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={normalizeImageUrl(user?.profile_picture)} alt={user?.full_name} />
                       <AvatarFallback className="bg-tertiary text-tertiary-foreground text-sm">
@@ -165,12 +180,18 @@ const Header: React.FC = () => {
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/login">{t('common.login')}</Link>
-              </Button>
-              <Button variant="default" size="sm" asChild>
-                <Link to="/signup">{t('common.signup')}</Link>
-              </Button>
+              <Link
+                to="/login"
+                className="rounded-full border border-white/40 px-5 py-2 text-[11px] font-semibold tracking-[0.3em] uppercase text-white transition-all hover:bg-white hover:text-black whitespace-nowrap"
+              >
+                {t('common.login')}
+              </Link>
+              <Link
+                to="/signup"
+                className="rounded-full border border-white px-5 py-2 text-[11px] font-semibold tracking-[0.3em] uppercase text-white transition-all hover:bg-white hover:text-black whitespace-nowrap"
+              >
+                {t('common.signup')}
+              </Link>
             </>
           )}
         </nav>
@@ -179,7 +200,7 @@ const Header: React.FC = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="md:hidden text-white hover:bg-white/10"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
           {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

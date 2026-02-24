@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MapPin, Clock, Star } from 'lucide-react';
-import { Product, formatPrice, formatRelativeTime } from '@/lib/mockData';
+import { Heart, Star } from 'lucide-react';
+import { Product, formatPrice } from '@/lib/mockData';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -85,58 +85,27 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-2">
+      <div className="p-3 space-y-1.5">
         {/* Price */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-lg font-bold text-foreground">
+          <span className="text-base font-semibold text-foreground">
             {formatPrice(product.price)}
           </span>
           {product.condition_level && (
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-[10px]">
               {product.condition_level.name}
             </Badge>
           )}
         </div>
 
         {/* Title */}
-        <h3 className="font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+        <h3 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">
           {product.title}
         </h3>
 
-        {/* Meta Info */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {product.dormitory && (
-            <div className="flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
-              <span className="truncate max-w-[100px]">{product.dormitory.dormitory_name}</span>
-            </div>
-          )}
-          {product.distance_km !== undefined && (
-            <span className="text-tertiary font-medium">{t('product.distanceKm', { count: product.distance_km })}</span>
-          )}
-          <div className="flex items-center gap-1 ml-auto">
-            <Clock className="w-3 h-3" />
-            <span>{formatRelativeTime(product.created_at)}</span>
-          </div>
-        </div>
-
-        {/* Tags */}
-        {product.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 pt-1">
-            {product.tags.slice(0, 3).map(tag => (
-              <Badge
-                key={tag.id}
-                variant="secondary"
-                className="text-xs bg-accent text-accent-foreground"
-              >
-                {tag.name}
-              </Badge>
-            ))}
-            {product.tags.length > 3 && (
-              <Badge variant="secondary" className="text-xs">
-                +{product.tags.length - 3}
-              </Badge>
-            )}
+        {product.distance_km !== undefined && (
+          <div className="text-[10px] text-tertiary font-medium">
+            {t('product.distanceKm', { count: product.distance_km })}
           </div>
         )}
       </div>

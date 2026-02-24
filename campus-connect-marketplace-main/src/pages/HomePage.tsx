@@ -448,7 +448,7 @@ const HomePage: React.FC = () => {
 
         <nav className="fixed top-0 left-0 right-0 z-40 mix-blend-difference">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-            <Link to="/" className="flex items-center gap-3 landing-cursor-hover">
+            <Link to="/" className="flex items-center gap-3 landing-cursor-hover mr-6 xl:mr-10">
               <div className="h-12 w-12 rounded-full border border-white flex items-center justify-center">
                 <img
                   src="/logo_enhanced.png"
@@ -461,7 +461,7 @@ const HomePage: React.FC = () => {
             <ul className="hidden md:flex items-center gap-10 text-[11px] tracking-[0.3em] uppercase">
               {navLinks.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} className="relative text-white/90 hover:text-white transition-colors landing-cursor-hover">
+                  <a href={link.href} className="relative text-white/90 hover:text-white transition-colors landing-cursor-hover pb-1 after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-0 after:h-[1px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full">
                     {link.label}
                   </a>
                 </li>
