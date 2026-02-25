@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Heart, Plus, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown } from 'lucide-react';
+import { Search, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,9 +15,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { normalizeImageUrl } from '@/lib/api';
 import { NavLink } from '@/components/NavLink';
+import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
-const Header: React.FC = () => {
+type HeaderProps = {
+  className?: string;
+};
+
+const Header: React.FC<HeaderProps> = ({ className }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const { favorites } = useFavorites();
   const navigate = useNavigate();
@@ -26,12 +31,11 @@ const Header: React.FC = () => {
   const { t } = useTranslation();
   const primaryNavItems = [
     { to: '/', label: t('nav.home') },
-    { to: '/for-you', label: t('nav.forYou') },
-    { to: '/messages', label: t('nav.messages') },
-    { to: '/my-listings', label: t('nav.myListings') },
-    { to: '/ai', label: t('nav.ai') },
-    { to: '/profile', label: t('nav.profile') },
     { to: '/nearby', label: t('nav.nearBy') },
+    { to: '/ai', label: t('nav.ai') },
+    { to: '/my-listings', label: t('nav.myListings') },
+    { to: '/messages', label: t('nav.messages') },
+    { to: '/profile', label: t('nav.profile') },
   ];
   const moreNavItems = [
     { to: '/favorites', label: t('nav.favorites') },
@@ -46,7 +50,7 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-transparent mix-blend-difference">
+    <header className={cn("sticky top-0 z-50 w-full bg-transparent mix-blend-difference", className)}>
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-6 py-6">
         <Link to="/" className="flex items-center gap-3 landing-cursor-hover shrink-0 mr-6 xl:mr-10">
           <div className="h-11 w-11 rounded-full border border-white flex items-center justify-center">
@@ -125,18 +129,6 @@ const Header: React.FC = () => {
                 </Link>
               </Button>
               
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full border border-white px-5 py-2 text-[11px] font-semibold tracking-[0.3em] uppercase text-white hover:bg-white hover:text-black whitespace-nowrap"
-                asChild
-              >
-                <Link to="/create-listing" className="gap-2 whitespace-nowrap">
-                  <Plus className="w-4 h-4" />
-                  <span>{t('header.sell')}</span>
-                </Link>
-              </Button>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

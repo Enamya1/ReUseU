@@ -17,6 +17,7 @@ import MyListingsPage from "./pages/MyListingsPage";
 import MyListingDetailPage from "./pages/MyListingDetailPage";
 import CreateListingPage from "./pages/CreateListingPage";
 import ProfilePage from "./pages/ProfilePage";
+import NearbyPage from "./pages/NearbyPage";
 import NotFound from "./pages/NotFound";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/product/:id" element={<ProductDetailPage />} />
+              <Route path="/nearby" element={<NearbyPage />} />
               
               {/* Protected User Routes */}
               <Route path="/favorites" element={<FavoritesPage />} />

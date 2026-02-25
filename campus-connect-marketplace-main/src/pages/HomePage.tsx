@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import * as THREE from 'three';
 import MainLayout from '@/components/layout/MainLayout';
+import FloatingButton from '@/components/LandingFloatingButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -65,7 +65,6 @@ const HomePage: React.FC = () => {
   const secondaryHref = isAuthenticated ? '#features' : '#about';
   const secondaryLabel = isAuthenticated ? t('landing.secondaryCtaAuthed') : t('landing.secondaryCta');
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const magneticRef = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
     const container = canvasRef.current;
@@ -316,73 +315,6 @@ const HomePage: React.FC = () => {
       if (renderer.domElement.parentElement === container) {
         container.removeChild(renderer.domElement);
       }
-    };
-  }, []);
-
-  useEffect(() => {
-    const button = magneticRef.current;
-    if (!button) {
-      return;
-    }
-
-    const containerElement = button.parentElement;
-    if (!containerElement) {
-      return;
-    }
-
-    let targetX = 0;
-    let targetY = 0;
-    let currentX = 0;
-    let currentY = 0;
-
-    const getDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }) =>
-      Math.hypot(p2.x - p1.x, p2.y - p1.y);
-
-    const handleMove = (event: MouseEvent) => {
-      const rect = button.getBoundingClientRect();
-      const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-      const mouse = { x: event.clientX, y: event.clientY };
-      const distance = getDistance(mouse, center);
-      const radius = 180;
-
-      if (distance < radius) {
-        button.classList.add('magnetic-active');
-        const force = Math.max(0, (radius - distance) / radius);
-        targetX = (mouse.x - center.x) * force * 0.4;
-        targetY = (mouse.y - center.y) * force * 0.4;
-      } else {
-        button.classList.remove('magnetic-active');
-        targetX = 0;
-        targetY = 0;
-      }
-    };
-
-    const animate = () => {
-      currentX += (targetX - currentX) * 0.15;
-      currentY += (targetY - currentY) * 0.15;
-      containerElement.style.transform = `translate(${currentX}px, ${currentY}px)`;
-      window.requestAnimationFrame(animate);
-    };
-
-    window.addEventListener('mousemove', handleMove);
-    animate();
-
-    const handleClick = () => {
-      button.style.transform = 'scale(0.95)';
-      window.setTimeout(() => {
-        button.style.transform = 'scale(1)';
-      }, 150);
-      const contactSection = document.getElementById('contact');
-      if (contactSection) {
-        contactSection.scrollIntoView({ behavior: 'smooth' });
-      }
-    };
-
-    button.addEventListener('click', handleClick);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      button.removeEventListener('click', handleClick);
     };
   }, []);
 
@@ -739,30 +671,11 @@ const HomePage: React.FC = () => {
           </div>
         </footer>
 
-        <div className="contact-button-container hidden lg:block">
-          <Link
-            to={primaryHref}
-            ref={magneticRef}
-            id="contact-btn"
-            className="landing-cursor-hover landing-contact-button contact-button relative block h-28 w-28"
-          >
-            <div className="circular-text">
-              <svg viewBox="0 0 120 120">
-                <defs>
-                  <path id="landing-circle" d="M60,60 m-50,0 a50,50 0 1,1 100,0 a50,50 0 1,1 -100,0" />
-                </defs>
-                <text>
-                  <textPath href="#landing-circle" startOffset="0%">
-                    {t('landing.floatingCta')}
-                  </textPath>
-                </text>
-              </svg>
-            </div>
-            <div className="button-center">
-              <ArrowRight className="h-5 w-5" />
-            </div>
-          </Link>
-        </div>
+        <FloatingButton
+          to={primaryHref}
+          label={t('landing.floatingCta')}
+          scrollTargetId="contact"
+        />
       </div>
     </MainLayout>
   );

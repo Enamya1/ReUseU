@@ -1,14 +1,22 @@
 import React, { useEffect, useRef } from 'react';
+import { Plus } from 'lucide-react';
 import Header from './Header';
 import Footer from './Footer';
+import FloatingButton from '@/components/LandingFloatingButton';
 
 interface MainLayoutProps {
   children: React.ReactNode;
   showFooter?: boolean;
   showHeader?: boolean;
+  headerClassName?: string;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children, showFooter = true, showHeader = true }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({
+  children,
+  showFooter = true,
+  showHeader = true,
+  headerClassName,
+}) => {
   const cursorDotRef = useRef<HTMLDivElement | null>(null);
   const cursorRingRef = useRef<HTMLDivElement | null>(null);
 
@@ -80,10 +88,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, showFooter = true, sh
     <div className="app-cursor-root min-h-screen flex flex-col">
       <div ref={cursorDotRef} className="cursor-dot" />
       <div ref={cursorRingRef} className="cursor-ring" />
-      {showHeader && <Header />}
+      {showHeader && <Header className={headerClassName} />}
       <main className="flex-1">
         {children}
       </main>
+      {showHeader && (
+        <FloatingButton
+          to="/create-listing"
+          label="List your pre-loved item for sale today! •"
+          centerIcon={<Plus className="h-5 w-5" />}
+        />
+      )}
       {showFooter && <Footer />}
     </div>
   );
