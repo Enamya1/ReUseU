@@ -573,130 +573,152 @@ const ProfilePage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="container py-8 md:py-12">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-display font-bold text-foreground">
-                Profile Settings
-              </h1>
-              <p className="text-muted-foreground">
-                Manage your account information
-              </p>
+      <div className="container py-10 md:py-14">
+        <div className="mx-auto max-w-5xl space-y-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div>
+                <h1 className="text-3xl font-display font-bold text-foreground">
+                  Profile Settings
+                </h1>
+                <p className="text-muted-foreground">
+                  Manage your account information
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Last updated</span>
+              <span className="h-1 w-1 rounded-full bg-muted-foreground/60" />
+              <span>Today</span>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Avatar Section */}
-            <div className="flex items-center gap-6 p-6 rounded-2xl bg-muted/50 border border-border">
-              <div className="relative">
-                <Avatar className="w-24 h-24">
-                  <AvatarImage src={avatarSrc} alt={user.full_name} />
-                  <AvatarFallback className="bg-tertiary text-tertiary-foreground text-2xl">
-                    {user.full_name?.charAt(0) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <button
-                  type="button"
-                  className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground shadow-lg"
-                  onClick={handleAvatarClick}
-                >
-                  <Camera className="w-4 h-4" />
-                </button>
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold">{user.full_name}</h2>
-                <p className="text-muted-foreground">@{user.username}</p>
-                <Badge variant="secondary" className="mt-2">
-                  {user.role === 'admin' ? 'Staff' : 'Student'}
-                </Badge>
+          <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative">
+                    <Avatar className="h-28 w-28">
+                      <AvatarImage src={avatarSrc} alt={user.full_name} />
+                      <AvatarFallback className="bg-tertiary text-tertiary-foreground text-3xl">
+                        {user.full_name?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <button
+                      type="button"
+                      className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground shadow-lg"
+                      onClick={handleAvatarClick}
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <h2 className="mt-4 text-xl font-semibold">{user.full_name}</h2>
+                  <p className="text-sm text-muted-foreground">@{user.username}</p>
+                  <Badge variant="secondary" className="mt-3">
+                    {user.role === 'admin' ? 'Staff' : 'Student'}
+                  </Badge>
+                </div>
+                <div className="mt-6 grid gap-3 text-sm">
+                  <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
+                    <span className="text-muted-foreground">Email</span>
+                    <span className="font-medium text-foreground">{user.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
+                    <span className="text-muted-foreground">Timezone</span>
+                    <span className="font-medium text-foreground">{formData.timezone || "Not set"}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Form Fields */}
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => handleChange('full_name', e.target.value)}
-                    className="h-11"
-                  />
-                  {firstError.get("full_name") ? (
-                    <p className="text-xs text-destructive">{firstError.get("full_name")}</p>
-                  ) : null}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Personal Information</h3>
+                  <p className="text-sm text-muted-foreground">Keep your contact details up to date.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="full_name">Full Name</Label>
+                    <Input
+                      id="full_name"
+                      value={formData.full_name}
+                      onChange={(e) => handleChange('full_name', e.target.value)}
+                      className="h-11"
+                    />
+                    {firstError.get("full_name") ? (
+                      <p className="text-xs text-destructive">{firstError.get("full_name")}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      value={formData.username}
+                      onChange={(e) => handleChange('username', e.target.value)}
+                      className="h-11"
+                    />
+                    {firstError.get("username") ? (
+                      <p className="text-xs text-destructive">{firstError.get("username")}</p>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) => handleChange('username', e.target.value)}
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
                     className="h-11"
                   />
-                  {firstError.get("username") ? (
-                    <p className="text-xs text-destructive">{firstError.get("username")}</p>
+                  {firstError.get("email") ? (
+                    <p className="text-xs text-destructive">{firstError.get("email")}</p>
                   ) : null}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone_number">Phone Number</Label>
+                    <Input
+                      id="phone_number"
+                      type="tel"
+                      value={formData.phone_number}
+                      onChange={(e) => handleChange('phone_number', e.target.value)}
+                      placeholder="+1 (555) 000-0000"
+                      className="h-11"
+                    />
+                    {firstError.get("phone_number") ? (
+                      <p className="text-xs text-destructive">{firstError.get("phone_number")}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="student_id">Student ID</Label>
+                    <Input
+                      id="student_id"
+                      value={formData.student_id}
+                      onChange={(e) => handleChange('student_id', e.target.value)}
+                      placeholder="e.g., STU2024001"
+                      className="h-11"
+                    />
+                    {firstError.get("student_id") ? (
+                      <p className="text-xs text-destructive">{firstError.get("student_id")}</p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  className="h-11"
-                />
-                {firstError.get("email") ? (
-                  <p className="text-xs text-destructive">{firstError.get("email")}</p>
-                ) : null}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number">Phone Number</Label>
-                  <Input
-                    id="phone_number"
-                    type="tel"
-                    value={formData.phone_number}
-                    onChange={(e) => handleChange('phone_number', e.target.value)}
-                    placeholder="+1 (555) 000-0000"
-                    className="h-11"
-                  />
-                  {firstError.get("phone_number") ? (
-                    <p className="text-xs text-destructive">{firstError.get("phone_number")}</p>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="student_id">Student ID</Label>
-                  <Input
-                    id="student_id"
-                    value={formData.student_id}
-                    onChange={(e) => handleChange('student_id', e.target.value)}
-                    placeholder="e.g., STU2024001"
-                    className="h-11"
-                  />
-                  {firstError.get("student_id") ? (
-                    <p className="text-xs text-destructive">{firstError.get("student_id")}</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="space-y-4 p-6 rounded-2xl bg-muted/30 border border-border">
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-base font-semibold text-foreground">University & Dormitory</h3>
-                    <p className="text-sm text-muted-foreground">Used for campus matching and listings</p>
+                    <h3 className="text-lg font-semibold text-foreground">Campus Details</h3>
+                    <p className="text-sm text-muted-foreground">Used for campus matching and listings.</p>
                   </div>
                   <Button type="button" onClick={handleUniversitySubmit} disabled={isUniversitySaving || isUniversityLoading}>
                     {isUniversitySaving ? "Saving..." : "Update"}
@@ -748,100 +770,111 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Preferences</h3>
+                  <p className="text-sm text-muted-foreground">Set your profile and locale preferences.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="date_of_birth">Date of Birth</Label>
+                    <Input
+                      id="date_of_birth"
+                      type="date"
+                      value={formData.date_of_birth}
+                      onChange={(e) => handleChange('date_of_birth', e.target.value)}
+                      className="h-11"
+                    />
+                    {firstError.get("date_of_birth") ? (
+                      <p className="text-xs text-destructive">{firstError.get("date_of_birth")}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="gender">Gender</Label>
+                    <Select value={formData.gender} onValueChange={(value) => handleChange('gender', value)}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {firstError.get("gender") ? <p className="text-xs text-destructive">{firstError.get("gender")}</p> : null}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Language</Label>
+                    <Select
+                      value={formData.language || i18n.resolvedLanguage || 'en'}
+                      onValueChange={handleLanguageChange}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select language" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {languageOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {firstError.get("language") ? <p className="text-xs text-destructive">{firstError.get("language")}</p> : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Timezone</Label>
+                    <Button type="button" variant="outline" className="w-full h-11 justify-between" onClick={handleTimezoneOpen}>
+                      <span>{formData.timezone || "Select time-zone"}</span>
+                      <span className="text-muted-foreground">Select time-zone</span>
+                    </Button>
+                    {firstError.get("timezone") ? <p className="text-xs text-destructive">{firstError.get("timezone")}</p> : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Bio</h3>
+                  <p className="text-sm text-muted-foreground">Share a short introduction with other students.</p>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date_of_birth">Date of Birth</Label>
-                  <Input
-                    id="date_of_birth"
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={(e) => handleChange('date_of_birth', e.target.value)}
-                    className="h-11"
+                  <Label htmlFor="bio">Bio</Label>
+                  <Textarea
+                    id="bio"
+                    value={formData.bio}
+                    onChange={(e) => handleChange('bio', e.target.value)}
+                    placeholder="Tell other students a bit about yourself..."
+                    rows={4}
                   />
-                  {firstError.get("date_of_birth") ? (
-                    <p className="text-xs text-destructive">{firstError.get("date_of_birth")}</p>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Gender</Label>
-                  <Select value={formData.gender} onValueChange={(value) => handleChange('gender', value)}>
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                      <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {firstError.get("gender") ? <p className="text-xs text-destructive">{firstError.get("gender")}</p> : null}
+                  {firstError.get("bio") ? <p className="text-xs text-destructive">{firstError.get("bio")}</p> : null}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="language">Language</Label>
-                  <Select
-                    value={formData.language || i18n.resolvedLanguage || 'en'}
-                    onValueChange={handleLanguageChange}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Select language" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {languageOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {firstError.get("language") ? <p className="text-xs text-destructive">{firstError.get("language")}</p> : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Timezone</Label>
-                  <Button type="button" variant="outline" className="w-full h-11 justify-between" onClick={handleTimezoneOpen}>
-                    <span>{formData.timezone || "Select time-zone"}</span>
-                    <span className="text-muted-foreground">Select time-zone</span>
-                  </Button>
-                  {firstError.get("timezone") ? <p className="text-xs text-destructive">{firstError.get("timezone")}</p> : null}
-                </div>
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSaving}>
+                  <Save className="w-4 h-4" />
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
-                <Textarea
-                  id="bio"
-                  value={formData.bio}
-                  onChange={(e) => handleChange('bio', e.target.value)}
-                  placeholder="Tell other students a bit about yourself..."
-                  rows={4}
-                />
-                {firstError.get("bio") ? <p className="text-xs text-destructive">{firstError.get("bio")}</p> : null}
-              </div>
-            </div>
-
-            {/* Submit */}
-            <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSaving}>
-                <Save className="w-4 h-4" />
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </form>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/jpg,image/png,image/webp"
-            onChange={handleAvatarFileChange}
-            className="hidden"
-          />
+            </form>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={handleAvatarFileChange}
+              className="hidden"
+            />
+          </div>
         </div>
       </div>
       <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
