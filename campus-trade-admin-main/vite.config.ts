@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "test.amap",      // ✅ force custom domain
+    host: "testadmin.me",      // ✅ force custom domain
     port: 8080,
     strictPort: true,       // ✅ prevent port changes
     hmr: {

@@ -3,3 +3,4 @@ to update the domain conected to the Amap Api :
     .update the last line 
     . copy the  address 
     . update the domain list in the Amap platform 
+    >in the /vite.config.js update the host:"to the new domain"
