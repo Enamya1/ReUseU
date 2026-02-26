@@ -18,6 +18,7 @@ const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
 const AMAP_SECURITY_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE ?? '';
 
 const defaultCenter = { lat: 35.8617, lng: 104.1954 };
+const userMarkerIcon = '/map_pointer/icons8-map-50.png';
 
 type AMapMap = {
   setCenter: (center: [number, number]) => void;
@@ -29,11 +30,12 @@ type AMapMap = {
 type AMapMarker = {
   on: (event: 'click', handler: () => void) => void;
   setMap: (map: AMapMap | null) => void;
+  setPosition?: (position: [number, number]) => void;
 };
 
 type AMapNamespace = {
   Map: new (container: HTMLDivElement, options: { zoom: number; center: [number, number]; mapStyle?: string }) => AMapMap;
-  Marker: new (options: { position: [number, number]; map: AMapMap }) => AMapMarker;
+  Marker: new (options: { position: [number, number]; map: AMapMap; icon?: string }) => AMapMarker;
 };
 
 type LocationPoint = {
@@ -47,6 +49,7 @@ const NearbyPage: React.FC = () => {
   const mapRef = useRef<AMapMap | null>(null);
   const amapRef = useRef<AMapNamespace | null>(null);
   const markersRef = useRef<AMapMarker[]>([]);
+  const userMarkerRef = useRef<AMapMarker | null>(null);
   const [query, setQuery] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const [categoryId, setCategoryId] = useState<string>('all');
@@ -137,6 +140,8 @@ const NearbyPage: React.FC = () => {
       cancelled = true;
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
+      userMarkerRef.current?.setMap(null);
+      userMarkerRef.current = null;
       if (mapRef.current?.destroy) {
         mapRef.current.destroy();
       }
@@ -164,12 +169,22 @@ const NearbyPage: React.FC = () => {
   }, [mapReady, productPoints]);
 
   useEffect(() => {
-    if (!mapRef.current || !userLocation) {
+    if (!mapRef.current || !amapRef.current || !userLocation) {
       return;
     }
     mapRef.current.setCenter([userLocation.lng, userLocation.lat]);
     mapRef.current.setZoom(13);
     mapRef.current.resize?.();
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new amapRef.current.Marker({
+        position: [userLocation.lng, userLocation.lat],
+        map: mapRef.current,
+        icon: userMarkerIcon,
+      });
+    } else {
+      userMarkerRef.current.setPosition?.([userLocation.lng, userLocation.lat]);
+      userMarkerRef.current.setMap(mapRef.current);
+    }
   }, [userLocation]);
 
   useEffect(() => {

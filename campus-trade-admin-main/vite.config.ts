@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "testadmin.me",      // ✅ force custom domain
     port: 8080,
-    strictPort: true,       // ✅ prevent port changes
+    strictPort: false,       // ✅ prevent port changes
     hmr: {
       overlay: false,
     },

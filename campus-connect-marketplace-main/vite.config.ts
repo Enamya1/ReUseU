@@ -2,13 +2,17 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import fs from "fs"; // 👈 added to read certificate files
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "testuser.me",      // ✅ force custom domain
+    host: "testuser.me",          // your custom domain
     port: 8080,
-    strictPort: false,       // ✅ prevent port changes
+    strictPort: false,            // optional – allows fallback if port is busy
+    https: {                       // 👈 HTTPS configuration
+      key: fs.readFileSync("./testuser.me+2-key.pem"),
+      cert: fs.readFileSync("./testuser.me+2.pem"),
+    },
     hmr: {
       overlay: false,
     },
