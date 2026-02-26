@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>rings · mouse attraction</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: black;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particleCanvas"></canvas>
+  <script>
+    (function() {
+      const canvas = document.getElementById('particleCanvas');
+      const ctx = canvas.getContext('2d');
+      let width, height;
+
+      // ---------- adjustable parameters ----------
+      const NUM_CIRCLES = 4;
+      const PARTICLES_PER_CIRCLE = 60;
+      const MIN_DIAMETER = 10;
+      const DIAMETER_STEP = 100;
+      const MAX_DIAMETER = 900;
+      const EXPAND_SPEED = 1.6;
+      const MAX_RADIUS = 3.5;
+      // mouse attraction
+      const ATTRACTION_STRENGTH = 0.04;
+      const ATTRACTION_RADIUS = 160;
+      // ------------------------------------------
+
+      let particles = [];
+      let circles = [];
+      let mouseX = -1000, mouseY = -1000;
+      let mousePresent = false;
+
+      function createParticle(circleId, indexInCircle) {
+        return {
+          x: 0, y: 0,
+          circleId: circleId,
+          idx: indexInCircle,
+          radius: Math.random() * MAX_RADIUS + 1.2,
+          hue: Math.random() * 60 + 180,
+        };
+      }
+
+      function initWorld() {
+        circles = [];
+        for (let i = 0; i < NUM_CIRCLES; i++) {
+          const offset = i / NUM_CIRCLES;
+          const startDiameter = MIN_DIAMETER + offset * (MAX_DIAMETER - MIN_DIAMETER);
+          circles.push({
+            id: i,
+            minDiameter: MIN_DIAMETER,
+            currentDiameter: startDiameter,
+          });
+        }
+
+        particles = [];
+        for (let c = 0; c < NUM_CIRCLES; c++) {
+          for (let j = 0; j < PARTICLES_PER_CIRCLE; j++) {
+            particles.push(createParticle(c, j));
+          }
+        }
+
+        const centerX = width / 2;
+        const centerY = height / 2;
+        for (let p of particles) {
+          const circle = circles[p.circleId];
+          const radius = circle.currentDiameter / 2;
+          const angle = (p.idx / PARTICLES_PER_CIRCLE) * Math.PI * 2;
+          p.x = centerX + Math.cos(angle) * radius;
+          p.y = centerY + Math.sin(angle) * radius;
+        }
+      }
+
+      function resizeCanvas() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        initWorld();
+      }
+
+      // mouse events
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouseX = e.clientX - rect.left;
+        mouseY = e.clientY - rect.top;
+        mousePresent = true;
+      });
+      canvas.addEventListener('mouseleave', () => {
+        mousePresent = false;
+      });
+
+      function animate() {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
+
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        for (let circle of circles) {
+          circle.currentDiameter = Math.min(circle.currentDiameter + EXPAND_SPEED, MAX_DIAMETER);
+          const radius = circle.currentDiameter / 2;
+          const progress = (circle.currentDiameter - circle.minDiameter) / (MAX_DIAMETER - circle.minDiameter);
+          const alpha = Math.max(0, 1 - progress);
+
+          for (let p of particles) {
+            if (p.circleId !== circle.id) continue;
+            const angle = (p.idx / PARTICLES_PER_CIRCLE) * Math.PI * 2;
+            const tx = centerX + Math.cos(angle) * radius;
+            const ty = centerY + Math.sin(angle) * radius;
+
+            const dx = tx - p.x;
+            const dy = ty - p.y;
+            p.x += dx * 0.1;
+            p.y += dy * 0.1;
+
+            p._alpha = alpha;
+          }
+
+          if (circle.currentDiameter >= MAX_DIAMETER) {
+            circle.currentDiameter = circle.minDiameter;
+            const newRadius = circle.minDiameter / 2;
+            for (let p of particles) {
+              if (p.circleId !== circle.id) continue;
+              const angle = (p.idx / PARTICLES_PER_CIRCLE) * Math.PI * 2;
+              p.x = centerX + Math.cos(angle) * newRadius;
+              p.y = centerY + Math.sin(angle) * newRadius;
+            }
+          }
+        }
+
+        // mouse attraction (affects all particles)
+        if (mousePresent) {
+          for (let p of particles) {
+            const dx = mouseX - p.x;
+            const dy = mouseY - p.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < ATTRACTION_RADIUS && dist > 0.1) {
+              const force = ATTRACTION_STRENGTH * (1 - dist / ATTRACTION_RADIUS);
+              p.x += dx * force;
+              p.y += dy * force;
+            }
+          }
+        }
+
+        for (let p of particles) {
+          const a = (p._alpha !== undefined) ? p._alpha : 1.0;
+          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 1.8);
+          const hue = p.hue;
+          grad.addColorStop(0, `hsla(${hue}, 80%, 75%, ${a * 0.9})`);
+          grad.addColorStop(0.5, `hsla(${hue}, 80%, 65%, ${a * 0.5})`);
+          grad.addColorStop(1, `hsla(${hue}, 80%, 60%, 0)`);
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius * 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${hue}, 90%, 85%, ${a * 0.8})`;
+          ctx.fill();
+
+          delete p._alpha;
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+      animate();
+    })();
+  </script>
+</body>
+</html>
