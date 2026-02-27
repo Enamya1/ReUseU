@@ -4,3 +4,7 @@ to update the domain conected to the Amap Api :
     . copy the  address 
     . update the domain list in the Amap platform 
     >in the /vite.config.js update the host:"to the new domain"
+to alow https in the local host 
+    .do it onec (Set-ExecutionPolicy RemoteSigned -Scope CurrentUser,irm get.scoop.sh | iex ) install the Scope .
+    .install the ( mkcert ) { mkcert -install }
+    .set the domain and the url { mkcert testadmin.me testuser.me localhost 127.0.0.1}
