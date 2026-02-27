@@ -624,7 +624,7 @@ const NearbyPage: React.FC = () => {
           />
         </div>
 
-        <div className="absolute bottom-4 left-4 right-[360px] z-10">
+        <div className="absolute bottom-4 left-4 right-4 lg:right-[360px] z-10">
           <div className="flex flex-col gap-4 rounded-2xl bg-card/80 p-4 shadow-card backdrop-blur">
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <MapPin className="w-4 h-4 text-primary" />
@@ -711,7 +711,7 @@ const NearbyPage: React.FC = () => {
         </div>
 
         <div className="pointer-events-none absolute inset-0 z-10">
-          <div className="pointer-events-auto absolute right-0 top-0 bottom-0 w-[360px] h-full overflow-hidden bg-card/85 p-4 shadow-card backdrop-blur">
+          <div className="pointer-events-auto absolute right-0 top-0 bottom-0 hidden w-[360px] h-full overflow-hidden bg-card/85 p-4 shadow-card backdrop-blur lg:block">
             <div className="text-sm font-semibold text-foreground">Selected dormitory</div>
             <div className="mt-4 flex h-[calc(100%-1.5rem)] min-h-0 flex-col gap-4">
               {selectedDormitoryId ? (

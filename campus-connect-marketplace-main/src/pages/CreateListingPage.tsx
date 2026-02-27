@@ -394,91 +394,78 @@ const CreateListingPage: React.FC = () => {
 
   return (
     <MainLayout showFooter={false}>
-      <div className="min-h-[calc(100vh-4rem)] flex flex-col">
+      <div className="min-h-[calc(100vh-4rem)] flex flex-col bg-muted/30">
         {/* Progress Header */}
-        <div className="border-b border-border bg-card">
-          <div className="container py-4">
-            <div className="flex items-center justify-between mb-4">
+        <div className="border-b border-border bg-card/95 backdrop-blur">
+          <div className="container py-6">
+            <div className="max-w-5xl mx-auto">
+              <div className="flex items-center justify-between mb-4">
               <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
                 <ArrowLeft className="w-4 h-4" />
                 {t('createListing.back')}
               </Button>
-              <h1 className="font-display font-bold text-lg">{t('createListing.title')}</h1>
-              <div className="w-20" /> {/* Spacer */}
-            </div>
-            
-            {/* Step Indicators */}
-            <div className="flex items-center gap-2">
-              {steps.map((step, index) => (
-                <React.Fragment key={step.id}>
-                  <button
-                    onClick={() => index < currentStepIndex && setCurrentStep(step.id)}
-                    disabled={index > currentStepIndex}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                      currentStep === step.id
-                        ? "bg-primary text-primary-foreground"
-                        : index < currentStepIndex
-                        ? "bg-success text-success-foreground cursor-pointer"
-                        : "bg-muted text-muted-foreground"
+                <h1 className="font-display font-bold text-lg">{t('createListing.title')}</h1>
+                <div className="w-20" />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {steps.map((step, index) => (
+                  <React.Fragment key={step.id}>
+                    <button
+                      onClick={() => index < currentStepIndex && setCurrentStep(step.id)}
+                      disabled={index > currentStepIndex}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                        currentStep === step.id
+                          ? "bg-primary text-primary-foreground"
+                          : index < currentStepIndex
+                          ? "bg-success text-success-foreground cursor-pointer"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      <span className="w-5 h-5 rounded-full bg-current/20 flex items-center justify-center text-xs">
+                        {index + 1}
+                      </span>
+                      <span className="hidden sm:inline">{step.label}</span>
+                    </button>
+                    {index < steps.length - 1 && (
+                      <div className={cn(
+                        "flex-1 h-0.5 rounded-full",
+                        index < currentStepIndex ? "bg-success" : "bg-muted"
+                      )} />
                     )}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-current/20 flex items-center justify-center text-xs">
-                      {index + 1}
-                    </span>
-                    <span className="hidden sm:inline">{step.label}</span>
-                  </button>
-                  {index < steps.length - 1 && (
-                    <div className={cn(
-                      "flex-1 h-0.5 rounded-full",
-                      index < currentStepIndex ? "bg-success" : "bg-muted"
-                    )} />
-                  )}
-                </React.Fragment>
-              ))}
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Form Content */}
-        <div className="flex-1 container py-8">
-          <div className="max-w-2xl mx-auto">
+        <div className="flex-1 container py-10">
+          <div className="max-w-5xl mx-auto">
             {/* Details Step */}
             {currentStep === 'details' && (
-              <div className="space-y-6 animate-fade-in">
-                <div>
-                  <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.detailsTitle')}</h2>
-                  <p className="text-muted-foreground">{t('createListing.detailsSubtitle')}</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">{t('createListing.titleLabel')}</Label>
-                    <Input
-                      id="title"
-                      placeholder={t('createListing.titlePlaceholder')}
-                      value={formData.title}
-                      onChange={(e) => updateField('title', e.target.value)}
-                      className="h-12"
-                    />
-                    {fieldErrors.title?.[0] ? <p className="text-xs text-destructive">{fieldErrors.title[0]}</p> : null}
+              <div className="animate-fade-in">
+                <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.detailsTitle')}</h2>
+                    <p className="text-muted-foreground">{t('createListing.detailsSubtitle')}</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="description">{t('createListing.descriptionLabel')}</Label>
-                    <Textarea
-                      id="description"
-                      placeholder={t('createListing.descriptionPlaceholder')}
-                      value={formData.description}
-                      onChange={(e) => updateField('description', e.target.value)}
-                      rows={4}
-                    />
-                    {fieldErrors.description?.[0] ? (
-                      <p className="text-xs text-destructive">{fieldErrors.description[0]}</p>
-                    ) : null}
-                  </div>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="title">{t('createListing.titleLabel')}</Label>
+                      <Input
+                        id="title"
+                        placeholder={t('createListing.titlePlaceholder')}
+                        value={formData.title}
+                        onChange={(e) => updateField('title', e.target.value)}
+                        className="h-12"
+                      />
+                      {fieldErrors.title?.[0] ? <p className="text-xs text-destructive">{fieldErrors.title[0]}</p> : null}
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="price">{t('createListing.priceLabel')}</Label>
                       <Input
@@ -518,9 +505,7 @@ const CreateListingPage: React.FC = () => {
                         <p className="text-xs text-destructive">{fieldErrors.category_id[0]}</p>
                       ) : null}
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="condition">{t('createListing.conditionLabel')}</Label>
                       <Select
@@ -582,6 +567,21 @@ const CreateListingPage: React.FC = () => {
                         <p className="text-xs text-destructive">{fieldErrors.dormitory_id[0]}</p>
                       ) : null}
                     </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="description">{t('createListing.descriptionLabel')}</Label>
+                      <Textarea
+                        id="description"
+                        placeholder={t('createListing.descriptionPlaceholder')}
+                        value={formData.description}
+                        onChange={(e) => updateField('description', e.target.value)}
+                        rows={5}
+                        className="min-h-[140px]"
+                      />
+                      {fieldErrors.description?.[0] ? (
+                        <p className="text-xs text-destructive">{fieldErrors.description[0]}</p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -589,181 +589,187 @@ const CreateListingPage: React.FC = () => {
 
             {/* Media Step */}
             {currentStep === 'media' && (
-              <div className="space-y-6 animate-fade-in">
-                <div>
-                  <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.mediaTitle')}</h2>
-                  <p className="text-muted-foreground">{t('createListing.mediaSubtitle')}</p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="image_files">{t('createListing.uploadLabel')}</Label>
-                    <Input
-                      id="image_files"
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png,image/webp"
-                      multiple
-                      onChange={(e) => addFiles(e.target.files)}
-                      ref={fileInputRef}
-                    />
-                    {fieldErrors.images?.[0] ? <p className="text-xs text-destructive">{fieldErrors.images[0]}</p> : null}
+              <div className="animate-fade-in">
+                <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.mediaTitle')}</h2>
+                    <p className="text-muted-foreground">{t('createListing.mediaSubtitle')}</p>
                   </div>
 
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <Label htmlFor="image_url" className="sr-only">
-                        {t('createListing.imageUrlLabel')}
-                      </Label>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="image_files">{t('createListing.uploadLabel')}</Label>
                       <Input
-                        id="image_url"
-                        placeholder={t('createListing.imageUrlPlaceholder')}
-                        value={imageUrlDraft}
-                        onChange={(e) => setImageUrlDraft(e.target.value)}
+                        id="image_files"
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        multiple
+                        onChange={(e) => addFiles(e.target.files)}
+                        ref={fileInputRef}
                       />
+                      {fieldErrors.images?.[0] ? <p className="text-xs text-destructive">{fieldErrors.images[0]}</p> : null}
                     </div>
-                    <Button type="button" variant="outline" onClick={addImageUrl} disabled={media.length >= 6}>
-                      {t('createListing.addUrl')}
-                    </Button>
-                  </div>
-                  {fieldErrors.image_urls?.[0] ? (
-                    <p className="text-xs text-destructive">{fieldErrors.image_urls[0]}</p>
-                  ) : null}
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  {mediaPreviewUrls.map((image, index) => (
-                    <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-muted group">
-                      <button
-                        type="button"
-                        onClick={() => setPrimaryImageIndex(index)}
-                        className="absolute inset-0"
-                      >
-                        <img
-                          src={normalizeImageUrl(image)}
-                          alt={t('createListing.photoAlt', { index: index + 1 })}
-                          className="w-full h-full object-cover"
+                    <div className="space-y-2">
+                      <Label htmlFor="image_url">{t('createListing.imageUrlLabel')}</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="image_url"
+                          placeholder={t('createListing.imageUrlPlaceholder')}
+                          value={imageUrlDraft}
+                          onChange={(e) => setImageUrlDraft(e.target.value)}
                         />
-                      </button>
+                        <Button type="button" variant="outline" onClick={addImageUrl} disabled={media.length >= 6}>
+                          {t('createListing.addUrl')}
+                        </Button>
+                      </div>
+                      {fieldErrors.image_urls?.[0] ? (
+                        <p className="text-xs text-destructive">{fieldErrors.image_urls[0]}</p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    {mediaPreviewUrls.map((image, index) => (
+                      <div key={index} className="relative aspect-square rounded-2xl overflow-hidden bg-muted group border border-border/60">
+                        <button
+                          type="button"
+                          onClick={() => setPrimaryImageIndex(index)}
+                          className="absolute inset-0"
+                        >
+                          <img
+                            src={normalizeImageUrl(image)}
+                            alt={t('createListing.photoAlt', { index: index + 1 })}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeMedia(index)}
+                          className="absolute top-2 right-2 p-1.5 rounded-full bg-foreground/80 text-background opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        {index === primaryImageIndex && (
+                          <Badge className="absolute bottom-2 left-2 bg-primary text-primary-foreground">
+                            {t('createListing.primary')}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {media.length < 6 && (
                       <button
                         type="button"
-                        onClick={() => removeMedia(index)}
-                        className="absolute top-2 right-2 p-1.5 rounded-full bg-foreground/80 text-background opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="aspect-square rounded-2xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary bg-muted/40"
                       >
-                        <X className="w-4 h-4" />
+                        <Plus className="w-8 h-8" />
+                        <span className="text-sm font-medium">{t('createListing.addPhotos')}</span>
                       </button>
-                      {index === primaryImageIndex && (
-                        <Badge className="absolute bottom-2 left-2 bg-primary text-primary-foreground">
-                          {t('createListing.primary')}
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {media.length < 6 && (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary"
-                    >
-                      <Plus className="w-8 h-8" />
-                      <span className="text-sm font-medium">{t('createListing.addPhotos')}</span>
-                    </button>
-                  )}
-                </div>
+                    )}
+                  </div>
 
-                <p className="text-sm text-muted-foreground">{t('createListing.mediaTip')}</p>
+                  <div className="rounded-xl bg-muted/60 p-4 text-sm text-muted-foreground">
+                    {t('createListing.mediaTip')}
+                  </div>
+                </div>
               </div>
             )}
 
             {/* Tags Step */}
             {currentStep === 'tags' && (
-              <div className="space-y-6 animate-fade-in">
-                <div>
-                  <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.tagsTitle')}</h2>
-                  <p className="text-muted-foreground">{t('createListing.tagsSubtitle')}</p>
-                </div>
+              <div className="animate-fade-in">
+                <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.tagsTitle')}</h2>
+                      <p className="text-muted-foreground">{t('createListing.tagsSubtitle')}</p>
+                    </div>
+                    {formData.tags.length > 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        {t('createListing.tagsSelected', { count: formData.tags.length })}
+                      </div>
+                    )}
+                  </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      onClick={() => toggleTag(tag.id)}
-                      className={cn(
-                        "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                        formData.tags.includes(tag.id)
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                      )}
-                    >
-                      #{tag.name}
-                    </button>
-                  ))}
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTag(tag.id)}
+                        className={cn(
+                          "px-4 py-2 rounded-full text-sm font-medium transition-all border border-transparent",
+                          formData.tags.includes(tag.id)
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        )}
+                      >
+                        #{tag.name}
+                      </button>
+                    ))}
+                  </div>
+                  {fieldErrors.tag_ids?.[0] ? <p className="text-xs text-destructive">{fieldErrors.tag_ids[0]}</p> : null}
                 </div>
-                {fieldErrors.tag_ids?.[0] ? <p className="text-xs text-destructive">{fieldErrors.tag_ids[0]}</p> : null}
-
-                {formData.tags.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {t('createListing.tagsSelected', { count: formData.tags.length })}
-                  </p>
-                )}
               </div>
             )}
 
             {/* Review Step */}
             {currentStep === 'review' && (
-              <div className="space-y-6 animate-fade-in">
-                <div>
-                  <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.reviewTitle')}</h2>
-                  <p className="text-muted-foreground">{t('createListing.reviewSubtitle')}</p>
-                </div>
+              <div className="animate-fade-in">
+                <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-display font-bold mb-2">{t('createListing.reviewTitle')}</h2>
+                    <p className="text-muted-foreground">{t('createListing.reviewSubtitle')}</p>
+                  </div>
 
-                {/* Preview Card */}
-                <div className="rounded-2xl border border-border overflow-hidden bg-card">
-                  {primaryPreviewUrl ? (
-                    <div className="aspect-video bg-muted">
-                      <img
-                        src={normalizeImageUrl(primaryPreviewUrl)}
-                        alt={formData.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : null}
-                  
-                  <div className="p-6 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-2xl font-bold">${formData.price}</p>
-                        <h3 className="text-lg font-semibold">{formData.title || t('createListing.untitled')}</h3>
+                  <div className="rounded-2xl border border-border overflow-hidden bg-card shadow-card">
+                    {primaryPreviewUrl ? (
+                      <div className="aspect-video bg-muted">
+                        <img
+                          src={normalizeImageUrl(primaryPreviewUrl)}
+                          alt={formData.title}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                    </div>
+                    ) : null}
+                    
+                    <div className="p-6 space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-2xl font-bold">${formData.price}</p>
+                          <h3 className="text-lg font-semibold">{formData.title || t('createListing.untitled')}</h3>
+                        </div>
+                      </div>
 
-                    {formData.description && (
-                      <p className="text-muted-foreground">{formData.description}</p>
-                    )}
+                      {formData.description && (
+                        <p className="text-muted-foreground">{formData.description}</p>
+                      )}
 
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCategory && (
-                        <Badge variant="secondary">
-                          {selectedCategory.icon} {selectedCategory.name}
-                        </Badge>
-                      )}
-                      {selectedCondition && (
-                        <Badge variant="outline">{selectedCondition.name}</Badge>
-                      )}
-                      {selectedDormitory && (
-                        <Badge variant="outline">{selectedDormitory.dormitory_name}</Badge>
-                      )}
-                    </div>
-
-                    {selectedTags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {selectedTags.map(tag => (
-                          <Badge key={tag.id} className="bg-accent text-accent-foreground">
-                            #{tag.name}
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCategory && (
+                          <Badge variant="secondary">
+                            {selectedCategory.icon} {selectedCategory.name}
                           </Badge>
-                        ))}
+                        )}
+                        {selectedCondition && (
+                          <Badge variant="outline">{selectedCondition.name}</Badge>
+                        )}
+                        {selectedDormitory && (
+                          <Badge variant="outline">{selectedDormitory.dormitory_name}</Badge>
+                        )}
                       </div>
-                    )}
+
+                      {selectedTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedTags.map(tag => (
+                            <Badge key={tag.id} className="bg-accent text-accent-foreground">
+                              #{tag.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -773,7 +779,7 @@ const CreateListingPage: React.FC = () => {
 
         {/* Bottom Actions */}
         <div className="border-t border-border bg-card py-4">
-          <div className="container flex justify-between max-w-2xl mx-auto">
+          <div className="container flex justify-between max-w-5xl mx-auto">
             <Button
               variant="outline"
               onClick={prevStep}

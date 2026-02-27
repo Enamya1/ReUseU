@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown } from 'lucide-react';
+import { Search, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -51,7 +51,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
 
   return (
     <header className={cn("sticky top-0 z-50 w-full bg-transparent mix-blend-difference", className)}>
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-6 py-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-4 sm:px-6 sm:py-6">
         <Link to="/" className="flex items-center gap-3 landing-cursor-hover shrink-0 mr-6 xl:mr-10">
           <div className="h-11 w-11 rounded-full border border-white flex items-center justify-center">
             <img
@@ -65,7 +65,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
           </span>
         </Link>
 
-        <nav className="hidden xl:flex items-center gap-8 text-[11px] tracking-[0.3em] uppercase">
+        <nav className="hidden lg:flex items-center gap-8 text-[11px] tracking-[0.3em] uppercase">
           {primaryNavItems.map((item) => (
             <NavLink
               key={item.to}
@@ -192,7 +192,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden text-white hover:bg-white/10"
+          className="lg:hidden text-white hover:bg-white/10"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
           {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -201,7 +201,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-card animate-fade-in">
+        <div className="lg:hidden border-t border-border bg-card animate-fade-in">
           <div className="container py-4 space-y-4">
             {/* Mobile Search */}
             <form onSubmit={handleSearch}>
@@ -273,7 +273,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <Heart className="w-5 h-5" />
-                    <span>Favorites</span>
+                    <span>{t('nav.favorites')}</span>
                     {favorites.length > 0 && (
                       <span className="ml-auto text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
                         {favorites.length}
@@ -286,7 +286,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <ShoppingBag className="w-5 h-5" />
-                  <span>{t('nav.myListings')}</span>
+                    <span>{t('nav.myListings')}</span>
                   </Link>
                   <Link
                     to="/profile"
@@ -294,7 +294,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <Settings className="w-5 h-5" />
-                  <span>{t('header.settings')}</span>
+                    <span>{t('header.settings')}</span>
                   </Link>
                 </nav>
 
