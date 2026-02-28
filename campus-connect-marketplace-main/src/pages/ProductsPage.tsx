@@ -33,8 +33,6 @@ const ProductsPage: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [selectedConditions, setSelectedConditions] = useState<number[]>([]);
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [sortValue, setSortValue] = useState('default');
   const [page, setPage] = useState(1);
 
@@ -112,17 +110,6 @@ const ProductsPage: React.FC = () => {
     return [1, 'ellipsis', page - 1, page, page + 1, 'ellipsis', totalPages];
   }, [page, totalPages]);
 
-  const colorOptions = [
-    { id: 'slate', className: 'bg-slate-900' },
-    { id: 'emerald', className: 'bg-emerald-500' },
-    { id: 'amber', className: 'bg-amber-400' },
-    { id: 'rose', className: 'bg-rose-500' },
-    { id: 'sky', className: 'bg-sky-500' },
-    { id: 'violet', className: 'bg-violet-500' },
-  ];
-
-  const sizeOptions = ['4', '6', '8', '10', '12', '14', '16', '18', '20'];
-
   const toggleValue = <T,>(value: T, setValue: React.Dispatch<React.SetStateAction<T[]>>) => {
     setValue((current) =>
       current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
@@ -160,44 +147,6 @@ const ProductsPage: React.FC = () => {
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>${priceRange[0].toFixed(0)}</span>
                   <span>${priceRange[1].toFixed(0)}</span>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="text-sm font-semibold text-foreground">Color</div>
-                <div className="flex flex-wrap gap-2">
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color.id}
-                      type="button"
-                      onClick={() => toggleValue(color.id, setSelectedColors)}
-                      className={cn(
-                        "h-6 w-6 rounded-full border border-border transition-transform",
-                        color.className,
-                        selectedColors.includes(color.id) && "ring-2 ring-primary ring-offset-2 ring-offset-card",
-                      )}
-                      aria-label={color.id}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="text-sm font-semibold text-foreground">Size</div>
-                <div className="grid grid-cols-5 gap-2">
-                  {sizeOptions.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => toggleValue(size, setSelectedSizes)}
-                      className={cn(
-                        "h-9 rounded-md border border-border text-xs font-medium transition-colors",
-                        selectedSizes.includes(size)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {size}
-                    </button>
-                  ))}
                 </div>
               </div>
               <div className="space-y-3">
@@ -266,8 +215,6 @@ const ProductsPage: React.FC = () => {
                   setSelectedCategories([]);
                   setSelectedConditions([]);
                   setSelectedTags([]);
-                  setSelectedColors([]);
-                  setSelectedSizes([]);
                   setSortValue('default');
                   setPriceRange([0, maxPrice]);
                 }}

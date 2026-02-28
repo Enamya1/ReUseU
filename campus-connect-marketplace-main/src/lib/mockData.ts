@@ -14,6 +14,7 @@ export interface User {
   language?: string;
   timezone?: string;
   dormitory_id?: number;
+  account_completed?: boolean;
   role: 'user' | 'admin';
   status: 'active' | 'inactive';
 }

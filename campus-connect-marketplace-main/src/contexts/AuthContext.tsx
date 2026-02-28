@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { User, mockUsers } from '@/lib/mockData';
+import { User } from '@/lib/mockData';
 import { apiUrl } from '@/lib/api';
 import i18n from '@/i18n';
 
@@ -9,7 +9,7 @@ interface AuthContextType {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   adminLogin: (email: string, password: string) => Promise<boolean>;
-  signup: (data: SignupData) => Promise<boolean>;
+  signup: (data: SignupData) => Promise<SignupResponseBody>;
   logout: () => void;
   updateProfile: (data: Omit<Partial<User>, "profile_picture"> & { profile_picture?: File | string }) => Promise<boolean>;
   getUniversityOptions: (universityId?: number) => Promise<UniversityOptionsResponseBody>;
@@ -30,7 +30,6 @@ interface SignupData {
   email: string;
   password: string;
   phone_number?: string;
-  dormitory_id?: number;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,6 +38,13 @@ type LoginResponse = {
   message?: string;
   access_token?: string;
   token_type?: string;
+  account_completed?: boolean;
+};
+
+type SignupResponseBody = {
+  message?: string;
+  user?: User;
+  errors?: Record<string, string[]>;
 };
 
 type UpdateProfileResponse = {
@@ -256,7 +262,7 @@ const removeStorage = (key: string) => {
   }
 };
 
-const deriveUserFromEmail = (email: string, role: User["role"]): User => {
+const deriveUserFromEmail = (email: string, role: User["role"], accountCompleted?: boolean): User => {
   const identifier = (email.split("@")[0] || email).trim() || "user";
   return {
     id: 0,
@@ -265,6 +271,7 @@ const deriveUserFromEmail = (email: string, role: User["role"]): User => {
     email,
     role,
     status: "active",
+    account_completed: accountCompleted,
   };
 };
 
@@ -394,7 +401,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!token) return false;
 
       const nextTokenType = data.token_type || "Bearer";
-      setAuthSession(deriveUserFromEmail(email, role), token, nextTokenType);
+      setAuthSession(deriveUserFromEmail(email, role, data.account_completed), token, nextTokenType);
       return true;
     },
     [setAuthSession],
@@ -422,22 +429,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [loginWithEndpoint],
   );
 
-  const signup = useCallback(async (data: SignupData): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const newUser: User = {
-      id: mockUsers.length + 1,
-      full_name: data.full_name,
-      username: data.username,
-      email: data.email,
-      phone_number: data.phone_number,
-      dormitory_id: data.dormitory_id,
-      role: 'user',
-      status: 'active',
-    };
-    
-    setUser(newUser);
-    return true;
+  const signup = useCallback(async (data: SignupData): Promise<SignupResponseBody> => {
+    const response = await fetch(apiUrl("/api/user/signup"), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        full_name: data.full_name,
+        username: data.username,
+        email: data.email,
+        password: data.password,
+        phone_number: data.phone_number ?? null,
+      }),
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const responseBody = contentType.includes("application/json")
+      ? ((await response.json()) as SignupResponseBody)
+      : null;
+
+    if (responseBody) {
+      if (response.status === 422 && responseBody.errors) throw responseBody;
+      if (!response.ok) return responseBody;
+      return responseBody;
+    }
+
+    return { message: "Request failed" };
   }, []);
 
   const logout = useCallback(() => {

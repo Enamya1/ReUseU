@@ -19,7 +19,7 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, [favorites]);
 
   const toggleFavorite = useCallback((productId: number) => {
-    setFavorites(prev => 
+    setFavorites(prev =>
       prev.includes(productId)
         ? prev.filter(id => id !== productId)
         : [...prev, productId]
@@ -27,7 +27,7 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, []);
 
   const addFavorite = useCallback((productId: number) => {
-    setFavorites(prev => 
+    setFavorites(prev =>
       prev.includes(productId) ? prev : [...prev, productId]
     );
   }, []);

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 
@@ -18,12 +18,12 @@ import MyListingDetailPage from "./pages/MyListingDetailPage";
 import CreateListingPage from "./pages/CreateListingPage";
 import ProfilePage from "./pages/ProfilePage";
 import NearbyPage from "./pages/NearbyPage";
+import OnboardingPage from "./pages/OnboardingPage";
 import NotFound from "./pages/NotFound";
 import { useAuth } from "@/contexts/AuthContext";
 
 
 const queryClient = new QueryClient();
-
 const HomeRoute = () => {
   const { isAuthenticated } = useAuth();
 
@@ -32,6 +32,21 @@ const HomeRoute = () => {
   }
 
   return <HomePage />;
+};
+
+const OnboardingGate = () => {
+  const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  const shouldOnboard =
+    isAuthenticated &&
+    user?.role !== "admin" &&
+    user?.account_completed === false;
+
+  if (shouldOnboard && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return <Outlet />;
 };
 
 const App = () => (
@@ -43,23 +58,26 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<HomeRoute />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/product/:id" element={<ProductDetailPage />} />
-              <Route path="/nearby" element={<NearbyPage />} />
-              
-              {/* Protected User Routes */}
-              <Route path="/favorites" element={<FavoritesPage />} />
-              <Route path="/my-listings" element={<MyListingsPage />} />
-              <Route path="/my-listings/:id" element={<MyListingDetailPage />} />
-              <Route path="/create-listing" element={<CreateListingPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              
-              {/* Catch-all */}
-              <Route path="*" element={<NotFound />} />
+              <Route element={<OnboardingGate />}>
+                {/* Public Routes */}
+                <Route path="/" element={<HomeRoute />} />
+                <Route path="/products" element={<ProductsPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/product/:id" element={<ProductDetailPage />} />
+                <Route path="/nearby" element={<NearbyPage />} />
+                <Route path="/onboarding" element={<OnboardingPage />} />
+
+                {/* Protected User Routes */}
+                <Route path="/favorites" element={<FavoritesPage />} />
+                <Route path="/my-listings" element={<MyListingsPage />} />
+                <Route path="/my-listings/:id" element={<MyListingDetailPage />} />
+                <Route path="/create-listing" element={<CreateListingPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+
+                {/* Catch-all */}
+                <Route path="*" element={<NotFound />} />
+              </Route>
             </Routes>
           </BrowserRouter>
         </TooltipProvider>

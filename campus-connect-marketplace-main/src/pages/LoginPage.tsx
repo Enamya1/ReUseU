@@ -3,9 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Github, Instagram, Twitter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockDormitories } from '@/lib/mockData';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +21,6 @@ const LoginPage: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    dormitory_id: '',
   });
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [isSignupLoading, setIsSignupLoading] = useState(false);
@@ -112,25 +109,33 @@ const LoginPage: React.FC = () => {
     setIsSignupLoading(true);
 
     try {
-      const success = await signup({
+      const response = await signup({
         full_name: formData.full_name,
         username: formData.username,
         email: formData.email,
         password: formData.password,
-        dormitory_id: formData.dormitory_id ? parseInt(formData.dormitory_id) : undefined,
       });
 
-      if (success) {
+      if (response?.user || response?.message) {
         toast({
           title: t('signup.title'),
-          description: t('signup.success'),
+          description: response.message || t('signup.success'),
         });
-        navigate('/');
+        setIsRightPanelActive(false);
+        navigate('/login');
+        return;
       }
-    } catch {
+
       toast({
         title: t('signup.error'),
         description: t('signup.error'),
+        variant: "destructive",
+      });
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      toast({
+        title: maybe?.message || t('signup.error'),
+        description: maybe?.message || t('signup.error'),
         variant: "destructive",
       });
     } finally {
@@ -264,24 +269,6 @@ const LoginPage: React.FC = () => {
                   className={inputClass}
                   autoComplete="email"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dormitory" className="sr-only">{t('signup.dormitory')}</Label>
-                <Select
-                  value={formData.dormitory_id}
-                  onValueChange={(value) => handleSignupChange('dormitory_id', value)}
-                >
-                  <SelectTrigger className={inputClass}>
-                    <SelectValue placeholder={t('signup.selectDormitory')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockDormitories.map((dorm) => (
-                      <SelectItem key={dorm.id} value={dorm.id.toString()}>
-                        {dorm.dormitory_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-2">
                 <div className="relative">
