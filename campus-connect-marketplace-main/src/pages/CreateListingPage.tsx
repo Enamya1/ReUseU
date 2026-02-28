@@ -26,7 +26,7 @@ type TagOption = { id: number; name: string };
 type DormitoryOption = { id: number; dormitory_name: string; is_active?: boolean; university_id?: number };
 
 const CreateListingPage: React.FC = () => {
-  const { user, isAuthenticated, createProduct, getMetaOptions, getDormitoriesByUniversity } = useAuth();
+  const { user, isAuthenticated, createProduct, createTag, getMetaOptions, getDormitoriesByUniversity } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
   
@@ -38,6 +38,9 @@ const CreateListingPage: React.FC = () => {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
   const [imageUrlDraft, setImageUrlDraft] = useState('');
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagErrors, setNewTagErrors] = useState<string[]>([]);
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
   const mediaRef = useRef<MediaItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -166,6 +169,59 @@ const CreateListingPage: React.FC = () => {
       const { tag_ids: _removed, ...rest } = prev;
       return rest;
     });
+  };
+
+  const handleCreateTag = async () => {
+    const name = newTagName.trim();
+    if (!name) {
+      setNewTagErrors([t('createListing.tagNameRequired')]);
+      return;
+    }
+    if (isCreatingTag) return;
+
+    setIsCreatingTag(true);
+    setNewTagErrors([]);
+    try {
+      const result = await createTag({ name });
+      const createdTag = result.tag;
+      if (!createdTag) {
+        toast({
+          title: t('createListing.errorTitle'),
+          description: result.message || t('createListing.tagCreateErrorDesc'),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setTags(prev => (prev.some(tag => tag.id === createdTag.id) ? prev : [createdTag, ...prev]));
+      setFormData(prev => (
+        prev.tags.includes(createdTag.id)
+          ? prev
+          : { ...prev, tags: [...prev.tags, createdTag.id] }
+      ));
+      setNewTagName('');
+      toast({
+        title: t('createListing.tagCreateSuccessTitle'),
+        description: result.message || t('createListing.tagCreateSuccessDesc'),
+      });
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      if (maybe?.errors) {
+        const nameErrors = maybe.errors.name;
+        if (nameErrors?.length) setNewTagErrors(nameErrors);
+        else {
+          const first = Object.values(maybe.errors)[0]?.[0];
+          if (first) setNewTagErrors([first]);
+        }
+      }
+      toast({
+        title: t('createListing.errorTitle'),
+        description: maybe?.message || t('createListing.tagCreateErrorDesc'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingTag(false);
+    }
   };
 
   const addFiles = (files: FileList | null) => {
@@ -691,6 +747,30 @@ const CreateListingPage: React.FC = () => {
                         {t('createListing.tagsSelected', { count: formData.tags.length })}
                       </div>
                     )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="new_tag">{t('createListing.tagCreateLabel')}</Label>
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                      <Input
+                        id="new_tag"
+                        placeholder={t('createListing.tagCreatePlaceholder')}
+                        value={newTagName}
+                        onChange={(e) => {
+                          setNewTagName(e.target.value);
+                          if (newTagErrors.length) setNewTagErrors([]);
+                        }}
+                        className="h-12"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleCreateTag}
+                        disabled={isCreatingTag}
+                      >
+                        {isCreatingTag ? t('createListing.tagCreating') : t('createListing.tagCreateAction')}
+                      </Button>
+                    </div>
+                    {newTagErrors[0] ? <p className="text-xs text-destructive">{newTagErrors[0]}</p> : null}
                   </div>
 
                   <div className="flex flex-wrap gap-2">

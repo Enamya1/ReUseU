@@ -18,6 +18,7 @@ interface AuthContextType {
   getDormitoriesByUniversity: () => Promise<DormitoriesByUniversityResponseBody>;
   getMyProductCards: (params?: { page?: number; page_size?: number }) => Promise<MyProductCardsResponseBody>;
   createProduct: (data: CreateProductInput) => Promise<CreateProductResponseBody>;
+  createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   getProductForEdit: (productId: number) => Promise<GetProductForEditResponseBody>;
   updateProduct: (productId: number, data: UpdateProductInput) => Promise<UpdateProductResponseBody>;
   markProductSold: (productId: number) => Promise<MarkProductSoldResponseBody>;
@@ -157,6 +158,16 @@ type CreateProductResponseBody = {
   product?: unknown;
   images?: unknown[];
   tag_ids?: number[];
+  errors?: Record<string, string[]>;
+};
+
+type CreateTagInput = {
+  name: string;
+};
+
+type CreateTagResponseBody = {
+  message?: string;
+  tag?: MetaTagOption;
   errors?: Record<string, string[]>;
 };
 
@@ -703,6 +714,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user],
   );
 
+  const createTag = useCallback(
+    async (data: CreateTagInput): Promise<CreateTagResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as CreateTagResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreateTagResponseBody;
+      }
+
+      const response = await fetch(apiUrl("/api/user/tags"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify({ name: data.name }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as CreateTagResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as CreateTagResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreateTagResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
   const getMetaOptions = useCallback(async (): Promise<MetaOptionsResponseBody> => {
     if (!accessToken) {
       throw { message: "Unauthenticated." } as MetaOptionsResponseBody;
@@ -982,6 +1034,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getDormitoriesByUniversity,
         getMyProductCards,
         createProduct,
+        createTag,
         getProductForEdit,
         updateProduct,
         markProductSold,
