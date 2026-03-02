@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wave · max radius 400 · auto‑fade</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: black;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: black;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="dotCanvas"></canvas>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('dotCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // ---------- adjustable parameters ----------
+            const DOT_SPACING = 30;          // pixels between dot centers
+            const DOT_RADIUS = 2;             // radius of each white dot
+            const INFLUENCE_RADIUS = 80;       // mouse affects dots within this distance
+            const MIN_DIST = 20;                // minimum distance from cursor during attraction
+            const REPEL_TARGET_DIST = 70;        // distance from cursor where dots gather when repelling
+            const MAX_DISPLACEMENT = 30;        // dots cannot move further than this from origin
+            const SMOOTHING = 0.05;              // lower = slower, smoother motion
+
+            // wave parameters
+            const WAVE_MAX_RADIUS = 400;         // how far the wave travels (changed to 400)
+            const WAVE_SPEED = 2.5;               // pixels per frame
+            const WAVE_LINE_WIDTH = 2;            // thickness of visual wave ring
+            const WAVE_WIDTH = 20;                 // width of the wave front that affects dots
+            const WAVE_PUSH_STRENGTH = 2.0;        // base strength of push per frame
+
+            // snake animation parameters
+            const SNAKE_PROBABILITY = 0.10;        // chance per frame to start a new snake (10%)
+            const MAX_SNAKES = 7;                   // maximum simultaneous snake animations
+            const SNAKE_SPEED = 0.02;                // progress per frame (0.02 = ~50 frames to extend)
+            const SNAKE_LINE_WIDTH = 3;              // thickness of snake line
+            // -------------------------------------------
+
+            // global state
+            let dots = [];                     // each dot: { ox, oy, x, y }
+            let gridMap = new Map();            // maps "ox,oy" -> index for neighbor lookup
+            let mouseX = -1000, mouseY = -1000; // mouse coordinates (off-canvas = no influence)
+            let mouseInside = false;            // flag if mouse is inside canvas
+            let mouseDown = false;              // left button pressed → attraction mode
+            let waves = [];                     // active waves: { x, y, radius }
+            let snakes = [];                     // active snake animations: { startIdx, endIdx, progress, phase }
+            let rafId = null;
+
+            // --- generate dot grid with original and current positions ---
+            function generateDotGrid(width, height) {
+                const newDots = [];
+                const newMap = new Map();
+                const startX = DOT_SPACING / 2;
+                const startY = DOT_SPACING / 2;
+                let index = 0;
+
+                for (let y = startY; y < height; y += DOT_SPACING) {
+                    for (let x = startX; x < width; x += DOT_SPACING) {
+                        newDots.push({
+                            ox: x, oy: y,   // original (home) position
+                            x: x, y: y       // current position
+                        });
+                        newMap.set(`${x},${y}`, index);
+                        index++;
+                    }
+                }
+                return { dots: newDots, map: newMap };
+            }
+
+            // --- attempt to start a new snake animation ---
+            function tryStartSnake() {
+                if (snakes.length >= MAX_SNAKES) return;
+
+                // random dot index
+                if (dots.length === 0) return;
+                const startIdx = Math.floor(Math.random() * dots.length);
+                const startDot = dots[startIdx];
+
+                // random direction: 0:up,1:right,2:down,3:left
+                const dir = Math.floor(Math.random() * 4);
+                let dx = 0, dy = 0;
+                switch (dir) {
+                    case 0: dy = -1; break; // up
+                    case 1: dx = 1; break;  // right
+                    case 2: dy = 1; break;  // down
+                    case 3: dx = -1; break; // left
+                }
+                const nx = startDot.ox + dx * DOT_SPACING;
+                const ny = startDot.oy + dy * DOT_SPACING;
+                const neighborKey = `${nx},${ny}`;
+                if (gridMap.has(neighborKey)) {
+                    const endIdx = gridMap.get(neighborKey);
+                    // start a new snake
+                    snakes.push({
+                        startIdx: startIdx,
+                        endIdx: endIdx,
+                        progress: 0,
+                        phase: 'grow'   // 'grow' then 'shrink'
+                    });
+                }
+            }
+
+            // --- update snake animations ---
+            function updateSnakes() {
+                for (let i = snakes.length - 1; i >= 0; i--) {
+                    const s = snakes[i];
+                    if (s.phase === 'grow') {
+                        s.progress += SNAKE_SPEED;
+                        if (s.progress >= 1.0) {
+                            s.progress = 1.0;
+                            s.phase = 'shrink';
+                        }
+                    } else { // shrink
+                        s.progress -= SNAKE_SPEED;
+                        if (s.progress <= 0.0) {
+                            snakes.splice(i, 1);
+                        }
+                    }
+                }
+            }
+
+            // --- apply wave forces to dots ---
+            function applyWaveForces() {
+                for (let w = 0; w < waves.length; w++) {
+                    const wave = waves[w];
+                    const cx = wave.x;
+                    const cy = wave.y;
+                    const r = wave.radius;
+
+                    for (let i = 0; i < dots.length; i++) {
+                        const d = dots[i];
+                        const dx = d.x - cx;
+                        const dy = d.y - cy;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        const distToRing = Math.abs(dist - r);
+                        if (distToRing < WAVE_WIDTH / 2) {
+                            let dirX = 0, dirY = 0;
+                            if (dist > 0.001) {
+                                dirX = dx / dist;
+                                dirY = dy / dist;
+                            } else {
+                                const angle = Math.random() * 2 * Math.PI;
+                                dirX = Math.cos(angle);
+                                dirY = Math.sin(angle);
+                            }
+                            const overlap = (WAVE_WIDTH / 2) - distToRing;
+                            const strength = (overlap / (WAVE_WIDTH / 2)) * WAVE_PUSH_STRENGTH;
+                            d.x += dirX * strength;
+                            d.y += dirY * strength;
+                        }
+                    }
+                }
+            }
+
+            // --- animation loop: update dot positions, waves, snakes, and draw ---
+            function animate() {
+                // Update dot positions based on mouse state (same as before)
+                if (mouseInside && mouseX >= 0 && mouseY >= 0) {
+                    if (mouseDown) {
+                        // ATTRACT MODE
+                        for (let i = 0; i < dots.length; i++) {
+                            const d = dots[i];
+                            const dx = mouseX - d.x;
+                            const dy = mouseY - d.y;
+                            const distToMouse = Math.sqrt(dx*dx + dy*dy);
+
+                            if (distToMouse < INFLUENCE_RADIUS) {
+                                let targetX, targetY;
+                                if (distToMouse < MIN_DIST) {
+                                    if (distToMouse < 0.01) {
+                                        targetX = mouseX;
+                                        targetY = mouseY - MIN_DIST;
+                                    } else {
+                                        const invDist = 1 / distToMouse;
+                                        const dirX = dx * invDist;
+                                        const dirY = dy * invDist;
+                                        targetX = mouseX - dirX * MIN_DIST;
+                                        targetY = mouseY - dirY * MIN_DIST;
+                                    }
+                                } else {
+                                    targetX = mouseX;
+                                    targetY = mouseY;
+                                }
+                                d.x += (targetX - d.x) * SMOOTHING;
+                                d.y += (targetY - d.y) * SMOOTHING;
+                            } else {
+                                d.x += (d.ox - d.x) * SMOOTHING;
+                                d.y += (d.oy - d.y) * SMOOTHING;
+                            }
+
+                            const dxOrig = d.x - d.ox;
+                            const dyOrig = d.y - d.oy;
+                            const distOrig = Math.sqrt(dxOrig*dxOrig + dyOrig*dyOrig);
+                            if (distOrig > MAX_DISPLACEMENT) {
+                                const ratio = MAX_DISPLACEMENT / distOrig;
+                                d.x = d.ox + dxOrig * ratio;
+                                d.y = d.oy + dyOrig * ratio;
+                            }
+                        }
+                    } else {
+                        // REPEL MODE (default)
+                        for (let i = 0; i < dots.length; i++) {
+                            const d = dots[i];
+                            const dx = d.x - mouseX;
+                            const dy = d.y - mouseY;
+                            const distToMouse = Math.sqrt(dx*dx + dy*dy);
+
+                            if (distToMouse < INFLUENCE_RADIUS) {
+                                if (distToMouse < 0.01) {
+                                    const angle = Math.random() * 2 * Math.PI;
+                                    const targetX = mouseX + Math.cos(angle) * REPEL_TARGET_DIST;
+                                    const targetY = mouseY + Math.sin(angle) * REPEL_TARGET_DIST;
+                                    d.x += (targetX - d.x) * SMOOTHING;
+                                    d.y += (targetY - d.y) * SMOOTHING;
+                                } else {
+                                    const invDist = 1 / distToMouse;
+                                    const dirX = dx * invDist;
+                                    const dirY = dy * invDist;
+                                    const targetX = mouseX + dirX * REPEL_TARGET_DIST;
+                                    const targetY = mouseY + dirY * REPEL_TARGET_DIST;
+                                    d.x += (targetX - d.x) * SMOOTHING;
+                                    d.y += (targetY - d.y) * SMOOTHING;
+                                }
+                            } else {
+                                d.x += (d.ox - d.x) * SMOOTHING;
+                                d.y += (d.oy - d.y) * SMOOTHING;
+                            }
+
+                            const dxOrig = d.x - d.ox;
+                            const dyOrig = d.y - d.oy;
+                            const distOrig = Math.sqrt(dxOrig*dxOrig + dyOrig*dyOrig);
+                            if (distOrig > MAX_DISPLACEMENT) {
+                                const ratio = MAX_DISPLACEMENT / distOrig;
+                                d.x = d.ox + dxOrig * ratio;
+                                d.y = d.oy + dyOrig * ratio;
+                            }
+                        }
+                    }
+                } else {
+                    // Mouse outside canvas: all dots return home
+                    for (let i = 0; i < dots.length; i++) {
+                        const d = dots[i];
+                        d.x += (d.ox - d.x) * SMOOTHING;
+                        d.y += (d.oy - d.y) * SMOOTHING;
+                    }
+                }
+
+                // Apply wave forces
+                applyWaveForces();
+
+                // Update waves (expand)
+                for (let i = waves.length - 1; i >= 0; i--) {
+                    const w = waves[i];
+                    w.radius += WAVE_SPEED;
+                    if (w.radius > WAVE_MAX_RADIUS) {
+                        waves.splice(i, 1);
+                    }
+                }
+
+                // Update snake animations
+                updateSnakes();
+
+                // Try to start a new snake (now 10% chance)
+                if (Math.random() < SNAKE_PROBABILITY) {
+                    tryStartSnake();
+                }
+
+                // --- Draw everything ---
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw dots
+                ctx.fillStyle = '#ffffff';
+                for (let i = 0; i < dots.length; i++) {
+                    const d = dots[i];
+                    ctx.beginPath();
+                    ctx.arc(d.x, d.y, DOT_RADIUS, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+
+                // Draw snakes (white lines)
+                ctx.lineWidth = SNAKE_LINE_WIDTH;
+                ctx.strokeStyle = '#ffffff';
+                for (let s of snakes) {
+                    const start = dots[s.startIdx];
+                    const end = dots[s.endIdx];
+                    if (!start || !end) continue; // safety
+
+                    const sx = start.x, sy = start.y;
+                    const ex = end.x, ey = end.y;
+
+                    if (s.phase === 'grow') {
+                        // line from start to point at progress fraction
+                        const t = s.progress;
+                        const mx = sx + (ex - sx) * t;
+                        const my = sy + (ey - sy) * t;
+                        ctx.beginPath();
+                        ctx.moveTo(sx, sy);
+                        ctx.lineTo(mx, my);
+                        ctx.stroke();
+                    } else {
+                        // shrink: line from (start + (1-progress)*vector) to end
+                        const t = s.progress; // between 1 and 0
+                        const vx = ex - sx;
+                        const vy = ey - sy;
+                        const startShrinkX = sx + (1 - t) * vx;
+                        const startShrinkY = sy + (1 - t) * vy;
+                        ctx.beginPath();
+                        ctx.moveTo(startShrinkX, startShrinkY);
+                        ctx.lineTo(ex, ey);
+                        ctx.stroke();
+                    }
+                }
+
+                // Draw waves (fading rings) – opacity automatically adjusts with WAVE_MAX_RADIUS
+                ctx.lineWidth = WAVE_LINE_WIDTH;
+                for (let i = 0; i < waves.length; i++) {
+                    const w = waves[i];
+                    const progress = w.radius / WAVE_MAX_RADIUS; // fraction of max
+                    const opacity = Math.max(0, 1 - progress);   // fades from 1 to 0
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+                    ctx.beginPath();
+                    ctx.arc(w.x, w.y, w.radius, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+
+                rafId = requestAnimationFrame(animate);
+            }
+
+            // --- start / restart animation ---
+            function startAnimation() {
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = requestAnimationFrame(animate);
+            }
+
+            // --- resize handler: regenerate dots and restart animation ---
+            function resizeAndRedraw() {
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+
+                canvas.width = w;
+                canvas.height = h;
+
+                const { dots: newDots, map: newMap } = generateDotGrid(w, h);
+                dots = newDots;
+                gridMap = newMap;
+                // Clear snakes on resize (they would reference old indices)
+                snakes = [];
+                startAnimation();
+            }
+
+            // --- mouse event handlers (same as before) ---
+            function handleMouseMove(e) {
+                const rect = canvas.getBoundingClientRect();
+                mouseX = e.clientX - rect.left;
+                mouseY = e.clientY - rect.top;
+                mouseX = Math.min(Math.max(mouseX, 0), canvas.width);
+                mouseY = Math.min(Math.max(mouseY, 0), canvas.height);
+                mouseInside = true;
+            }
+
+            function handleMouseLeave() {
+                mouseInside = false;
+                mouseX = -1000;
+                mouseY = -1000;
+            }
+
+            function handleMouseDown(e) {
+                if (e.button === 0) {
+                    mouseDown = true;
+                    e.preventDefault();
+                }
+            }
+
+            function handleMouseUp(e) {
+                if (e.button === 0) {
+                    if (mouseInside && mouseX >= 0 && mouseY >= 0) {
+                        waves.push({ x: mouseX, y: mouseY, radius: 0 });
+                    }
+                    mouseDown = false;
+                }
+            }
+
+            // --- touch support ---
+            function handleTouchStart(e) {
+                e.preventDefault();
+                mouseDown = true;
+                if (e.touches.length > 0) {
+                    const rect = canvas.getBoundingClientRect();
+                    mouseX = e.touches[0].clientX - rect.left;
+                    mouseY = e.touches[0].clientY - rect.top;
+                    mouseX = Math.min(Math.max(mouseX, 0), canvas.width);
+                    mouseY = Math.min(Math.max(mouseY, 0), canvas.height);
+                    mouseInside = true;
+                }
+            }
+
+            function handleTouchMove(e) {
+                e.preventDefault();
+                if (e.touches.length > 0) {
+                    const rect = canvas.getBoundingClientRect();
+                    mouseX = e.touches[0].clientX - rect.left;
+                    mouseY = e.touches[0].clientY - rect.top;
+                    mouseX = Math.min(Math.max(mouseX, 0), canvas.width);
+                    mouseY = Math.min(Math.max(mouseY, 0), canvas.height);
+                    mouseInside = true;
+                }
+            }
+
+            function handleTouchEnd(e) {
+                e.preventDefault();
+                if (mouseInside && mouseX >= 0 && mouseY >= 0) {
+                    waves.push({ x: mouseX, y: mouseY, radius: 0 });
+                }
+                mouseDown = false;
+                mouseInside = false;
+                mouseX = -1000;
+                mouseY = -1000;
+            }
+
+            // --- set up event listeners ---
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseleave', handleMouseLeave);
+            canvas.addEventListener('mousedown', handleMouseDown);
+            window.addEventListener('mouseup', handleMouseUp);
+
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', handleTouchEnd);
+            canvas.addEventListener('touchcancel', handleTouchEnd);
+
+            // --- resize listener ---
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(resizeAndRedraw, 40);
+            });
+            window.addEventListener('orientationchange', () => {
+                setTimeout(resizeAndRedraw, 20);
+            });
+
+            // --- initialisation ---
+            window.addEventListener('load', resizeAndRedraw);
+            if (document.readyState === 'complete') {
+                resizeAndRedraw();
+            }
+
+            window.addEventListener('beforeunload', () => {
+                if (rafId) cancelAnimationFrame(rafId);
+            });
+        })();
+    </script>
+</body>
+</html>
