@@ -1,6 +1,7 @@
 const normalizeBaseUrl = (value: string): string => value.trim().replace(/\/+$/, "");
 
 export const API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL ?? "");
+export const API_BASE_URL_PY = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL_PY ?? "");
 
 export const apiUrl = (endpoint: string): string => {
   const trimmed = endpoint.trim();
@@ -9,6 +10,23 @@ export const apiUrl = (endpoint: string): string => {
 
   const base = API_BASE_URL ? `${API_BASE_URL}/` : "/";
   const path = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+  return `${base}${path}`;
+};
+
+export const apiPyUrl = (endpoint: string): string => {
+  const trimmed = endpoint.trim();
+  const useProxy = import.meta.env.DEV && !!API_BASE_URL_PY;
+  if (!trimmed) {
+    if (useProxy) return "/py";
+    return API_BASE_URL_PY || "/";
+  }
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  const base = useProxy ? "/py/" : API_BASE_URL_PY ? `${API_BASE_URL_PY}/` : "/";
+  const path = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+  if (useProxy && path.startsWith("py/")) {
+    return `/${path}`;
+  }
   return `${base}${path}`;
 };
 
@@ -36,4 +54,3 @@ export const normalizeImageUrl = (value?: string | null): string | undefined => 
   if (/^https?:\/\//i.test(trimmed)) return normalizeLocalhostImageUrl(trimmed);
   return apiUrl(trimmed);
 };
-

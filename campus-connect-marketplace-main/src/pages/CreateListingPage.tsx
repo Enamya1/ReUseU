@@ -37,6 +37,7 @@ const CreateListingPage: React.FC = () => {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
+  const [thumbnailIndex, setThumbnailIndex] = useState<number | null>(null);
   const [imageUrlDraft, setImageUrlDraft] = useState('');
   const [newTagName, setNewTagName] = useState('');
   const [newTagErrors, setNewTagErrors] = useState<string[]>([]);
@@ -249,6 +250,10 @@ const CreateListingPage: React.FC = () => {
       }));
       return [...prev, ...nextItems];
     });
+    setThumbnailIndex((prev) => {
+      if (prev !== null) return prev;
+      return mediaRef.current.length;
+    });
     setFieldErrors(prev => {
       if (!prev.images) return prev;
       const { images: _removed, ...rest } = prev;
@@ -284,6 +289,12 @@ const CreateListingPage: React.FC = () => {
         return prevPrimary;
       });
       return next;
+    });
+    setThumbnailIndex((prev) => {
+      if (prev === null) return prev;
+      if (index === prev) return null;
+      if (index < prev) return Math.max(0, prev - 1);
+      return prev;
     });
   };
 
@@ -374,6 +385,14 @@ const CreateListingPage: React.FC = () => {
       const urls = media
         .filter((item): item is Extract<MediaItem, { kind: 'url' }> => item.kind === 'url')
         .map((item) => item.url);
+      const selectedThumbnail =
+        typeof thumbnailIndex === 'number' ? media[thumbnailIndex] : undefined;
+      const thumbnailFile =
+        selectedThumbnail && selectedThumbnail.kind === 'file'
+          ? selectedThumbnail.file
+          : null;
+      const resolvedPrimaryIndex =
+        typeof thumbnailIndex === 'number' ? thumbnailIndex : media.length ? primaryImageIndex : null;
 
       const result = await createProduct({
         category_id: categoryId,
@@ -383,8 +402,9 @@ const CreateListingPage: React.FC = () => {
         price,
         dormitory_id: Number.isFinite(dormitoryId) ? dormitoryId : undefined,
         tag_ids: formData.tags.length ? formData.tags : null,
-        primary_image_index: media.length ? primaryImageIndex : null,
+        primary_image_index: resolvedPrimaryIndex,
         images: files.length ? files : null,
+        thumbnail_images: thumbnailFile && files.length ? files : null,
         image_urls: urls.length ? urls : null,
       });
 
@@ -664,6 +684,9 @@ const CreateListingPage: React.FC = () => {
                         ref={fileInputRef}
                       />
                       {fieldErrors.images?.[0] ? <p className="text-xs text-destructive">{fieldErrors.images[0]}</p> : null}
+                      {fieldErrors.thumbnail_images?.[0] ? (
+                        <p className="text-xs text-destructive">{fieldErrors.thumbnail_images[0]}</p>
+                      ) : null}
                     </div>
 
                     <div className="space-y-2">
@@ -688,6 +711,21 @@ const CreateListingPage: React.FC = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {mediaPreviewUrls.map((image, index) => (
                       <div key={index} className="relative aspect-square rounded-2xl overflow-hidden bg-muted group border border-border/60">
+                        {media[index]?.kind === 'file' ? (
+                          <label className="absolute top-2 left-2 z-10 flex items-center gap-2 rounded-full bg-foreground/80 px-2 py-1 text-xs font-medium text-background">
+                            <input
+                              type="radio"
+                              name="thumbnail"
+                              checked={thumbnailIndex === index}
+                              onChange={() => {
+                                setThumbnailIndex(index);
+                                setPrimaryImageIndex(index);
+                              }}
+                              className="h-3 w-3"
+                            />
+                            thumbnil
+                          </label>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setPrimaryImageIndex(index)}

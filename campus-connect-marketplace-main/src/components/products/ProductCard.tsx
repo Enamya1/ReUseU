@@ -18,6 +18,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
   const { isFavorite, toggleFavorite } = useFavorites();
   const { t } = useTranslation();
   const favorite = isFavorite(product.id);
+  const distanceLabel =
+    typeof product.distance_km === 'number'
+      ? product.distance_km < 1
+        ? `${Math.round(product.distance_km * 1000)} m`
+        : `${product.distance_km.toFixed(1)} km`
+      : null;
 
   const primaryImage = product.images.find(img => img.is_primary) || product.images[0];
 
@@ -103,11 +109,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
           {product.title}
         </h3>
 
-        {product.distance_km !== undefined && (
-          <div className="text-[10px] text-tertiary font-medium">
-            {t('product.distanceKm', { count: product.distance_km })}
-          </div>
-        )}
+        {distanceLabel ? (
+          <div className="text-[10px] text-tertiary font-medium">{distanceLabel}</div>
+        ) : null}
       </div>
     </Link>
   );

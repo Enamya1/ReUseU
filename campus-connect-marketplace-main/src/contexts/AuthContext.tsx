@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { User } from '@/lib/mockData';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiPyUrl } from '@/lib/api';
 import i18n from '@/i18n';
 
 interface AuthContextType {
@@ -17,6 +17,13 @@ interface AuthContextType {
   getMetaOptions: () => Promise<MetaOptionsResponseBody>;
   getDormitoriesByUniversity: () => Promise<DormitoriesByUniversityResponseBody>;
   getMyProductCards: (params?: { page?: number; page_size?: number }) => Promise<MyProductCardsResponseBody>;
+  getRecommendedProducts: (params?: {
+    page?: number;
+    page_size?: number;
+    random_count?: number;
+    lookback_days?: number;
+    seed?: number;
+  }) => Promise<RecommendationsResponseBody>;
   createProduct: (data: CreateProductInput) => Promise<CreateProductResponseBody>;
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   getProductForEdit: (productId: number) => Promise<GetProductForEditResponseBody>;
@@ -94,7 +101,10 @@ type UpdateUniversitySettingsResponseBody = {
 type MetaCategoryOption = {
   id: number;
   name: string;
+  description?: string | null;
+  parent_id?: number | null;
   icon?: string | null;
+  logo?: string | null;
 };
 
 type MetaConditionLevelOption = {
@@ -114,6 +124,49 @@ type MetaOptionsResponseBody = {
   categories?: MetaCategoryOption[];
   condition_levels?: MetaConditionLevelOption[];
   tags?: MetaTagOption[];
+  errors?: Record<string, string[]>;
+};
+
+type RecommendationProductImage = {
+  id?: number;
+  product_id?: number;
+  image_url?: string;
+  image_thumbnail_url?: string | null;
+  is_primary?: boolean;
+};
+
+type RecommendationProduct = {
+  id: number;
+  title?: string;
+  description?: string | null;
+  price?: number;
+  status?: "available" | "sold" | "reserved";
+  created_at?: string;
+  seller_id?: number;
+  dormitory_id?: number | null;
+  dormitory?: DormitoryOption;
+  category_id?: number;
+  category?: MetaCategoryOption;
+  condition_level_id?: number;
+  condition_level?: MetaConditionLevelOption & { level?: number | null };
+  tags?: MetaTagOption[];
+  images?: RecommendationProductImage[];
+  image_url?: string | null;
+  image_thumbnail_url?: string | null;
+  primary_image_url?: string | null;
+};
+
+type RecommendationsResponseBody = {
+  message?: string;
+  page?: number;
+  page_size?: number;
+  random_count?: number;
+  last_event_id?: number;
+  last_event_at?: string | null;
+  last_product_id?: number;
+  last_product_at?: string | null;
+  products?: RecommendationProduct[];
+  detail?: string;
   errors?: Record<string, string[]>;
 };
 
@@ -156,6 +209,7 @@ type CreateProductInput = {
   tag_ids?: number[] | null;
   primary_image_index?: number | null;
   images?: File[] | null;
+  thumbnail_images?: File[] | null;
   image_urls?: string[] | null;
 };
 
@@ -659,7 +713,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw { message: "Unauthorized: Only users can access this endpoint." } as CreateProductResponseBody;
       }
 
-      const hasFiles = (data.images?.length || 0) > 0;
+      const hasFiles = (data.images?.length || 0) > 0 || (data.thumbnail_images?.length || 0) > 0;
       const url = apiUrl("/api/user/products");
 
       const response = await fetch(url, {
@@ -693,6 +747,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 data.image_urls.forEach((imageUrl) => form.append("image_urls[]", imageUrl));
               }
               (data.images || []).forEach((file) => form.append("images[]", file));
+              (data.thumbnail_images || []).forEach((file) => form.append("thumbnail_images[]", file));
               return form;
             })()
           : JSON.stringify(
@@ -852,6 +907,68 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw { message: "Unauthorized: Only users can access this endpoint." } as MyProductCardsResponseBody;
       }
       return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const getRecommendedProducts = useCallback(
+    async (params?: {
+      page?: number;
+      page_size?: number;
+      random_count?: number;
+      lookback_days?: number;
+      seed?: number;
+    }): Promise<RecommendationsResponseBody> => {
+      if (!accessToken) {
+        throw { detail: "Missing Authorization header" } as RecommendationsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { detail: "Only users can access this endpoint" } as RecommendationsResponseBody;
+      }
+
+      const endpoint = apiPyUrl("/py/api/user/recommendations/products");
+      const url = new URL(endpoint, window.location.origin);
+      if (typeof params?.page === "number" && Number.isFinite(params.page)) {
+        url.searchParams.set("page", String(params.page));
+      }
+      if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
+        url.searchParams.set("page_size", String(params.page_size));
+      }
+      if (typeof params?.random_count === "number" && Number.isFinite(params.random_count)) {
+        url.searchParams.set("random_count", String(params.random_count));
+      }
+      if (typeof params?.lookback_days === "number" && Number.isFinite(params.lookback_days)) {
+        url.searchParams.set("lookback_days", String(params.lookback_days));
+      }
+      if (typeof params?.seed === "number" && Number.isFinite(params.seed)) {
+        url.searchParams.set("seed", String(params.seed));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as RecommendationsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { detail: "Missing Authorization header" } as RecommendationsResponseBody;
+      if (response.status === 403) {
+        throw { detail: "Only users can access this endpoint" } as RecommendationsResponseBody;
+      }
+      return { detail: "Request failed" };
     },
     [accessToken, tokenType, user],
   );
@@ -1052,6 +1169,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getMetaOptions,
         getDormitoriesByUniversity,
         getMyProductCards,
+        getRecommendedProducts,
         createProduct,
         createTag,
         getProductForEdit,

@@ -1,13 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import ProductGrid from '@/components/products/ProductGrid';
-import {
-  mockCategories,
-  mockConditionLevels,
-  mockProducts,
-  mockTags,
-  type Product,
-} from '@/lib/mockData';
+import { type Product } from '@/lib/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,9 +19,71 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, List, Search, SlidersHorizontal } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { normalizeImageUrl } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
+
+type CategoryOption = {
+  id: number;
+  name: string;
+  description?: string | null;
+  parent_id?: number | null;
+  icon?: string | null;
+  logo?: string | null;
+};
+
+type ConditionLevelOption = {
+  id: number;
+  name: string;
+  description?: string | null;
+  sort_order?: number | null;
+  level?: number | null;
+};
+
+type TagOption = {
+  id: number;
+  name: string;
+};
+
+type RecommendationProductImage = {
+  id?: number;
+  product_id?: number;
+  image_url?: string;
+  image_thumbnail_url?: string | null;
+  is_primary?: boolean;
+};
+
+type RecommendationProduct = {
+  id?: number;
+  title?: string;
+  description?: string | null;
+  price?: number;
+  status?: 'available' | 'sold' | 'reserved';
+  created_at?: string;
+  is_promoted?: number | boolean | null;
+  seller_id?: number;
+  dormitory_id?: number | null;
+  dormitory?: {
+    latitude?: number;
+    longitude?: number;
+  };
+  category_id?: number;
+  condition_level_id?: number;
+  condition_level?: {
+    id: number;
+    name: string;
+    level?: number | null;
+  };
+  tags?: TagOption[];
+  image_thumbnail_url?: string | null;
+};
 
 const ProductsPage: React.FC = () => {
-  const products = mockProducts;
+  const { isAuthenticated, getMetaOptions, getRecommendedProducts } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [conditionLevels, setConditionLevels] = useState<ConditionLevelOption[]>([]);
+  const [tags, setTags] = useState<TagOption[]>([]);
   const [search, setSearch] = useState('');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
@@ -35,6 +91,198 @@ const ProductsPage: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
   const [sortValue, setSortValue] = useState('default');
   const [page, setPage] = useState(1);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const isImageLike = (value?: string | null) => {
+    if (!value) return false;
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    return /^(https?:\/\/|\/|data:|blob:)/i.test(trimmed);
+  };
+
+  const requestLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Location is not supported on this device.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocationError(null);
+      },
+      () => {
+        setLocationError('Location permission was denied.');
+      },
+      { enableHighAccuracy: true, maximumAge: 60000 },
+    );
+  }, []);
+
+  const calculateDistanceKm = useCallback(
+    (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const radiusKm = 6371;
+    const dLat = toRad(to.lat - from.lat);
+    const dLng = toRad(to.lng - from.lng);
+    const lat1 = toRad(from.lat);
+    const lat2 = toRad(to.lat);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return radiusKm * c;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setCategories([]);
+      setConditionLevels([]);
+      setTags([]);
+      return;
+    }
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const data = await getMetaOptions();
+        if (cancelled) return;
+        setCategories(data.categories || []);
+        setConditionLevels(data.condition_levels || []);
+        setTags(data.tags || []);
+      } catch (error) {
+        if (cancelled) return;
+        const maybe = error as { message?: string } | undefined;
+        toast({
+          title: 'Unable to load filters',
+          description: maybe?.message || 'Filters could not be loaded.',
+          variant: 'destructive',
+        });
+        setCategories([]);
+        setConditionLevels([]);
+        setTags([]);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getMetaOptions, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setProducts([]);
+      return;
+    }
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const data = await getRecommendedProducts({
+          page: 1,
+          page_size: 10,
+          random_count: 3,
+          lookback_days: 30,
+        });
+        if (cancelled) return;
+        const mapped = (data.products || []).map((item, index) => {
+          const product = item as RecommendationProduct;
+          const productId = typeof product.id === 'number' ? product.id : index + 1;
+          const images: Product['images'] = [];
+          if (product.image_thumbnail_url) {
+            const normalized = normalizeImageUrl(product.image_thumbnail_url) || product.image_thumbnail_url;
+            images.push({
+              id: 0,
+              product_id: productId,
+              image_url: normalized,
+              image_thumbnail_url: normalized,
+              is_primary: true,
+            });
+          }
+
+          const conditionLevel = product.condition_level
+            ? {
+                id: product.condition_level.id,
+                name: product.condition_level.name,
+                description: undefined,
+                sort_order: product.condition_level.level ?? 0,
+              }
+            : undefined;
+
+          const dormitory =
+            typeof product.dormitory?.latitude === 'number' && typeof product.dormitory?.longitude === 'number'
+              ? {
+                  id: 0,
+                  dormitory_name: '',
+                  domain: '',
+                  location: undefined,
+                  lat: product.dormitory.latitude,
+                  lng: product.dormitory.longitude,
+                  is_active: true,
+                  university_id: 0,
+                }
+              : undefined;
+
+          const distanceKm =
+            userLocation && dormitory?.lat != null && dormitory?.lng != null
+              ? calculateDistanceKm(userLocation, { lat: dormitory.lat, lng: dormitory.lng })
+              : undefined;
+
+          return {
+            id: productId,
+            seller_id: product.seller_id ?? 0,
+            dormitory_id: product.dormitory_id ?? 0,
+            dormitory,
+            category_id: product.category_id ?? 0,
+            condition_level_id: product.condition_level_id ?? product.condition_level?.id ?? 0,
+            condition_level: conditionLevel,
+            title: product.title || 'Untitled',
+            description: product.description ?? undefined,
+            price: typeof product.price === 'number' ? product.price : 0,
+            status: product.status ?? 'available',
+            is_promoted: Boolean(product.is_promoted),
+            created_at: product.created_at || new Date().toISOString(),
+            images,
+            tags: Array.isArray(product.tags)
+              ? product.tags.map((tag) => ({ id: tag.id, name: tag.name }))
+              : [],
+            distance_km: distanceKm,
+          } as Product;
+        });
+
+        setProducts(mapped);
+      } catch (error) {
+        if (cancelled) return;
+        const maybe = error as { detail?: string; message?: string } | undefined;
+        toast({
+          title: 'Unable to load products',
+          description: maybe?.detail || maybe?.message || 'Products could not be loaded.',
+          variant: 'destructive',
+        });
+        setProducts([]);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [calculateDistanceKm, getRecommendedProducts, isAuthenticated, userLocation]);
+
+  useEffect(() => {
+    if (!userLocation) return;
+    setProducts((prev) =>
+      prev.map((product) => {
+        if (product.dormitory?.lat == null || product.dormitory?.lng == null) return product;
+        const distanceKm = calculateDistanceKm(userLocation, {
+          lat: product.dormitory.lat,
+          lng: product.dormitory.lng,
+        });
+        return { ...product, distance_km: distanceKm };
+      }),
+    );
+  }, [calculateDistanceKm, userLocation]);
 
   const maxPrice = useMemo(
     () => Math.max(0, ...products.map((product) => product.price)),
@@ -152,7 +400,7 @@ const ProductsPage: React.FC = () => {
               <div className="space-y-3">
                 <div className="text-sm font-semibold text-foreground">Category</div>
                 <div className="space-y-2">
-                  {mockCategories.map((category) => (
+                  {categories.map((category) => (
                     <label key={category.id} className="flex items-center justify-between text-sm text-muted-foreground">
                       <span className="flex items-center gap-2">
                         <Checkbox
@@ -160,7 +408,16 @@ const ProductsPage: React.FC = () => {
                           onCheckedChange={() => toggleValue(category.id, setSelectedCategories)}
                         />
                         <span className="flex items-center gap-1">
-                          <span>{category.icon}</span>
+                          {isImageLike(category.logo) ? (
+                            <img
+                              src={normalizeImageUrl(category.logo)}
+                              alt={category.name}
+                              className="h-4 w-4 rounded-full object-contain"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span>{category.logo || category.icon}</span>
+                          )}
                           <span>{category.name}</span>
                         </span>
                       </span>
@@ -172,7 +429,7 @@ const ProductsPage: React.FC = () => {
               <div className="space-y-3">
                 <div className="text-sm font-semibold text-foreground">Condition</div>
                 <div className="space-y-2">
-                  {mockConditionLevels.map((condition) => (
+                  {conditionLevels.map((condition) => (
                     <label key={condition.id} className="flex items-center justify-between text-sm text-muted-foreground">
                       <span className="flex items-center gap-2">
                         <Checkbox
@@ -181,7 +438,9 @@ const ProductsPage: React.FC = () => {
                         />
                         <span>{condition.name}</span>
                       </span>
-                      <span className="text-xs text-muted-foreground">#{condition.sort_order}</span>
+                      <span className="text-xs text-muted-foreground">
+                        #{condition.sort_order ?? condition.level ?? 0}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -189,7 +448,7 @@ const ProductsPage: React.FC = () => {
               <div className="space-y-3">
                 <div className="text-sm font-semibold text-foreground">Tags</div>
                 <div className="flex flex-wrap gap-2">
-                  {mockTags.map((tag) => (
+                  {tags.map((tag) => (
                     <button
                       key={tag.id}
                       type="button"
@@ -232,13 +491,22 @@ const ProductsPage: React.FC = () => {
                   <p className="text-sm text-muted-foreground">Pick the right collection to start browsing.</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  {mockCategories.slice(0, 6).map((category) => (
+                  {categories.slice(0, 6).map((category) => (
                     <button
                       key={category.id}
                       type="button"
                       className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm"
                     >
-                      <span className="text-lg">{category.icon}</span>
+                      {isImageLike(category.logo) ? (
+                        <img
+                          src={normalizeImageUrl(category.logo)}
+                          alt={category.name}
+                          className="h-6 w-6 rounded-full object-contain"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="text-lg">{category.logo || category.icon}</span>
+                      )}
                       <span>{category.name}</span>
                     </button>
                   ))}
@@ -276,13 +544,27 @@ const ProductsPage: React.FC = () => {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                {mockConditionLevels.map((condition) => (
+                {conditionLevels.map((condition) => (
                   <Badge key={condition.id} variant="outline" className="text-xs">
                     {condition.name}
                   </Badge>
                 ))}
               </div>
             </div>
+
+            {!userLocation ? (
+              <div className="rounded-2xl border border-border bg-card px-5 py-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Allow location to show distance from your position.
+                  </div>
+                  <Button onClick={requestLocation}>Enable location</Button>
+                </div>
+                {locationError ? (
+                  <p className="mt-2 text-xs text-destructive">{locationError}</p>
+                ) : null}
+              </div>
+            ) : null}
 
             <ProductGrid
               products={pagedProducts as Product[]}
