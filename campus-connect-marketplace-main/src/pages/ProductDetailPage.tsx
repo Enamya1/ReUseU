@@ -1,28 +1,395 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, Share2, MapPin, Clock, User, ChevronLeft, ChevronRight, MessageCircle, AlertCircle } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getProductById, formatPrice, formatRelativeTime, mockProducts } from '@/lib/mockData';
+import { formatPrice, formatRelativeTime } from '@/lib/mockData';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { useAuth } from '@/contexts/AuthContext';
-import ProductCard from '@/components/products/ProductCard';
+import ProductGrid from '@/components/products/ProductGrid';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
+import type { Category, ConditionLevel, Dormitory, Product, ProductImage, Tag, User as UserProfile } from '@/lib/mockData';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, getProductDetail, getSimilarProducts } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(true);
 
-  const product = id ? getProductById(parseInt(id)) : undefined;
+  useEffect(() => {
+    if (!id) {
+      setProduct(null);
+      setIsLoading(false);
+      return;
+    }
+    if (!isAuthenticated) {
+      toast({
+        title: t('product.loginRequired'),
+        description: t('product.loginToContact'),
+      });
+      navigate('/login');
+      setProduct(null);
+      setIsLoading(false);
+      return;
+    }
+    const productId = Number(id);
+    if (!Number.isFinite(productId)) {
+      setProduct(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setCurrentImageIndex(0);
+
+    const mapProductImage = (image: {
+      id?: number;
+      image_url?: string;
+      image_thumbnail_url?: string | null;
+      is_primary?: boolean;
+    }, index: number, fallbackProductId: number): ProductImage | null => {
+      const url = image.image_url || image.image_thumbnail_url;
+      if (!url) return null;
+      return {
+        id: typeof image.id === 'number' ? image.id : index + 1,
+        product_id: fallbackProductId,
+        image_url: url,
+        image_thumbnail_url: image.image_thumbnail_url ?? undefined,
+        is_primary: Boolean(image.is_primary),
+      };
+    };
+
+    const mapApiProduct = (data: {
+      id?: number;
+      title?: string;
+      description?: string | null;
+      price?: number;
+      status?: 'available' | 'sold' | 'reserved';
+      created_at?: string;
+      is_promoted?: number | boolean | null;
+      seller_id?: number;
+      seller?: Partial<UserProfile>;
+      dormitory_id?: number | null;
+      dormitory?: Partial<Dormitory>;
+      category_id?: number;
+      category?: Partial<Category>;
+      condition_level_id?: number;
+      condition_level?: Partial<ConditionLevel> & { level?: number | null };
+      tags?: Partial<Tag>[];
+      images?: Array<{
+        id?: number;
+        image_url?: string;
+        image_thumbnail_url?: string | null;
+        is_primary?: boolean;
+      }>;
+      distance_km?: number | null;
+      image_url?: string | null;
+      image_thumbnail_url?: string | null;
+    }): Product => {
+      const resolvedId = typeof data.id === 'number' ? data.id : productId;
+      const images: ProductImage[] = Array.isArray(data.images)
+        ? data.images
+            .map((image, index) => mapProductImage(image, index, resolvedId))
+            .filter((image): image is ProductImage => !!image)
+        : [];
+
+      if (images.length === 0) {
+        const fallbackUrl = data.image_url || data.image_thumbnail_url;
+        if (fallbackUrl) {
+          images.push({
+            id: 1,
+            product_id: resolvedId,
+            image_url: fallbackUrl,
+            image_thumbnail_url: data.image_thumbnail_url ?? undefined,
+            is_primary: true,
+          });
+        }
+      }
+
+      const category = data.category?.id
+        ? {
+            id: data.category.id,
+            name: data.category.name || '',
+            parent_id: data.category.parent_id,
+            icon: data.category.icon,
+          }
+        : undefined;
+
+      const conditionLevel = data.condition_level?.id
+        ? {
+            id: data.condition_level.id,
+            name: data.condition_level.name || '',
+            description: data.condition_level.description,
+            sort_order:
+              typeof data.condition_level.sort_order === 'number'
+                ? data.condition_level.sort_order
+                : data.condition_level.level ?? 0,
+          }
+        : undefined;
+
+      const dormitory = data.dormitory?.id
+        ? {
+            id: data.dormitory.id,
+            dormitory_name: data.dormitory.dormitory_name || '',
+            domain: data.dormitory.domain || '',
+            location: data.dormitory.location,
+            lat: data.dormitory.lat,
+            lng: data.dormitory.lng,
+            is_active: data.dormitory.is_active ?? true,
+            university_id: data.dormitory.university_id ?? 0,
+          }
+        : undefined;
+
+      const tags = Array.isArray(data.tags)
+        ? data.tags
+            .filter((tag): tag is Partial<Tag> & { id: number } => typeof tag.id === 'number')
+            .map((tag) => ({ id: tag.id, name: tag.name || '' }))
+        : [];
+
+      const seller = data.seller?.id
+        ? ({
+            id: data.seller.id,
+            full_name: data.seller.full_name || '',
+            username: data.seller.username || '',
+            email: data.seller.email || '',
+            phone_number: data.seller.phone_number,
+            profile_picture: data.seller.profile_picture,
+            student_id: data.seller.student_id,
+            bio: data.seller.bio,
+            date_of_birth: data.seller.date_of_birth,
+            gender: data.seller.gender,
+            language: data.seller.language,
+            timezone: data.seller.timezone,
+            dormitory_id: data.seller.dormitory_id,
+            account_completed: data.seller.account_completed,
+            role: data.seller.role || 'user',
+            status: data.seller.status || 'active',
+          } as UserProfile)
+        : undefined;
+
+      return {
+        id: resolvedId,
+        seller_id: data.seller_id ?? data.seller?.id ?? 0,
+        seller,
+        dormitory_id: data.dormitory_id ?? data.dormitory?.id ?? 0,
+        dormitory,
+        category_id: data.category_id ?? data.category?.id ?? 0,
+        category,
+        condition_level_id: data.condition_level_id ?? data.condition_level?.id ?? 0,
+        condition_level: conditionLevel,
+        title: data.title || 'Untitled',
+        description: data.description ?? undefined,
+        price: typeof data.price === 'number' ? data.price : 0,
+        status: data.status ?? 'available',
+        is_promoted: Boolean(data.is_promoted),
+        created_at: data.created_at || new Date().toISOString(),
+        images,
+        tags,
+        distance_km: typeof data.distance_km === 'number' ? data.distance_km : undefined,
+      };
+    };
+
+    const run = async () => {
+      try {
+        const data = await getProductDetail(productId);
+        if (cancelled) return;
+        if (!data.product) {
+          setProduct(null);
+          setIsLoading(false);
+          return;
+        }
+        setProduct(mapApiProduct(data.product));
+      } catch (error) {
+        if (cancelled) return;
+        const maybe = error as { message?: string } | undefined;
+        if (maybe?.message && maybe.message.toLowerCase().includes('unauthorized')) {
+          toast({
+            title: t('product.loginRequired'),
+            description: maybe.message,
+          });
+          navigate('/login');
+          setProduct(null);
+          setIsLoading(false);
+          return;
+        }
+        if (maybe?.message && maybe.message.toLowerCase().includes('unauthenticated')) {
+          toast({
+            title: t('product.loginRequired'),
+            description: maybe.message,
+          });
+          navigate('/login');
+          setProduct(null);
+          setIsLoading(false);
+          return;
+        }
+        setProduct(null);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getProductDetail, id, isAuthenticated, navigate, t]);
+
+  useEffect(() => {
+    const parsedId = id ? Number(id) : NaN;
+    const similarProductId = product?.id ?? (Number.isFinite(parsedId) ? parsedId : null);
+
+    if (!similarProductId) {
+      setSimilarProducts([]);
+      setSimilarLoading(false);
+      return;
+    }
+    if (!isAuthenticated) {
+      setSimilarProducts([]);
+      setSimilarLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSimilarLoading(true);
+
+    const mapSimilarProduct = (item: {
+      id?: number;
+      product_id?: number;
+      title?: string;
+      price?: number;
+      status?: 'available' | 'sold' | 'reserved';
+      created_at?: string;
+      category_id?: number;
+      condition_level_id?: number;
+      is_promoted?: number | boolean | null;
+      dormitory?: { latitude?: number; longitude?: number };
+      condition_level?: Partial<ConditionLevel> & { level?: number | null };
+      image_thumbnail_url?: string | null;
+      tags?: Partial<Tag>[];
+    }): Product | null => {
+      const resolvedId =
+        typeof item.id === 'number'
+          ? item.id
+          : typeof item.product_id === 'number'
+            ? item.product_id
+            : null;
+      if (!resolvedId) return null;
+      const title = item.title || 'Untitled';
+      const price = typeof item.price === 'number' ? item.price : 0;
+      const status = item.status ?? 'available';
+      const conditionLevel = item.condition_level?.id
+        ? {
+            id: item.condition_level.id,
+            name: item.condition_level.name || '',
+            description: item.condition_level.description,
+            sort_order:
+              typeof item.condition_level.sort_order === 'number'
+                ? item.condition_level.sort_order
+                : item.condition_level.level ?? 0,
+          }
+        : undefined;
+
+      const dormitory = item.dormitory
+        ? {
+            id: 0,
+            dormitory_name: '',
+            domain: '',
+            location: undefined,
+            lat: item.dormitory.latitude,
+            lng: item.dormitory.longitude,
+            is_active: true,
+            university_id: 0,
+          }
+        : undefined;
+
+      const tags = Array.isArray(item.tags)
+        ? item.tags
+            .filter((tag): tag is Partial<Tag> & { id: number } => typeof tag.id === 'number')
+            .map((tag) => ({ id: tag.id, name: tag.name || '' }))
+        : [];
+
+      const images: ProductImage[] = item.image_thumbnail_url
+        ? [
+            {
+              id: 1,
+              product_id: resolvedId,
+              image_url: item.image_thumbnail_url,
+              image_thumbnail_url: item.image_thumbnail_url ?? undefined,
+              is_primary: true,
+            },
+          ]
+        : [];
+
+      return {
+        id: resolvedId,
+        seller_id: 0,
+        dormitory_id: 0,
+        dormitory,
+        category_id: item.category_id ?? 0,
+        condition_level_id: item.condition_level_id ?? item.condition_level?.id ?? 0,
+        title,
+        description: undefined,
+        price,
+        status,
+        is_promoted: Boolean(item.is_promoted),
+        created_at: item.created_at || new Date().toISOString(),
+        images,
+        tags,
+        condition_level: conditionLevel,
+        category: undefined,
+        seller: undefined,
+        distance_km: undefined,
+      };
+    };
+
+    const run = async () => {
+      try {
+        const data = await getSimilarProducts(similarProductId, { page: 1, page_size: 10 });
+        if (cancelled) return;
+        const items = Array.isArray(data.products) ? data.products : [];
+        const mapped = items
+          .map((item) => mapSimilarProduct(item))
+          .filter((item): item is Product => !!item);
+        setSimilarProducts(mapped);
+      } catch {
+        if (!cancelled) {
+          setSimilarProducts([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setSimilarLoading(false);
+        }
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getSimilarProducts, id, isAuthenticated, product?.id]);
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="container py-16">
+          <div className="max-w-md mx-auto text-center text-sm text-muted-foreground">Loading...</div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (!product) {
     return (
@@ -46,9 +413,6 @@ const ProductDetailPage: React.FC = () => {
   }
 
   const favorite = isFavorite(product.id);
-  const relatedProducts = mockProducts
-    .filter(p => p.id !== product.id && p.category_id === product.category_id)
-    .slice(0, 4);
 
   const handleFavorite = () => {
     if (!isAuthenticated) {
@@ -336,19 +700,21 @@ const ProductDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <section className="mt-16">
-            <h2 className="text-2xl font-display font-bold text-foreground mb-6">
-              {t('product.similarItems')}
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {relatedProducts.map(p => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          </section>
-        )}
+        <section className="mt-16">
+          <h2 className="text-2xl font-display font-bold text-foreground mb-6">
+            {t('product.similarItems')}
+          </h2>
+          {similarLoading ? (
+            <div className="text-sm text-muted-foreground">Loading...</div>
+          ) : similarProducts.length > 0 ? (
+            <ProductGrid
+              products={similarProducts}
+              getProductLink={(item) => (item.id > 0 ? `/product/${item.id}` : '#')}
+            />
+          ) : (
+            <div className="text-sm text-muted-foreground">No similar items yet.</div>
+          )}
+        </section>
       </div>
     </MainLayout>
   );

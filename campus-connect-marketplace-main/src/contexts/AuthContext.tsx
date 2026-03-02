@@ -24,6 +24,11 @@ interface AuthContextType {
     lookback_days?: number;
     seed?: number;
   }) => Promise<RecommendationsResponseBody>;
+  getSimilarProducts: (
+    productId: number,
+    params?: { page?: number; page_size?: number },
+  ) => Promise<SimilarProductsResponseBody>;
+  getProductDetail: (productId: number) => Promise<ProductDetailResponseBody>;
   createProduct: (data: CreateProductInput) => Promise<CreateProductResponseBody>;
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   getProductForEdit: (productId: number) => Promise<GetProductForEditResponseBody>;
@@ -167,6 +172,68 @@ type RecommendationsResponseBody = {
   last_product_at?: string | null;
   products?: RecommendationProduct[];
   detail?: string;
+  errors?: Record<string, string[]>;
+};
+
+type SimilarProduct = {
+  id?: number;
+  product_id?: number;
+  title?: string;
+  price?: number;
+  status?: "available" | "sold" | "reserved";
+  created_at?: string;
+  category_id?: number;
+  condition_level_id?: number;
+  is_promoted?: number | boolean | null;
+  dormitory?: { latitude?: number; longitude?: number };
+  condition_level?: MetaConditionLevelOption & { level?: number | null };
+  image_thumbnail_url?: string | null;
+  tags?: MetaTagOption[];
+};
+
+type SimilarProductsResponseBody = {
+  message?: string;
+  product_id?: number;
+  page?: number;
+  page_size?: number;
+  total?: number;
+  total_pages?: number;
+  products?: SimilarProduct[];
+  detail?: string;
+};
+
+type ProductDetailImage = {
+  id?: number;
+  product_id?: number;
+  image_url?: string;
+  image_thumbnail_url?: string | null;
+  is_primary?: boolean;
+};
+
+type ProductDetail = {
+  id?: number;
+  title?: string;
+  description?: string | null;
+  price?: number;
+  status?: "available" | "sold" | "reserved";
+  created_at?: string;
+  is_promoted?: number | boolean | null;
+  seller_id?: number;
+  dormitory_id?: number | null;
+  dormitory?: DormitoryOption;
+  category_id?: number;
+  category?: MetaCategoryOption;
+  condition_level_id?: number;
+  condition_level?: MetaConditionLevelOption & { level?: number | null };
+  tags?: MetaTagOption[];
+  images?: ProductDetailImage[];
+  seller?: User;
+  distance_km?: number | null;
+};
+
+type ProductDetailResponseBody = {
+  message?: string;
+  product?: ProductDetail;
   errors?: Record<string, string[]>;
 };
 
@@ -973,6 +1040,105 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user],
   );
 
+  const getSimilarProducts = useCallback(
+    async (
+      productId: number,
+      params?: { page?: number; page_size?: number },
+    ): Promise<SimilarProductsResponseBody> => {
+      if (!accessToken) {
+        throw { detail: "Missing Authorization header" } as SimilarProductsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { detail: "Only users can access this endpoint" } as SimilarProductsResponseBody;
+      }
+
+      const normalizedProductId = Number.isFinite(productId) ? Math.trunc(productId) : NaN;
+      const page = Number.isFinite(params?.page) ? Math.max(1, Math.trunc(params?.page ?? 1)) : 1;
+      const pageSize = Number.isFinite(params?.page_size)
+        ? Math.min(50, Math.max(1, Math.trunc(params?.page_size ?? 10)))
+        : 10;
+
+      const endpoint = apiPyUrl(`/py/api/user/products/${normalizedProductId}/similar`);
+      const url = new URL(endpoint, window.location.origin);
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("page_size", String(pageSize));
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as SimilarProductsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (response.status === 502) throw responseBody;
+        if (response.status === 503) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { detail: "Missing Authorization header" } as SimilarProductsResponseBody;
+      if (response.status === 403) throw { detail: "Only users can access this endpoint" } as SimilarProductsResponseBody;
+      if (response.status === 404) throw { detail: "Product not found" } as SimilarProductsResponseBody;
+      if (response.status === 502) throw { detail: "Could not reach Laravel" } as SimilarProductsResponseBody;
+      if (response.status === 503) throw { detail: "Database unavailable" } as SimilarProductsResponseBody;
+      return { detail: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const getProductDetail = useCallback(
+    async (productId: number): Promise<ProductDetailResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as ProductDetailResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as ProductDetailResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/user/get_product/${productId}`), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as ProductDetailResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as ProductDetailResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as ProductDetailResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Product not found." } as ProductDetailResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
   const getProductForEdit = useCallback(
     async (productId: number): Promise<GetProductForEditResponseBody> => {
       if (!accessToken) {
@@ -1170,6 +1336,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getDormitoriesByUniversity,
         getMyProductCards,
         getRecommendedProducts,
+        getSimilarProducts,
+        getProductDetail,
         createProduct,
         createTag,
         getProductForEdit,
