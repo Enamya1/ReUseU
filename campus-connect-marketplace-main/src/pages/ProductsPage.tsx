@@ -92,7 +92,6 @@ const ProductsPage: React.FC = () => {
   const [sortValue, setSortValue] = useState('default');
   const [page, setPage] = useState(1);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const isImageLike = (value?: string | null) => {
     if (!value) return false;
     const trimmed = value.trim();
@@ -102,17 +101,13 @@ const ProductsPage: React.FC = () => {
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setLocationError('Location is not supported on this device.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-        setLocationError(null);
       },
-      () => {
-        setLocationError('Location permission was denied.');
-      },
+      () => {},
       { enableHighAccuracy: true, maximumAge: 60000 },
     );
   }, []);
@@ -169,6 +164,11 @@ const ProductsPage: React.FC = () => {
       cancelled = true;
     };
   }, [getMetaOptions, isAuthenticated]);
+
+  useEffect(() => {
+    if (userLocation) return;
+    requestLocation();
+  }, [requestLocation, userLocation]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -551,20 +551,6 @@ const ProductsPage: React.FC = () => {
                 ))}
               </div>
             </div>
-
-            {!userLocation ? (
-              <div className="rounded-2xl border border-border bg-card px-5 py-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Allow location to show distance from your position.
-                  </div>
-                  <Button onClick={requestLocation}>Enable location</Button>
-                </div>
-                {locationError ? (
-                  <p className="mt-2 text-xs text-destructive">{locationError}</p>
-                ) : null}
-              </div>
-            ) : null}
 
             <ProductGrid
               products={pagedProducts as Product[]}
