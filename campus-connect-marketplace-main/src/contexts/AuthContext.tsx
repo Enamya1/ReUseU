@@ -17,6 +17,7 @@ interface AuthContextType {
   getMetaOptions: () => Promise<MetaOptionsResponseBody>;
   getDormitoriesByUniversity: () => Promise<DormitoriesByUniversityResponseBody>;
   getMyProductCards: (params?: { page?: number; page_size?: number }) => Promise<MyProductCardsResponseBody>;
+  getSellerProfile: (sellerId: number, params?: { page?: number; page_size?: number }) => Promise<SellerProfileResponseBody>;
   getRecommendedProducts: (params?: {
     page?: number;
     page_size?: number;
@@ -256,6 +257,50 @@ type MyProductCardsResponseBody = {
   total?: number;
   total_pages?: number;
   products?: MyProductCard[];
+  errors?: Record<string, string[]>;
+};
+
+type SellerProfileProductLocation = {
+  dormitory_name?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+type SellerProfileProduct = {
+  id?: number;
+  name?: string;
+  price?: number;
+  condition_name?: string;
+  image_thumbnail_url?: string | null;
+  location?: SellerProfileProductLocation;
+};
+
+type SellerProfileSeller = {
+  id?: number;
+  name?: string;
+  profile_picture?: string | null;
+  email_verified?: boolean;
+  member_since?: string;
+  dorm_name?: string;
+  uni_name?: string;
+  uni_address?: string;
+  bio?: string;
+  language?: string;
+  timezone?: string;
+  last_login?: string;
+  listed_products_count?: number;
+  sales_count?: number;
+  average_condition_level?: number;
+};
+
+type SellerProfileResponseBody = {
+  message?: string;
+  seller?: SellerProfileSeller;
+  page?: number;
+  page_size?: number;
+  total?: number;
+  total_pages?: number;
+  products?: SellerProfileProduct[];
   errors?: Record<string, string[]>;
 };
 
@@ -978,6 +1023,61 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user],
   );
 
+  const getSellerProfile = useCallback(
+    async (sellerId: number, params?: { page?: number; page_size?: number }): Promise<SellerProfileResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as SellerProfileResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as SellerProfileResponseBody;
+      }
+
+      const normalizedSellerId = Number.isFinite(sellerId) ? Math.trunc(sellerId) : NaN;
+      const url = new URL(apiUrl(`/api/user/sellers/${normalizedSellerId}`));
+      if (typeof params?.page === "number" && Number.isFinite(params.page)) {
+        url.searchParams.set("page", String(params.page));
+      }
+      if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
+        url.searchParams.set("page_size", String(params.page_size));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as SellerProfileResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as SellerProfileResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as SellerProfileResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Seller not found." } as SellerProfileResponseBody;
+      }
+      if (response.status === 422) {
+        throw { message: "Validation Error" } as SellerProfileResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
   const getRecommendedProducts = useCallback(
     async (params?: {
       page?: number;
@@ -1335,6 +1435,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getMetaOptions,
         getDormitoriesByUniversity,
         getMyProductCards,
+        getSellerProfile,
         getRecommendedProducts,
         getSimilarProducts,
         getProductDetail,

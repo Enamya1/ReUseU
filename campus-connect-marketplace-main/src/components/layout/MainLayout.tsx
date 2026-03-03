@@ -9,6 +9,8 @@ interface MainLayoutProps {
   showFooter?: boolean;
   showHeader?: boolean;
   headerClassName?: string;
+  floatingButtonClassName?: string;
+  floatingButtonContainerClassName?: string;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -16,6 +18,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   showFooter = true,
   showHeader = true,
   headerClassName,
+  floatingButtonClassName,
+  floatingButtonContainerClassName,
 }) => {
   const cursorDotRef = useRef<HTMLDivElement | null>(null);
   const cursorRingRef = useRef<HTMLDivElement | null>(null);
@@ -97,6 +101,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           to="/create-listing"
           label="List your pre-loved item for sale today! •"
           centerIcon={<Plus className="h-5 w-5" />}
+          buttonClassName={floatingButtonClassName}
+          containerClassName={floatingButtonContainerClassName}
         />
       )}
       {showFooter && <Footer />}

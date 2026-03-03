@@ -549,22 +549,26 @@ const ProfilePage: React.FC = () => {
   };
 
   const selectedTimezone = typeof timezoneDraft === "string" ? timezoneDraft : timezoneDraft?.value;
+  const headerClassName =
+    "bg-white/90 backdrop-blur border-b border-slate-200 mix-blend-normal text-slate-900 shadow-sm [&_a]:text-slate-900 [&_a]:border-slate-300 [&_a:hover]:text-slate-950 [&_a:hover]:bg-slate-900/5 [&_button]:text-slate-900 [&_button]:border-slate-200 [&_button:hover]:bg-slate-900/5 [&_svg]:text-slate-900 [&_input]:bg-white [&_input]:border-slate-200 [&_input]:text-slate-900 [&_input]:placeholder:text-slate-400 [&_input:focus-visible]:ring-slate-300";
+  const inputClassName = "h-11 bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 focus-visible:ring-slate-300";
+  const textAreaClassName = "bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 focus-visible:ring-slate-300";
 
   if (!isAuthenticated || !user) {
     return (
-      <MainLayout>
-        <div className="container py-16">
-          <div className="max-w-md mx-auto text-center">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-              <User className="w-12 h-12 text-muted-foreground" />
+      <MainLayout headerClassName={headerClassName} floatingButtonClassName="floating-button-light">
+        <div className="bg-white text-slate-900">
+          <div className="container py-16">
+            <div className="max-w-md mx-auto text-center">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-slate-100 flex items-center justify-center">
+                <User className="w-12 h-12 text-slate-400" />
+              </div>
+              <h1 className="text-2xl font-display font-bold text-slate-900 mb-2">Profile Settings</h1>
+              <p className="text-slate-500 mb-6">Log in to manage your profile.</p>
+              <Button asChild>
+                <Link to="/login">Log in</Link>
+              </Button>
             </div>
-            <h1 className="text-2xl font-display font-bold mb-2">Profile Settings</h1>
-            <p className="text-muted-foreground mb-6">
-              Log in to manage your profile.
-            </p>
-            <Button asChild>
-              <Link to="/login">Log in</Link>
-            </Button>
           </div>
         </div>
       </MainLayout>
@@ -572,38 +576,22 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <MainLayout>
-      <div className="container py-10 md:py-14">
-        <div className="mx-auto max-w-5xl space-y-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-display font-bold text-foreground">
-                  Profile Settings
-                </h1>
-                <p className="text-muted-foreground">
-                  Manage your account information
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Last updated</span>
-              <span className="h-1 w-1 rounded-full bg-muted-foreground/60" />
-              <span>Today</span>
-            </div>
-          </div>
-
-          <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
-            <div className="space-y-6">
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                <div className="flex flex-col items-center text-center">
+    <MainLayout headerClassName={headerClassName} floatingButtonClassName="floating-button-light">
+      <div className="bg-white text-slate-900">
+        <div className="border-b border-slate-200">
+          <div className="container py-10 md:py-14">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <span>Profile Settings</span>
+                  <span className="h-1 w-1 rounded-full bg-slate-300" />
+                  <span>Account management</span>
+                </div>
+                <div className="flex flex-col gap-6 md:flex-row md:items-center">
                   <div className="relative">
-                    <Avatar className="h-28 w-28">
+                    <Avatar className="h-28 w-28 border-4 border-white shadow-md">
                       <AvatarImage src={avatarSrc} alt={user.full_name} />
-                      <AvatarFallback className="bg-tertiary text-tertiary-foreground text-3xl">
+                      <AvatarFallback className="bg-slate-100 text-slate-700 text-3xl">
                         {user.full_name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
@@ -615,30 +603,78 @@ const ProfilePage: React.FC = () => {
                       <Camera className="w-4 h-4" />
                     </button>
                   </div>
-                  <h2 className="mt-4 text-xl font-semibold">{user.full_name}</h2>
-                  <p className="text-sm text-muted-foreground">@{user.username}</p>
-                  <Badge variant="secondary" className="mt-3">
-                    {user.role === 'admin' ? 'Staff' : 'Student'}
-                  </Badge>
-                </div>
-                <div className="mt-6 grid gap-3 text-sm">
-                  <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
-                    <span className="text-muted-foreground">Email</span>
-                    <span className="font-medium text-foreground">{user.email}</span>
+                  <div>
+                    <h1 className="text-3xl font-display font-bold text-slate-900">{user.full_name}</h1>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                      <span>@{user.username}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>{user.role === 'admin' ? 'Staff' : 'Student'}</span>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Badge className="bg-emerald-100 text-emerald-700 border-0">Verified</Badge>
+                      <Badge className="bg-slate-100 text-slate-700 border-0">Profile owner</Badge>
+                      <Badge className="bg-slate-100 text-slate-700 border-0">Secure account</Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
-                    <span className="text-muted-foreground">Timezone</span>
-                    <span className="font-medium text-foreground">{formData.timezone || "Not set"}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+                <span>Last updated</span>
+                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span>Today</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="container py-10 md:py-12 space-y-10">
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_1.4fr]">
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">Account overview</h2>
+                <p className="text-sm text-slate-500">Public profile details and contact preferences.</p>
+                <div className="mt-6 grid gap-3 text-sm">
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="text-slate-500">Email</span>
+                    <span className="font-medium text-slate-900">{user.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="text-slate-500">Timezone</span>
+                    <span className="font-medium text-slate-900">{formData.timezone || "Not set"}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="text-slate-500">Language</span>
+                    <span className="font-medium text-slate-900">{formData.language || "Not set"}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Quick actions</h3>
+                <div className="mt-4 space-y-3 text-sm text-slate-600">
+                  <div className="flex items-center justify-between">
+                    <span>Profile completion</span>
+                    <span className="font-medium text-slate-900">92%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Security status</span>
+                    <span className="font-medium text-slate-900">Protected</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Last login</span>
+                    <span className="font-medium text-slate-900">Today</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Personal Information</h3>
-                  <p className="text-sm text-muted-foreground">Keep your contact details up to date.</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Personal Information</h3>
+                  <p className="text-sm text-slate-500">Keep your contact details up to date.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -647,7 +683,7 @@ const ProfilePage: React.FC = () => {
                       id="full_name"
                       value={formData.full_name}
                       onChange={(e) => handleChange('full_name', e.target.value)}
-                      className="h-11"
+                      className={inputClassName}
                     />
                     {firstError.get("full_name") ? (
                       <p className="text-xs text-destructive">{firstError.get("full_name")}</p>
@@ -660,7 +696,7 @@ const ProfilePage: React.FC = () => {
                       id="username"
                       value={formData.username}
                       onChange={(e) => handleChange('username', e.target.value)}
-                      className="h-11"
+                      className={inputClassName}
                     />
                     {firstError.get("username") ? (
                       <p className="text-xs text-destructive">{firstError.get("username")}</p>
@@ -675,7 +711,7 @@ const ProfilePage: React.FC = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleChange('email', e.target.value)}
-                    className="h-11"
+                    className={inputClassName}
                   />
                   {firstError.get("email") ? (
                     <p className="text-xs text-destructive">{firstError.get("email")}</p>
@@ -691,7 +727,7 @@ const ProfilePage: React.FC = () => {
                       value={formData.phone_number}
                       onChange={(e) => handleChange('phone_number', e.target.value)}
                       placeholder="+1 (555) 000-0000"
-                      className="h-11"
+                      className={inputClassName}
                     />
                     {firstError.get("phone_number") ? (
                       <p className="text-xs text-destructive">{firstError.get("phone_number")}</p>
@@ -705,7 +741,7 @@ const ProfilePage: React.FC = () => {
                       value={formData.student_id}
                       onChange={(e) => handleChange('student_id', e.target.value)}
                       placeholder="e.g., STU2024001"
-                      className="h-11"
+                      className={inputClassName}
                     />
                     {firstError.get("student_id") ? (
                       <p className="text-xs text-destructive">{firstError.get("student_id")}</p>
@@ -714,11 +750,11 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Campus Details</h3>
-                    <p className="text-sm text-muted-foreground">Used for campus matching and listings.</p>
+                    <h3 className="text-lg font-semibold text-slate-900">Campus Details</h3>
+                    <p className="text-sm text-slate-500">Used for campus matching and listings.</p>
                   </div>
                   <Button type="button" onClick={handleUniversitySubmit} disabled={isUniversitySaving || isUniversityLoading}>
                     {isUniversitySaving ? "Saving..." : "Update"}
@@ -729,7 +765,7 @@ const ProfilePage: React.FC = () => {
                   <div className="space-y-2">
                     <Label>University</Label>
                     <Select value={selectedUniversityId} onValueChange={handleUniversityChange} disabled={isUniversityLoading}>
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className={inputClassName}>
                         <SelectValue placeholder={isUniversityLoading ? "Loading..." : "Select university"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -752,7 +788,7 @@ const ProfilePage: React.FC = () => {
                       onValueChange={handleDormitoryChange}
                       disabled={!selectedUniversityId || isUniversityLoading}
                     >
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className={inputClassName}>
                         <SelectValue placeholder={isUniversityLoading ? "Loading..." : "Select dormitory"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -770,10 +806,10 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Preferences</h3>
-                  <p className="text-sm text-muted-foreground">Set your profile and locale preferences.</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Preferences</h3>
+                  <p className="text-sm text-slate-500">Set your profile and locale preferences.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -783,7 +819,7 @@ const ProfilePage: React.FC = () => {
                       type="date"
                       value={formData.date_of_birth}
                       onChange={(e) => handleChange('date_of_birth', e.target.value)}
-                      className="h-11"
+                      className={inputClassName}
                     />
                     {firstError.get("date_of_birth") ? (
                       <p className="text-xs text-destructive">{firstError.get("date_of_birth")}</p>
@@ -793,7 +829,7 @@ const ProfilePage: React.FC = () => {
                   <div className="space-y-2">
                     <Label htmlFor="gender">Gender</Label>
                     <Select value={formData.gender} onValueChange={(value) => handleChange('gender', value)}>
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className={inputClassName}>
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
@@ -814,7 +850,7 @@ const ProfilePage: React.FC = () => {
                       value={formData.language || i18n.resolvedLanguage || 'en'}
                       onValueChange={handleLanguageChange}
                     >
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className={inputClassName}>
                         <SelectValue placeholder="Select language" />
                       </SelectTrigger>
                       <SelectContent>
@@ -830,35 +866,36 @@ const ProfilePage: React.FC = () => {
 
                   <div className="space-y-2">
                     <Label>Timezone</Label>
-                    <Button type="button" variant="outline" className="w-full h-11 justify-between" onClick={handleTimezoneOpen}>
+                    <Button type="button" variant="outline" className="w-full h-11 justify-between bg-white text-slate-900 border-slate-200" onClick={handleTimezoneOpen}>
                       <span>{formData.timezone || "Select time-zone"}</span>
-                      <span className="text-muted-foreground">Select time-zone</span>
+                      <span className="text-slate-400">Select time-zone</span>
                     </Button>
                     {firstError.get("timezone") ? <p className="text-xs text-destructive">{firstError.get("timezone")}</p> : null}
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Bio</h3>
-                  <p className="text-sm text-muted-foreground">Share a short introduction with other students.</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Bio</h3>
+                  <p className="text-sm text-slate-500">Share a short introduction with other students.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
+                  {/* <Label htmlFor="bio">Bio</Label> */}
                   <Textarea
                     id="bio"
                     value={formData.bio}
                     onChange={(e) => handleChange('bio', e.target.value)}
                     placeholder="Tell other students a bit about yourself..."
                     rows={4}
+                    className={textAreaClassName}
                   />
                   {firstError.get("bio") ? <p className="text-xs text-destructive">{firstError.get("bio")}</p> : null}
                 </div>
               </div>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
-                <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+                <Button type="button" variant="outline" className="text-white hover:shadow-lg" onClick={() => navigate(-1)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isSaving}>
