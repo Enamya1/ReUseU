@@ -1,12 +1,23 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ChevronDown, FileText, ImagePlus, Plus, Search, Send } from 'lucide-react';
+import { Ban, Check, CheckCheck, ChevronDown, ChevronUp, Clock, FileText, ImagePlus, Plus, Search, Send } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { normalizeImageUrl } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
 
 type MessageAttachment = {
   type: 'image' | 'file';
@@ -20,6 +31,7 @@ type MessageItem = {
   text?: string;
   time: string;
   attachments?: MessageAttachment[];
+  status?: 'sent' | 'read' | 'pending' | 'blocked';
 };
 
 type ThreadItem = {
@@ -28,102 +40,56 @@ type ThreadItem = {
   lastMessage: string;
   lastTime: string;
   messages: MessageItem[];
+  conversationId?: number;
+  avatarUrl?: string;
 };
 
-const initialThreads: ThreadItem[] = [
-  {
-    id: 'alex',
-    name: 'Alex',
-    lastMessage: 'sounds clean. send a mockup',
-    lastTime: '11:28',
-    messages: [
-      { id: 'm1', sender: 'them', text: 'working on the minimal concept?', time: '11:23' },
-      { id: 'm2', sender: 'me', text: 'yes, black & white with glass', time: '11:25' },
-      { id: 'm3', sender: 'them', text: 'sounds clean. send a mockup', time: '11:28' },
-    ],
-  },
-  {
-    id: 'blake',
-    name: 'Blake',
-    lastMessage: 'it animates so smoothly',
-    lastTime: '09:44',
-    messages: [
-      { id: 'm4', sender: 'them', text: 'did you see the new gradient?', time: '09:42' },
-      { id: 'm5', sender: 'me', text: 'it animates so smoothly', time: '09:44' },
-    ],
-  },
-  {
-    id: 'casey',
-    name: 'Casey',
-    lastMessage: 'got it',
-    lastTime: 'yest',
-    messages: [
-      { id: 'm6', sender: 'them', text: 'meeting at 4', time: 'yest' },
-      { id: 'm7', sender: 'me', text: 'got it', time: 'yest' },
-    ],
-  },
-  {
-    id: 'drew',
-    name: 'Drew',
-    lastMessage: '— no messages',
-    lastTime: '',
-    messages: [],
-  },
-  {
-    id: 'eden',
-    name: 'Eden',
-    lastMessage: 'Sent a file attachment',
-    lastTime: '08:02',
-    messages: [
-      {
-        id: 'm8',
-        sender: 'them',
-        text: 'Here is the brief.',
-        time: '08:01',
-      },
-      {
-        id: 'm9',
-        sender: 'them',
-        time: '08:02',
-        attachments: [{ type: 'file', name: 'brief.pdf' }],
-      },
-    ],
-  },
-  {
-    id: 'frank',
-    name: 'Frank',
-    lastMessage: 'Sent you an image',
-    lastTime: 'yest',
-    messages: [
-      {
-        id: 'm10',
-        sender: 'me',
-        text: 'Here is the sample image.',
-        time: 'yest',
-      },
-      {
-        id: 'm11',
-        sender: 'me',
-        time: 'yest',
-        attachments: [{ type: 'image', name: 'sample.jpg', url: '/placeholder.svg' }],
-      },
-    ],
-  },
-];
+const initialThreads: ThreadItem[] = [];
 
 const MessagesPage: React.FC = () => {
   const [threads, setThreads] = useState<ThreadItem[]>(initialThreads);
-  const [selectedThreadId, setSelectedThreadId] = useState(initialThreads[0]?.id ?? '');
+  const [selectedThreadId, setSelectedThreadId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [messageInput, setMessageInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachOpen, setAttachOpen] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [pinnedThreadIds, setPinnedThreadIds] = useState<string[]>([]);
+  const [mutedThreadIds, setMutedThreadIds] = useState<string[]>([]);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMatches, setSearchMatches] = useState<number[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const attachRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, user, sendMessage, getMessageContacts, getMessages } = useAuth();
+
+  const receiverId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('receiverId') || params.get('receiver_id');
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [location.search]);
+
+  const receiverName = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('receiverName') || params.get('receiver_name') || '';
+  }, [location.search]);
+
+  const conversationId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('conversationId') || params.get('conversation_id');
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [location.search]);
+
 
   useEffect(() => {
     const container = canvasRef.current;
@@ -358,35 +324,295 @@ const MessagesPage: React.FC = () => {
   }, []);
 
   const filteredThreads = useMemo(() => {
-    if (!searchTerm.trim()) return threads;
     const term = searchTerm.trim().toLowerCase();
-    return threads.filter((thread) => thread.name.toLowerCase().includes(term));
-  }, [searchTerm, threads]);
+    const baseThreads = term ? threads.filter((thread) => thread.name.toLowerCase().includes(term)) : threads;
+    if (pinnedThreadIds.length === 0) return baseThreads;
+    const pinnedSet = new Set(pinnedThreadIds);
+    const pinned = baseThreads.filter((thread) => pinnedSet.has(thread.id));
+    const rest = baseThreads.filter((thread) => !pinnedSet.has(thread.id));
+    return [...pinned, ...rest];
+  }, [pinnedThreadIds, searchTerm, threads]);
 
   const selectedThread = useMemo(
     () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
     [threads, selectedThreadId],
   );
+  const selectedHandle = selectedThread ? `@${selectedThread.id}` : '';
+  const selectedLastActivity = selectedThread
+    ? selectedThread.messages[selectedThread.messages.length - 1]?.time || selectedThread.lastTime || '—'
+    : '—';
+  const isPinned = selectedThread ? pinnedThreadIds.includes(selectedThread.id) : false;
+  const isMuted = selectedThread ? mutedThreadIds.includes(selectedThread.id) : false;
+
+  const formatTimeLabel = useCallback((value?: string) => {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }, []);
 
   useEffect(() => {
-    const container = messageListRef.current;
-    if (!container) return;
-    const handleScroll = () => {
-      const threshold = 40;
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-      setIsAtBottom(distanceFromBottom <= threshold);
-    };
-    handleScroll();
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+    setShowSearchHistory(false);
+    setSearchQuery('');
+    setSearchMatches([]);
+    setCurrentMatchIndex(0);
   }, [selectedThreadId]);
 
   useEffect(() => {
     const container = messageListRef.current;
     if (!container) return;
-    if (!isAtBottom) return;
     container.scrollTop = container.scrollHeight;
-  }, [isAtBottom, selectedThreadId, selectedThread?.messages.length]);
+  }, [selectedThreadId, selectedThread?.messages.length]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !selectedThread?.conversationId) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const response = await getMessages({ conversation_id: selectedThread.conversationId, limit: 50 });
+        if (cancelled) return;
+        const otherUser = response.conversation?.other_user;
+        const mappedMessages = (response.messages ?? []).map((message) => {
+          const senderId = typeof message.sender_id === 'string' ? Number(message.sender_id) : message.sender_id;
+          const currentUserId = typeof user?.id === 'string' ? Number(user.id) : user?.id;
+          const otherUserId = typeof otherUser?.id === 'string' ? Number(otherUser.id) : otherUser?.id;
+          const isMe =
+            Number.isFinite(senderId) &&
+            ((Number.isFinite(currentUserId) && senderId === currentUserId) ||
+              (Number.isFinite(otherUserId) && senderId !== otherUserId));
+          const timeLabel = formatTimeLabel(message.created_at);
+          return {
+            id: message.id ? `m-${message.id}` : `m-${Math.random().toString(36).slice(2)}`,
+            sender: isMe ? 'me' : 'them',
+            text: message.message_text?.trim() || undefined,
+            time: timeLabel,
+            status: isMe ? (message.read_at ? 'read' : 'sent') : undefined,
+          } as MessageItem;
+        });
+        const lastMessage = mappedMessages[mappedMessages.length - 1];
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.id === selectedThread.id
+              ? {
+                  ...thread,
+                  name: otherUser?.username?.trim() || thread.name,
+                  messages: mappedMessages,
+                  lastMessage: lastMessage?.text || thread.lastMessage,
+                  lastTime: lastMessage?.time || thread.lastTime,
+                  conversationId: response.conversation?.id ?? thread.conversationId,
+                }
+              : thread,
+          ),
+        );
+      } catch (error) {
+        if (cancelled) return;
+        const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+        const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+        const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+        toast({
+          title: 'Unable to load messages',
+          description: firstError || message || 'Please try again.',
+        });
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [formatTimeLabel, getMessages, isAuthenticated, selectedThread?.conversationId, selectedThread?.id, user?.id]);
+
+  const scrollToMatch = (index: number, matches = searchMatches) => {
+    if (!selectedThread || matches.length === 0) return;
+    const message = selectedThread.messages[matches[index]];
+    if (!message) return;
+    const el = messageRefs.current[message.id];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleSearchInThread = () => {
+    if (!selectedThread) return;
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
+      return;
+    }
+    const matches = selectedThread.messages
+      .map((message, index) => ({
+        index,
+        text: [message.text, ...(message.attachments?.map((attachment) => attachment.name) ?? [])]
+          .join(' ')
+          .toLowerCase(),
+      }))
+      .filter((entry) => entry.text.includes(query))
+      .map((entry) => entry.index);
+    setSearchMatches(matches);
+    setCurrentMatchIndex(0);
+    if (matches.length > 0) {
+      scrollToMatch(0, matches);
+    }
+  };
+
+  const handleNextMatch = () => {
+    if (searchMatches.length === 0) return;
+    const nextIndex = (currentMatchIndex + 1) % searchMatches.length;
+    setCurrentMatchIndex(nextIndex);
+    scrollToMatch(nextIndex);
+  };
+
+  const handlePreviousMatch = () => {
+    if (searchMatches.length === 0) return;
+    const prevIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    setCurrentMatchIndex(prevIndex);
+    scrollToMatch(prevIndex);
+  };
+
+  const handleTogglePin = () => {
+    if (!selectedThread) return;
+    setPinnedThreadIds((prev) =>
+      prev.includes(selectedThread.id) ? prev.filter((id) => id !== selectedThread.id) : [selectedThread.id, ...prev],
+    );
+  };
+
+  const handleToggleMute = () => {
+    if (!selectedThread) return;
+    setMutedThreadIds((prev) =>
+      prev.includes(selectedThread.id) ? prev.filter((id) => id !== selectedThread.id) : [...prev, selectedThread.id],
+    );
+  };
+
+  const orderThreadsByActivity = useCallback((currentThreads: ThreadItem[], updatedThreadId?: string) => {
+    const pinnedSet = new Set(pinnedThreadIds);
+    const pinned = currentThreads.filter((thread) => pinnedSet.has(thread.id));
+    const unpinned = currentThreads.filter((thread) => !pinnedSet.has(thread.id));
+    if (updatedThreadId && !pinnedSet.has(updatedThreadId)) {
+      const index = unpinned.findIndex((thread) => thread.id === updatedThreadId);
+      if (index > 0) {
+        const [updated] = unpinned.splice(index, 1);
+        unpinned.unshift(updated);
+      }
+    }
+    return [...pinned, ...unpinned];
+  }, [pinnedThreadIds]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setThreads([]);
+      setSelectedThreadId('');
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const response = await getMessageContacts({ limit: 20 });
+        if (cancelled) return;
+        const mapped = (response.contacts ?? [])
+          .map((contact) => {
+            const userId = contact.user?.id;
+            if (!userId) return null;
+            const name = contact.user?.username?.trim() || `User ${userId}`;
+            const lastMessage = contact.last_message?.message_text?.trim() || '—';
+            const lastTime = formatTimeLabel(contact.last_message?.created_at);
+            return {
+              id: String(userId),
+              name,
+              lastMessage,
+              lastTime,
+              messages: [],
+              conversationId: contact.conversation_id,
+              avatarUrl: contact.user?.profile_picture,
+            } as ThreadItem;
+          })
+          .filter((item): item is ThreadItem => item !== null);
+        setThreads((prev) => {
+          const merged = new Map(prev.map((thread) => [thread.id, thread]));
+          mapped.forEach((thread) => {
+            const existing = merged.get(thread.id);
+            merged.set(
+              thread.id,
+              existing
+                ? {
+                    ...thread,
+                    messages: existing.messages,
+                    conversationId: existing.conversationId ?? thread.conversationId,
+                    avatarUrl: existing.avatarUrl ?? thread.avatarUrl,
+                  }
+                : thread,
+            );
+          });
+          return orderThreadsByActivity(Array.from(merged.values()));
+        });
+        if (!selectedThreadId && !receiverId && mapped.length > 0) {
+          setSelectedThreadId(mapped[0].id);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+        const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+        const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+        toast({
+          title: 'Unable to load contacts',
+          description: firstError || message || 'Please try again.',
+        });
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [formatTimeLabel, getMessageContacts, isAuthenticated, orderThreadsByActivity, receiverId, selectedThreadId]);
+
+  useEffect(() => {
+    if (!receiverId) return;
+    const threadId = String(receiverId);
+    setThreads((prev) => {
+      if (prev.some((thread) => thread.id === threadId)) return prev;
+      const name = receiverName.trim() || `User ${receiverId}`;
+      const nextThreads = [
+        {
+          id: threadId,
+          name,
+          lastMessage: '—',
+          lastTime: '',
+          messages: [],
+          conversationId: conversationId ?? undefined,
+        },
+        ...prev,
+      ];
+      return orderThreadsByActivity(nextThreads, threadId);
+    });
+    setSelectedThreadId(threadId);
+  }, [conversationId, orderThreadsByActivity, receiverId, receiverName]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    const match = threads.find((thread) => thread.conversationId === conversationId);
+    if (match) {
+      setSelectedThreadId(match.id);
+      return;
+    }
+    if (!receiverId) return;
+    const threadId = String(receiverId);
+    setThreads((prev) => {
+      if (prev.some((thread) => thread.id === threadId)) return prev;
+      const name = receiverName.trim() || `User ${receiverId}`;
+      const nextThreads = [
+        {
+          id: threadId,
+          name,
+          lastMessage: '—',
+          lastTime: '',
+          messages: [],
+          conversationId,
+        },
+        ...prev,
+      ];
+      return orderThreadsByActivity(nextThreads, threadId);
+    });
+    setSelectedThreadId(threadId);
+  }, [conversationId, orderThreadsByActivity, receiverId, receiverName, threads]);
 
   const handleSelectThread = (threadId: string) => {
     setSelectedThreadId(threadId);
@@ -397,37 +623,74 @@ const MessagesPage: React.FC = () => {
     setAttachments((prev) => [...prev, ...Array.from(files)]);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!selectedThread) return;
     if (!messageInput.trim() && attachments.length === 0) return;
-    const nextAttachments: MessageAttachment[] = attachments.map((file) => ({
-      type: file.type.startsWith('image/') ? 'image' : 'file',
-      name: file.name,
-      url: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
-    }));
-    const newMessage: MessageItem = {
-      id: `m-${Date.now()}`,
-      sender: 'me',
-      text: messageInput.trim() || undefined,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      attachments: nextAttachments.length > 0 ? nextAttachments : undefined,
-    };
-    setThreads((prev) =>
-      prev.map((thread) =>
-        thread.id === selectedThread.id
-          ? {
-              ...thread,
-              lastMessage: newMessage.text || (newMessage.attachments?.[0]?.name ?? 'Attachment'),
-              lastTime: newMessage.time,
-              messages: [...thread.messages, newMessage],
-            }
-          : thread,
-      ),
-    );
-    setMessageInput('');
-    setAttachments([]);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (imageInputRef.current) imageInputRef.current.value = '';
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login required',
+        description: 'Please log in to send a message.',
+      });
+      navigate('/login');
+      return;
+    }
+    if (attachments.length > 0) {
+      toast({
+        title: 'Attachments not supported yet',
+        description: 'Please send text messages only.',
+      });
+      return;
+    }
+    const trimmed = messageInput.trim();
+    if (!trimmed) return;
+    const receiverIdValue = Number(selectedThread.id);
+    if (!Number.isFinite(receiverIdValue)) {
+      toast({
+        title: 'Unable to send message',
+        description: 'Missing receiver information.',
+      });
+      return;
+    }
+    try {
+      const response = await sendMessage({ receiver_id: receiverIdValue, message_text: trimmed });
+      const createdAt = response.message_data?.created_at;
+      const timeLabel = createdAt
+        ? new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const newMessage: MessageItem = {
+        id: response.message_data?.id ? `m-${response.message_data.id}` : `m-${Date.now()}`,
+        sender: 'me',
+        text: response.message_data?.message_text || trimmed,
+        time: timeLabel,
+        status: 'sent',
+      };
+      setThreads((prev) => {
+        const updatedThreads = prev.map((thread) =>
+          thread.id === selectedThread.id
+            ? {
+                ...thread,
+                lastMessage: newMessage.text || 'Message',
+                lastTime: newMessage.time,
+                messages: [...thread.messages, newMessage],
+                conversationId: thread.conversationId ?? response.conversation_id,
+              }
+            : thread,
+        );
+        return orderThreadsByActivity(updatedThreads, selectedThread.id);
+      });
+      setMessageInput('');
+      setAttachments([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    } catch (error) {
+      const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+      const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+      const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+      toast({
+        title: 'Unable to send message',
+        description: firstError || message || 'Please try again.',
+      });
+    }
   };
 
   const headerClassName =
@@ -457,6 +720,7 @@ const MessagesPage: React.FC = () => {
               ) : (
                 filteredThreads.map((thread) => {
                   const isActive = thread.id === selectedThreadId;
+                  const isPinned = pinnedThreadIds.includes(thread.id);
                   const initial = thread.name.charAt(0).toUpperCase();
                   return (
                     <button
@@ -465,9 +729,11 @@ const MessagesPage: React.FC = () => {
                       className={cn(
                         'flex w-full items-center gap-4 border-b border-white/5 px-6 py-4 text-left transition-colors',
                         isActive ? 'bg-white/10' : 'hover:bg-white/5',
+                        isPinned && !isActive && 'bg-white/5',
                       )}
                     >
                       <Avatar className="h-11 w-11 bg-white text-black shadow-lg">
+                        <AvatarImage src={normalizeImageUrl(thread.avatarUrl)} alt={thread.name} />
                         <AvatarFallback className="bg-white text-black">{initial}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -484,25 +750,174 @@ const MessagesPage: React.FC = () => {
 
           <section className="flex flex-1 flex-col border-l border-white/10 bg-black/25">
             <div className="flex items-center justify-between border-b border-white/10 bg-black/25 px-8 py-6 text-base font-light tracking-[0.03em]">
-              <span>{selectedThread ? selectedThread.name : 'select a contact'}</span>
-              <Button variant="ghost" size="icon" className="text-white/70 hover:text-white">
-                <ChevronDown className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-3">
+                {selectedThread ? (
+                  <Avatar className="h-10 w-10 bg-white text-black shadow-lg">
+                    <AvatarImage src={normalizeImageUrl(selectedThread.avatarUrl)} alt={selectedThread.name} />
+                    <AvatarFallback className="bg-white text-black">
+                      {selectedThread.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : null}
+                <span>{selectedThread ? selectedThread.name : 'select a contact'}</span>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild disabled={!selectedThread}>
+                  <Button variant="ghost" size="icon" className="text-white/70 hover:text-white">
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  className="w-64 border border-white/10 bg-black/85 p-3 text-white shadow-xl"
+                >
+                  {selectedThread ? (
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-11 w-11 bg-white text-black shadow-lg">
+                        <AvatarImage src={normalizeImageUrl(selectedThread.avatarUrl)} alt={selectedThread.name} />
+                        <AvatarFallback className="bg-white text-black">
+                          {selectedThread.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-white">{selectedThread.name}</div>
+                        <div className="text-xs text-white/60">{selectedHandle}</div>
+                        <div className="mt-2 text-xs text-white/70">
+                          Last active: <span className="text-white/90">{selectedLastActivity}</span>
+                        </div>
+                        <div className="mt-1 text-xs text-white/70">
+                          Recent: <span className="text-white/90">{selectedThread.lastMessage}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-white/70">Select a contact to view details.</div>
+                  )}
+                  <DropdownMenuSeparator className="my-3 bg-white/10" />
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      setShowSearchHistory((prev) => !prev);
+                    }}
+                    className="cursor-pointer text-sm text-white/80 focus:bg-white/10 focus:text-white"
+                    disabled={!selectedThread}
+                  >
+                    Search history
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={handleToggleMute}
+                    className="cursor-pointer text-sm text-white/80 focus:bg-white/10 focus:text-white"
+                    disabled={!selectedThread}
+                  >
+                    {isMuted ? 'Unmute notifications' : 'Mute notifications'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={handleTogglePin}
+                    className="cursor-pointer text-sm text-white/80 focus:bg-white/10 focus:text-white"
+                    disabled={!selectedThread}
+                  >
+                    {isPinned ? 'Unpin from top' : 'Stick on top'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-3 bg-white/10" />
+                  <DropdownMenuItem
+                    className="cursor-pointer text-sm text-red-300 focus:bg-red-500/15 focus:text-red-200"
+                    disabled={!selectedThread}
+                  >
+                    Block user
+                  </DropdownMenuItem>
+                  {showSearchHistory ? (
+                    <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-white/80">
+                      <div className="text-xs font-semibold tracking-[0.12em] text-white/60">SEARCH IN CHAT</div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Input
+                          value={searchQuery}
+                          onChange={(event) => setSearchQuery(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              handleSearchInThread();
+                            }
+                          }}
+                          placeholder="Type to search..."
+                          className="h-9 rounded-lg border-white/20 bg-white/5 text-xs text-white placeholder:text-white/40 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={handleSearchInThread}
+                          className="h-9 border-white/20 bg-white/5 text-xs text-white hover:bg-white/10"
+                        >
+                          Search
+                        </Button>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-white/60">
+                        <span>
+                          {searchMatches.length > 0
+                            ? `${currentMatchIndex + 1} / ${searchMatches.length} matches`
+                            : 'No matches'}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={handlePreviousMatch}
+                            disabled={searchMatches.length < 2}
+                            className="h-7 w-7 text-white/70 hover:text-white"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={handleNextMatch}
+                            disabled={searchMatches.length < 2}
+                            className="h-7 w-7 text-white/70 hover:text-white"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div ref={messageListRef} className="flex-1 space-y-4 overflow-y-auto bg-black/25 px-8 py-6">
               {selectedThread && selectedThread.messages.length > 0 ? (
-                selectedThread.messages.map((message) => {
+                selectedThread.messages.map((message, index) => {
                   const isMe = message.sender === 'me';
+                  const isMatch = searchMatches.includes(index);
+                  const isActiveMatch = isMatch && searchMatches[currentMatchIndex] === index;
+                  const messageStatus = message.status ?? (isMe ? 'sent' : 'read');
+                  const statusIcon =
+                    messageStatus === 'read' ? (
+                      <CheckCheck className="h-3.5 w-3.5" />
+                    ) : messageStatus === 'pending' ? (
+                      <Clock className="h-3.5 w-3.5" />
+                    ) : messageStatus === 'blocked' ? (
+                      <Ban className="h-3.5 w-3.5" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    );
                   return (
                     <div
                       key={message.id}
-                      className={cn('flex max-w-[68%] flex-col gap-2', isMe ? 'ml-auto items-end' : 'items-start')}
+                      ref={(node) => {
+                        messageRefs.current[message.id] = node;
+                      }}
+                      className={cn('flex w-fit max-w-[68%] flex-col gap-2', isMe ? 'ml-auto items-end' : 'items-start')}
                     >
                       <div
                         className={cn(
                           'rounded-[22px] border border-white/10 px-5 py-3 text-sm leading-relaxed shadow-lg',
                           isMe ? 'bg-white/5 text-white rounded-br-md' : 'bg-black/40 text-white/90 rounded-bl-md',
+                          isMatch && 'border-amber-300/50 bg-amber-400/10',
+                          isActiveMatch && 'border-amber-300 bg-amber-400/20 shadow-[0_0_20px_rgba(251,191,36,0.35)]',
                         )}
                       >
                         {message.text ? <p>{message.text}</p> : null}
@@ -530,7 +945,12 @@ const MessagesPage: React.FC = () => {
                           </div>
                         ) : null}
                       </div>
-                      <div className="px-2 text-[11px] text-white/60">{message.time}</div>
+                      <div className={cn('flex w-full items-center justify-between px-2 text-[11px]', isMe ? 'flex-row-reverse' : 'flex-row')}>
+                        <span className="text-white/60">{message.time}</span>
+                        <span className="text-white/40" title={messageStatus}>
+                          {statusIcon}
+                        </span>
+                      </div>
                     </div>
                   );
                 })
@@ -600,6 +1020,7 @@ const MessagesPage: React.FC = () => {
                 value={messageInput}
                 onChange={(event) => setMessageInput(event.target.value)}
                 placeholder="type a message..."
+                maxLength={2000}
                 className="h-12 flex-1 rounded-full border-white/20 bg-white/5 px-6 text-sm text-white placeholder:text-white/50 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <Button

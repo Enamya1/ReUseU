@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown, Plus } from 'lucide-react';
+import { Bell, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +21,26 @@ type HeaderProps = {
   className?: string;
 };
 
+type MessageNotificationItem = {
+  id?: number;
+  conversation_id?: number;
+  sender_id?: number;
+  sender_username?: string;
+  sender_profile_picture?: string;
+  product_id?: number;
+  notification_type?: string;
+  notification_text?: string;
+  notification_count?: number;
+  created_at?: string;
+};
+
 const Header: React.FC<HeaderProps> = ({ className }) => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, getMessageNotifications } = useAuth();
   const { favorites } = useFavorites();
-  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [notifications, setNotifications] = useState<MessageNotificationItem[]>([]);
+  const [unreadTotal, setUnreadTotal] = useState(0);
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const primaryNavItems = [
     { to: '/', label: t('nav.home') },
@@ -42,11 +55,51 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
     { to: '/create-listing', label: t('nav.createListing') },
   ];
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      setUnreadTotal(0);
+      return;
     }
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const response = await getMessageNotifications({ limit: 20 });
+        if (cancelled) return;
+        setNotifications(response.messages ?? []);
+        setUnreadTotal(response.total ?? (response.messages?.length ?? 0));
+      } catch {
+        if (cancelled) return;
+        setNotifications([]);
+        setUnreadTotal(0);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getMessageNotifications, isAuthenticated]);
+
+  const unreadCount = useMemo(
+    () => (unreadTotal > 0 ? unreadTotal : notifications.length),
+    [notifications.length, unreadTotal],
+  );
+
+  const formatNotificationTime = (value?: string) => {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleNotificationClick = (item: MessageNotificationItem) => {
+    const params = new URLSearchParams();
+    if (item.conversation_id) params.set('conversationId', String(item.conversation_id));
+    if (item.sender_id) params.set('receiverId', String(item.sender_id));
+    if (item.sender_username) params.set('receiverName', item.sender_username);
+    const query = params.toString();
+    navigate(query ? `/messages?${query}` : '/messages');
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -99,18 +152,6 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
         </nav>
 
         <nav className="hidden lg:flex items-center gap-2">
-          <form onSubmit={handleSearch} className="w-44 xl:w-52">
-            <div className="relative w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
-              <Input
-                type="search"
-                placeholder={t('header.searchPlaceholder')}
-                className="pl-11 pr-4 h-10 rounded-full bg-white/10 border border-white/20 text-white placeholder:text-white/60 focus-visible:ring-1 focus-visible:ring-white/40"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </form>
           {isAuthenticated ? (
             <>
               <Button
@@ -128,6 +169,54 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                   )}
                 </Link>
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative rounded-full border border-white/30 text-white hover:bg-white hover:text-black"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center px-1">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <div className="px-2 py-1.5 text-sm font-semibold">Notification</div>
+                  <DropdownMenuSeparator />
+                  {notifications.length > 0 ? (
+                    notifications.map((item) => (
+                      <DropdownMenuItem
+                        key={item.id}
+                        className="cursor-pointer flex items-center gap-3"
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          handleNotificationClick(item);
+                        }}
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={normalizeImageUrl(item.sender_profile_picture)} alt={item.sender_username} />
+                          <AvatarFallback className="bg-tertiary text-tertiary-foreground text-xs">
+                            {item.sender_username?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="text-sm">
+                            {item.notification_text || `New message from ${item.sender_username || 'user'}`}
+                            {item.notification_count && item.notification_count > 1 ? ` (${item.notification_count})` : ''}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{formatNotificationTime(item.created_at)}</div>
+                        </div>
+                      </DropdownMenuItem>
+                    ))
+                  ) : (
+                    <div className="px-2 py-4 text-xs text-muted-foreground">No notifications</div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -203,20 +292,6 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-border bg-card animate-fade-in">
           <div className="container py-4 space-y-4">
-            {/* Mobile Search */}
-            <form onSubmit={handleSearch}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                placeholder={t('header.searchPlaceholder')}
-                  className="pl-10 pr-4 h-10 bg-muted/50"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </form>
-
             <nav className="grid gap-1">
               {primaryNavItems.map((item) => (
                 <NavLink
@@ -265,7 +340,47 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                     <p className="text-xs text-muted-foreground">@{user?.username}</p>
                   </div>
                 </div>
-                
+
+                <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="w-full">
+                    <Bell className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-72">
+                    <div className="px-2 py-1.5 text-sm font-semibold">notification</div>
+                    <DropdownMenuSeparator />
+                    {notifications.length > 0 ? (
+                      notifications.map((item) => (
+                        <DropdownMenuItem
+                          key={item.id}
+                          className="cursor-pointer flex items-center gap-3"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            handleNotificationClick(item);
+                          }}
+                        >
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={normalizeImageUrl(item.sender_profile_picture)} alt={item.sender_username} />
+                            <AvatarFallback className="bg-tertiary text-tertiary-foreground text-xs">
+                              {item.sender_username?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <div className="text-sm">
+                              {item.notification_text || `New message from ${item.sender_username || 'user'}`}
+                              {item.notification_count && item.notification_count > 1 ? ` (${item.notification_count})` : ''}
+                            </div>
+                            <div className="text-xs text-muted-foreground">{formatNotificationTime(item.created_at)}</div>
+                          </div>
+                        </DropdownMenuItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-4 text-xs text-muted-foreground">No notifications</div>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <nav className="grid gap-1">
                   <Link
                     to="/favorites"

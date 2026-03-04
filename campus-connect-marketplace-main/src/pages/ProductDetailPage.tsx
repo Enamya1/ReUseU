@@ -455,10 +455,19 @@ const ProductDetailPage: React.FC = () => {
       navigate('/login');
       return;
     }
-    toast({
-      title: t('product.messageSent'),
-      description: t('product.messageSentDesc'),
-    });
+    const receiverId = product.seller_id || product.seller?.id;
+    if (!receiverId) {
+      toast({
+        title: t('product.messageSent'),
+        description: t('product.messageSentDesc'),
+      });
+      return;
+    }
+    const receiverName = product.seller?.full_name || product.seller?.username || '';
+    const params = new URLSearchParams();
+    params.set('receiverId', String(receiverId));
+    if (receiverName) params.set('receiverName', receiverName);
+    navigate(`/messages?${params.toString()}`);
   };
 
   const nextImage = () => {

@@ -32,6 +32,10 @@ interface AuthContextType {
   getProductDetail: (productId: number) => Promise<ProductDetailResponseBody>;
   createProduct: (data: CreateProductInput) => Promise<CreateProductResponseBody>;
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
+  sendMessage: (data: SendMessageInput) => Promise<SendMessageResponseBody>;
+  getMessageContacts: (params?: { limit?: number }) => Promise<MessageContactsResponseBody>;
+  getMessages: (params: { conversation_id: number; limit?: number; before_id?: number }) => Promise<MessageThreadResponseBody>;
+  getMessageNotifications: (params?: { limit?: number }) => Promise<MessageNotificationsResponseBody>;
   getProductForEdit: (productId: number) => Promise<GetProductForEditResponseBody>;
   updateProduct: (productId: number, data: UpdateProductInput) => Promise<UpdateProductResponseBody>;
   markProductSold: (productId: number) => Promise<MarkProductSoldResponseBody>;
@@ -340,6 +344,74 @@ type CreateTagInput = {
 type CreateTagResponseBody = {
   message?: string;
   tag?: MetaTagOption;
+  errors?: Record<string, string[]>;
+};
+
+type SendMessageInput = {
+  receiver_id: number;
+  message_text: string;
+};
+
+type SendMessageResponseBody = {
+  message?: string;
+  conversation_id?: number;
+  message_data?: {
+    id?: number;
+    sender_id?: number;
+    receiver_id?: number;
+    message_text?: string;
+    created_at?: string;
+    status?: string;
+  };
+  errors?: Record<string, string[]>;
+};
+
+type MessageContactItem = {
+  conversation_id?: number;
+  user?: { id?: number; username?: string; profile_picture?: string };
+  last_message?: { id?: number; message_text?: string; created_at?: string };
+};
+
+type MessageContactsResponseBody = {
+  message?: string;
+  total?: number;
+  contacts?: MessageContactItem[];
+  errors?: Record<string, string[]>;
+};
+
+type MessageThreadItem = {
+  id?: number;
+  sender_id?: number;
+  sender_username?: string;
+  message_text?: string;
+  read_at?: string | null;
+  created_at?: string;
+};
+
+type MessageThreadResponseBody = {
+  message?: string;
+  conversation?: { id?: number; other_user?: { id?: number; username?: string } };
+  messages?: MessageThreadItem[];
+  errors?: Record<string, string[]>;
+};
+
+type MessageNotificationItem = {
+  id?: number;
+  conversation_id?: number;
+  sender_id?: number;
+  sender_username?: string;
+  sender_profile_picture?: string;
+  product_id?: number;
+  notification_type?: string;
+  notification_text?: string;
+  notification_count?: number;
+  created_at?: string;
+};
+
+type MessageNotificationsResponseBody = {
+  message?: string;
+  total?: number;
+  messages?: MessageNotificationItem[];
   errors?: Record<string, string[]>;
 };
 
@@ -941,6 +1013,189 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user],
   );
 
+  const sendMessage = useCallback(
+    async (data: SendMessageInput): Promise<SendMessageResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as SendMessageResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as SendMessageResponseBody;
+      }
+
+      const response = await fetch(apiUrl("/api/user/messages"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify({
+          receiver_id: data.receiver_id,
+          message_text: data.message_text,
+        }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as SendMessageResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as SendMessageResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as SendMessageResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const getMessageContacts = useCallback(
+    async (params?: { limit?: number }): Promise<MessageContactsResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as MessageContactsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MessageContactsResponseBody;
+      }
+
+      const url = new URL(apiUrl("/api/user/messages/contacts"));
+      if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
+        url.searchParams.set("limit", String(params.limit));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as MessageContactsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as MessageContactsResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MessageContactsResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const getMessages = useCallback(
+    async (params: { conversation_id: number; limit?: number; before_id?: number }): Promise<MessageThreadResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as MessageThreadResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MessageThreadResponseBody;
+      }
+      if (!params?.conversation_id || !Number.isFinite(params.conversation_id)) {
+        throw { message: "Validation Error", errors: { conversation_id: ["Conversation is required."] } } as MessageThreadResponseBody;
+      }
+
+      const url = new URL(apiUrl("/api/user/messages"));
+      url.searchParams.set("conversation_id", String(params.conversation_id));
+      if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
+        url.searchParams.set("limit", String(params.limit));
+      }
+      if (typeof params?.before_id === "number" && Number.isFinite(params.before_id)) {
+        url.searchParams.set("before_id", String(params.before_id));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as MessageThreadResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as MessageThreadResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MessageThreadResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const getMessageNotifications = useCallback(
+    async (params?: { limit?: number }): Promise<MessageNotificationsResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as MessageNotificationsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MessageNotificationsResponseBody;
+      }
+
+      const url = new URL(apiUrl("/api/user/messages/notification"));
+      if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
+        url.searchParams.set("limit", String(params.limit));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as MessageNotificationsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as MessageNotificationsResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MessageNotificationsResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
   const getMetaOptions = useCallback(async (): Promise<MetaOptionsResponseBody> => {
     if (!accessToken) {
       throw { message: "Unauthenticated." } as MetaOptionsResponseBody;
@@ -1441,6 +1696,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getProductDetail,
         createProduct,
         createTag,
+        sendMessage,
+        getMessageContacts,
+        getMessages,
+        getMessageNotifications,
         getProductForEdit,
         updateProduct,
         markProductSold,
