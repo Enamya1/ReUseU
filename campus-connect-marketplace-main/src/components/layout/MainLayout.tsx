@@ -8,6 +8,7 @@ interface MainLayoutProps {
   children: React.ReactNode;
   showFooter?: boolean;
   showHeader?: boolean;
+  showFloatingButton?: boolean;
   headerClassName?: string;
   floatingButtonClassName?: string;
   floatingButtonContainerClassName?: string;
@@ -17,6 +18,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   children,
   showFooter = true,
   showHeader = true,
+  showFloatingButton = true,
   headerClassName,
   floatingButtonClassName,
   floatingButtonContainerClassName,
@@ -96,7 +98,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       <main className="flex-1">
         {children}
       </main>
-      {showHeader && (
+      {showHeader && showFloatingButton && (
         <FloatingButton
           to="/create-listing"
           label="List your pre-loved item for sale today! •"

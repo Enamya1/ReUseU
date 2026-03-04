@@ -68,6 +68,30 @@ const ProfilePage: React.FC = () => {
   const [timezoneDraft, setTimezoneDraft] = useState<ITimezone | string>(
     user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
+  const accountLanguageLabel = useMemo(() => {
+    const raw = (formData.language || '').trim();
+    if (!raw) return 'Not set';
+    const normalized = raw.toLowerCase();
+    const mapped: Record<string, string> = {
+      en: 'English',
+      zh: '中文',
+      'zh-cn': '简体中文',
+      'zh-hans': '简体中文',
+      'zh-tw': '繁體中文',
+      'zh-hant': '繁體中文',
+      ar: 'العربية',
+      fr: 'French',
+      es: 'Spanish',
+      de: 'German',
+      it: 'Italian',
+      pt: 'Portuguese',
+      ru: 'Russian',
+      ja: '日本語',
+      ko: '한국어',
+      hi: 'Hindi',
+    };
+    return mapped[normalized] || raw;
+  }, [formData.language]);
 
   useEffect(() => {
     if (!user) return;
@@ -647,7 +671,7 @@ const ProfilePage: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                     <span className="text-slate-500">Language</span>
-                    <span className="font-medium text-slate-900">{formData.language || "Not set"}</span>
+                    <span className="font-medium text-slate-900">{accountLanguageLabel}</span>
                   </div>
                 </div>
               </div>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Black Hole · Scalable System</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+        }
+    </style>
+</head>
+<body>
+    <!-- No on-screen labels -->
+
+    <!-- Import Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // ============================================================
+        // USER-CONTROLLABLE PARAMETERS
+        // ============================================================
+        const ATTRACTION_MULTIPLIER = 10.0;      // higher = stronger pull into black hole
+        const VELOCITY_MULTIPLIER = 3.0;        // higher = faster orbital & radial motion
+        const BLACK_HOLE_VISUAL_SIZE = 5.2;     // base radius of the visible black sphere
+        const GLOBAL_SCALE = 0.50;                // scale the entire scene (1.0 = original)
+        // ============================================================
+
+        // Apply global scale to size and distances
+        const scaledBlackHoleSize = BLACK_HOLE_VISUAL_SIZE * GLOBAL_SCALE;
+        const BLACK_HOLE_KILL_RADIUS = scaledBlackHoleSize * 1.1; // slightly larger than visual
+
+        // Scale particle spawn distances
+        const OUTER_MIN = 7.0 * GLOBAL_SCALE;
+        const OUTER_MAX = 12.0 * GLOBAL_SCALE;
+
+        // --- INITIALIZATION ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x03030a);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        // Locked camera position (does not scale with GLOBAL_SCALE)
+        camera.position.set(1.80, 19.69, 29.08);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        // --- LIGHTS ---
+        const ambient = new THREE.AmbientLight(0x404060);
+        scene.add(ambient);
+        
+        const light1 = new THREE.PointLight(0xffaa33, 1.5, 30);
+        light1.position.set(5, 5, 5);
+        scene.add(light1);
+        
+        const light2 = new THREE.PointLight(0x3366ff, 1.0, 30);
+        light2.position.set(-5, -2, -5);
+        scene.add(light2);
+
+        const centerGlow = new THREE.PointLight(0xff5500, 0.8, 15);
+        centerGlow.position.set(0, 0, 0);
+        scene.add(centerGlow);
+
+        // --- BLACK HOLE SPHERE (pitch black, scaled) ---
+        const blackHoleGeo = new THREE.SphereGeometry(scaledBlackHoleSize, 64, 64);
+        const blackHoleMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const blackHole = new THREE.Mesh(blackHoleGeo, blackHoleMat);
+        scene.add(blackHole);
+
+        // --- BACKGROUND STARS (scale their distances too) ---
+        const starsGeo = new THREE.BufferGeometry();
+        const starsCount = 2000;
+        const starPositions = new Float32Array(starsCount * 3);
+        for (let i = 0; i < starsCount; i++) {
+            // Scale star distances so they move with the system
+            const r = (60 + Math.random() * 40) * GLOBAL_SCALE;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            starPositions[i*3] = Math.sin(phi) * Math.cos(theta) * r;
+            starPositions[i*3+1] = Math.sin(phi) * Math.sin(theta) * r * 0.4;
+            starPositions[i*3+2] = Math.cos(phi) * r;
+        }
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starsMat = new THREE.PointsMaterial({ color: 0x99aacc, size: 0.25 * GLOBAL_SCALE, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending });
+        const stars = new THREE.Points(starsGeo, starsMat);
+        scene.add(stars);
+
+        // ============================================================
+        // PARTICLE SYSTEM (physics use multipliers + global scale)
+        // ============================================================
+        const PARTICLE_COUNT = 2200;
+        
+        // Base physics constants (these are independent of scale)
+        const BASE_G = 0.35;
+        const DRAG = 0.006;
+        const SOFTENING = 0.2;
+        const BASE_TANGENTIAL_SPEED = 0.25;
+        const BASE_RADIAL_SPEED = 0.04;
+        
+        // Apply multipliers
+        const G = BASE_G * ATTRACTION_MULTIPLIER;
+        const TANGENTIAL_SPEED_BASE = BASE_TANGENTIAL_SPEED * VELOCITY_MULTIPLIER;
+        const RADIAL_INWARD_BASE = BASE_RADIAL_SPEED * VELOCITY_MULTIPLIER;
+        const SPEED_FACTOR = 0.8;
+
+        const particleGeo = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+        // Create a bright white star texture (size independent of scale)
+        const createSpriteTexture = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.95)');
+            gradient.addColorStop(0.6, 'rgba(210, 230, 255, 0.7)');
+            gradient.addColorStop(0.8, 'rgba(160, 200, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+            return new THREE.CanvasTexture(canvas);
+        };
+
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            map: createSpriteTexture(),
+            size: 0.4 * GLOBAL_SCALE,  // scale particle size too for visual consistency
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            transparent: true,
+            sizeAttenuation: true,
+            opacity: 1.0
+        });
+
+        const particles = new THREE.Points(particleGeo, particleMaterial);
+        scene.add(particles);
+
+        const velocities = [];
+        const up = new THREE.Vector3(0, 1, 0);
+
+        // Initialize particles with positions scaled by GLOBAL_SCALE
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const r = OUTER_MIN + Math.random() * (OUTER_MAX - OUTER_MIN);
+            const angle = Math.random() * Math.PI * 2;
+            const yOffset = (Math.random() - 0.5) * 2.5 * GLOBAL_SCALE; // scale vertical spread too
+            
+            const x = Math.cos(angle) * r;
+            const z = Math.sin(angle) * r;
+            const y = yOffset;
+            
+            particlePositions[i*3] = x;
+            particlePositions[i*3+1] = y;
+            particlePositions[i*3+2] = z;
+
+            const pos = new THREE.Vector3(x, y, z);
+            const rHat = pos.clone().normalize();
+            
+            let tanDir = new THREE.Vector3().crossVectors(rHat, up);
+            if (tanDir.length() < 0.1) tanDir.set(1, 0, 0);
+            else tanDir.normalize();
+            
+            const tanSpeed = TANGENTIAL_SPEED_BASE * (0.7 + 0.6 * Math.random());
+            const radialSpeed = RADIAL_INWARD_BASE * (0.5 + Math.random());
+            
+            const vel = tanDir.clone().multiplyScalar(tanSpeed)
+                        .add(rHat.clone().multiplyScalar(-radialSpeed));
+            
+            vel.x += (Math.random() - 0.5) * 0.03;
+            vel.y += (Math.random() - 0.5) * 0.03;
+            vel.z += (Math.random() - 0.5) * 0.03;
+            
+            velocities.push(vel);
+        }
+
+        particleGeo.attributes.position.needsUpdate = true;
+
+        // --- ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            const delta = Math.min(clock.getDelta(), 0.1);
+            const time = performance.now() * 0.001;
+
+            // Update particle physics
+            const positions = particleGeo.attributes.position.array;
+            
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const ix = i * 3;
+                const iy = i * 3 + 1;
+                const iz = i * 3 + 2;
+                
+                const pos = new THREE.Vector3(positions[ix], positions[iy], positions[iz]);
+                const vel = velocities[i];
+                
+                const distSq = pos.lengthSq() + SOFTENING;
+                const dirToCenter = pos.clone().negate().normalize();
+                
+                const gravStrength = G / distSq;
+                const gravAcc = dirToCenter.multiplyScalar(gravStrength);
+                
+                const dragAcc = vel.clone().multiplyScalar(-DRAG);
+                
+                const acc = gravAcc.add(dragAcc);
+                
+                vel.add(acc.multiplyScalar(delta * SPEED_FACTOR));
+                if (vel.length() > 1.2) vel.normalize().multiplyScalar(1.2);
+                
+                pos.add(vel.clone().multiplyScalar(delta * SPEED_FACTOR));
+                
+                // Check if particle is inside kill radius (scaled)
+                if (pos.length() < BLACK_HOLE_KILL_RADIUS) {
+                    const newR = OUTER_MIN + Math.random() * (OUTER_MAX - OUTER_MIN);
+                    const newAngle = Math.random() * Math.PI * 2;
+                    const newY = (Math.random() - 0.5) * 2.5 * GLOBAL_SCALE;
+                    
+                    pos.set(
+                        Math.cos(newAngle) * newR,
+                        newY,
+                        Math.sin(newAngle) * newR
+                    );
+                    
+                    const rHatNew = pos.clone().normalize();
+                    let tanDirNew = new THREE.Vector3().crossVectors(rHatNew, up);
+                    if (tanDirNew.length() < 0.1) tanDirNew.set(1, 0, 0);
+                    else tanDirNew.normalize();
+                    
+                    const tanSpeedNew = TANGENTIAL_SPEED_BASE * (0.7 + 0.6 * Math.random());
+                    const radialSpeedNew = RADIAL_INWARD_BASE * (0.5 + Math.random());
+                    
+                    vel.copy(tanDirNew.multiplyScalar(tanSpeedNew)
+                             .add(rHatNew.clone().multiplyScalar(-radialSpeedNew)));
+                    
+                    vel.x += (Math.random() - 0.5) * 0.03;
+                    vel.y += (Math.random() - 0.5) * 0.03;
+                    vel.z += (Math.random() - 0.5) * 0.03;
+                }
+                
+                positions[ix] = pos.x;
+                positions[iy] = pos.y;
+                positions[iz] = pos.z;
+            }
+            
+            particleGeo.attributes.position.needsUpdate = true;
+
+            // Rotate stars for subtle motion
+            stars.rotation.y += 0.0001;
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // --- RESIZE HANDLER ---
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>

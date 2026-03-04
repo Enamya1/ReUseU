@@ -1,4 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@font-face {
+  font-family: 'Arial Numeric';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Arial');
+  unicode-range: U+002B-002D, U+002E, U+0030-0039;
+}
 @import "leaflet/dist/leaflet.css";
 @tailwind base;
 @tailwind components;
@@ -154,11 +162,11 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Playfair Display', system-ui, serif;
+    font-family: 'Arial Numeric', 'Playfair Display', system-ui, serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', system-ui, serif;
+    font-family: 'Arial Numeric', 'Playfair Display', system-ui, serif;
   }
 }
 
