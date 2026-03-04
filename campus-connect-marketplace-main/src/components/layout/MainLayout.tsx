@@ -45,7 +45,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     const followSpeed = 0.6;
     let frameId = 0;
 
+    const setCursorVisible = (visible: boolean) => {
+      const opacity = visible ? '1' : '0';
+      dot.style.opacity = opacity;
+      ring.style.opacity = opacity;
+    };
+
     const handleMouseMove = (event: MouseEvent) => {
+      const isInside =
+        event.clientX >= 0 &&
+        event.clientY >= 0 &&
+        event.clientX <= window.innerWidth &&
+        event.clientY <= window.innerHeight;
+      setCursorVisible(isInside);
+      if (!isInside) {
+        return;
+      }
       mouseX = event.clientX;
       mouseY = event.clientY;
       dot.style.left = `${mouseX}px`;
@@ -67,21 +82,45 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     const handleLeave = () => ring.classList.remove('hover');
     const handleMouseDown = () => ring.classList.add('click');
     const handleMouseUp = () => ring.classList.remove('click');
+    const handleMouseLeaveWindow = () => setCursorVisible(false);
+    const handleMouseEnterWindow = () => setCursorVisible(true);
+    const handleWindowBlur = () => setCursorVisible(false);
+    const handleMouseOutWindow = (event: MouseEvent) => {
+      if (!event.relatedTarget) {
+        setCursorVisible(false);
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        setCursorVisible(false);
+      }
+    };
 
     hoverTargets.forEach((el) => {
       el.addEventListener('mouseenter', handleEnter);
       el.addEventListener('mouseleave', handleLeave);
     });
 
+    setCursorVisible(false);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseleave', handleMouseLeaveWindow);
+    document.addEventListener('mouseenter', handleMouseEnterWindow);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('mouseout', handleMouseOutWindow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     frameId = window.requestAnimationFrame(animateRing);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseleave', handleMouseLeaveWindow);
+      document.removeEventListener('mouseenter', handleMouseEnterWindow);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('mouseout', handleMouseOutWindow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       hoverTargets.forEach((el) => {
         el.removeEventListener('mouseenter', handleEnter);
         el.removeEventListener('mouseleave', handleLeave);
