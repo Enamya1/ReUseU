@@ -10,15 +10,10 @@ import { Slider } from '@/components/ui/slider';
 import ProductCard from '@/components/products/ProductCard';
 import MapPointer from '@/components/MapPointer';
 import OtherLocationPointer from '@/components/OtherLocationPointer';
-import {
-  mockCategories,
-  mockConditionLevels,
-  mockDormitories,
-  mockProducts,
-  type Product,
-} from '@/lib/mockData';
+import { type Product } from '@/lib/mockData';
 import { normalizeImageUrl } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
 import { MapPin, Search, SlidersHorizontal } from 'lucide-react';
 
 const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
@@ -55,6 +50,73 @@ type DormGroup = {
   lat: number;
   lng: number;
   products: Product[];
+};
+
+type NearbyApiProductImage = {
+  id?: number;
+  product_id?: number;
+  image_url?: string;
+  image_thumbnail_url?: string | null;
+  is_primary?: boolean;
+};
+
+type NearbyApiProduct = {
+  id?: number;
+  seller_id?: number;
+  seller?: {
+    id?: number;
+    full_name?: string;
+    username?: string;
+    email?: string;
+    profile_picture?: string | null;
+  };
+  dormitory_id?: number | null;
+  dormitory?: {
+    id?: number;
+    dormitory_name?: string;
+    domain?: string;
+    location?: string;
+    lat?: number;
+    lng?: number;
+    is_active?: boolean;
+    university_id?: number;
+  };
+  category_id?: number;
+  category?: {
+    id?: number;
+    name?: string;
+    parent_id?: number | null;
+    icon?: string | null;
+  };
+  condition_level_id?: number;
+  condition_level?: {
+    id?: number;
+    name?: string;
+    description?: string | null;
+    sort_order?: number | null;
+    level?: number | null;
+  };
+  title?: string;
+  description?: string | null;
+  price?: number;
+  status?: 'available' | 'sold' | 'reserved';
+  is_promoted?: number | boolean | null;
+  created_at?: string;
+  images?: NearbyApiProductImage[];
+  tags?: Array<{ id?: number; name?: string }>;
+  distance_km?: number | null;
+};
+
+type NearbyResponseBody = {
+  message?: string;
+  center?: { lat?: number; lng?: number };
+  distance_km?: number;
+  products?: NearbyApiProduct[];
+  meta?: {
+    categories?: Array<{ id: number; name: string; icon?: string | null }>;
+    condition_levels?: Array<{ id: number; name: string; description?: string | null; sort_order?: number | null }>;
+  };
+  errors?: Record<string, string[]>;
 };
 
 const toRadians = (value: number) => (value * Math.PI) / 180;
@@ -108,40 +170,141 @@ const NearbyPage: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
   const [mapReady, setMapReady] = useState(false);
-  const { user } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: number; name: string; icon?: string | null }>>([]);
+  const [conditionLevels, setConditionLevels] = useState<
+    Array<{ id: number; name: string; description?: string | null; sort_order?: number | null }>
+  >([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { user, getNearby } = useAuth();
   const profileImage = useMemo(
     () => normalizeImageUrl(user?.profile_picture) ?? '/placeholder.svg',
     [user?.profile_picture],
   );
 
-  const filteredProducts = useMemo(() => {
-    return mockProducts.filter((product) => {
-      if (categoryId !== 'all' && product.category_id !== Number(categoryId)) {
-        return false;
-      }
-      if (conditionId !== 'all' && product.condition_level_id !== Number(conditionId)) {
-        return false;
-      }
-      if (query.trim()) {
-        const q = query.trim().toLowerCase();
-        const matchesTitle = product.title.toLowerCase().includes(q);
-        const matchesDesc = product.description?.toLowerCase().includes(q) ?? false;
-        return matchesTitle || matchesDesc;
-      }
-      if (locationQuery.trim()) {
-        const q = locationQuery.trim().toLowerCase();
-        const dormitoryName = product.dormitory?.dormitory_name?.toLowerCase() ?? '';
-        return dormitoryName.includes(q);
-      }
-      return true;
-    });
-  }, [categoryId, conditionId, locationQuery, query]);
+  const mapApiProduct = (data: NearbyApiProduct, fallbackId: number): Product | null => {
+    const resolvedId = typeof data.id === 'number' ? data.id : fallbackId;
+    const title = data.title || 'Untitled';
+    const price = typeof data.price === 'number' ? data.price : 0;
+    const status = data.status ?? 'available';
+    const createdAt = data.created_at || new Date().toISOString();
+    const images: Product['images'] = Array.isArray(data.images)
+      ? data.images.flatMap((image, index) => {
+          const url = image.image_url || image.image_thumbnail_url;
+          if (!url) return [];
+          return [
+            {
+              id: typeof image.id === 'number' ? image.id : index + 1,
+              product_id: resolvedId,
+              image_url: url,
+              image_thumbnail_url: image.image_thumbnail_url ?? undefined,
+              is_primary: Boolean(image.is_primary),
+            },
+          ];
+        })
+      : [];
+
+    const category = data.category?.id
+      ? {
+          id: data.category.id,
+          name: data.category.name || '',
+          parent_id: data.category.parent_id ?? undefined,
+          icon: data.category.icon ?? undefined,
+        }
+      : undefined;
+
+    const conditionLevel = data.condition_level?.id
+      ? {
+          id: data.condition_level.id,
+          name: data.condition_level.name || '',
+          description: data.condition_level.description ?? undefined,
+          sort_order:
+            typeof data.condition_level.sort_order === 'number'
+              ? data.condition_level.sort_order
+              : data.condition_level.level ?? 0,
+        }
+      : undefined;
+
+    const dormitory = data.dormitory?.id
+      ? {
+          id: data.dormitory.id,
+          dormitory_name: data.dormitory.dormitory_name || '',
+          domain: data.dormitory.domain || '',
+          location: data.dormitory.location,
+          lat: data.dormitory.lat,
+          lng: data.dormitory.lng,
+          is_active: data.dormitory.is_active ?? true,
+          university_id: data.dormitory.university_id ?? 0,
+        }
+      : undefined;
+
+    const seller = data.seller?.id
+      ? {
+          id: data.seller.id,
+          full_name: data.seller.full_name || '',
+          username: data.seller.username || '',
+          email: data.seller.email || '',
+          profile_picture: data.seller.profile_picture ?? undefined,
+          role: 'user' as const,
+          status: 'active' as const,
+        }
+      : undefined;
+
+    const tags = Array.isArray(data.tags)
+      ? data.tags
+          .filter((tag): tag is { id: number; name?: string } => typeof tag.id === 'number')
+          .map((tag) => ({ id: tag.id, name: tag.name || '' }))
+      : [];
+
+    const sellerId = typeof data.seller_id === 'number' ? data.seller_id : seller?.id ?? 0;
+    const dormitoryId =
+      typeof data.dormitory_id === 'number'
+        ? data.dormitory_id
+        : typeof dormitory?.id === 'number'
+          ? dormitory.id
+          : 0;
+    const categoryId =
+      typeof data.category_id === 'number'
+        ? data.category_id
+        : typeof category?.id === 'number'
+          ? category.id
+          : 0;
+    const conditionLevelId =
+      typeof data.condition_level_id === 'number'
+        ? data.condition_level_id
+        : typeof conditionLevel?.id === 'number'
+          ? conditionLevel.id
+          : 0;
+
+    return {
+      id: resolvedId,
+      seller_id: sellerId,
+      seller,
+      dormitory_id: dormitoryId,
+      dormitory,
+      category_id: categoryId,
+      category,
+      condition_level_id: conditionLevelId,
+      condition_level: conditionLevel,
+      title,
+      description: data.description ?? undefined,
+      price,
+      status,
+      is_promoted: Boolean(data.is_promoted),
+      created_at: createdAt,
+      images,
+      tags,
+      distance_km: typeof data.distance_km === 'number' ? data.distance_km : undefined,
+    };
+  };
+
+  const filteredProducts = useMemo(() => products, [products]);
 
   const dormGroups = useMemo<DormGroup[]>(() => {
     const grouped = new Map<number, DormGroup>();
     filteredProducts.forEach((product) => {
       const dormitoryId = product.dormitory_id;
-      const dormitory = product.dormitory ?? mockDormitories.find((dorm) => dorm.id === dormitoryId);
+      const dormitory = product.dormitory;
       if (!dormitory?.lat || !dormitory?.lng) {
         return;
       }
@@ -206,6 +369,53 @@ const NearbyPage: React.FC = () => {
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }, []);
+
+  useEffect(() => {
+    const center = userLocation ?? defaultCenter;
+    let cancelled = false;
+    setIsLoading(true);
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const data = (await getNearby({
+            lat: center.lat,
+            lng: center.lng,
+            distance_km: distanceKm,
+            category_id: categoryId === 'all' ? undefined : Number(categoryId),
+            condition_level_id: conditionId === 'all' ? undefined : Number(conditionId),
+            q: query.trim() || undefined,
+            location_q: locationQuery.trim() || undefined,
+          })) as NearbyResponseBody;
+          if (cancelled) return;
+
+          const mapped = Array.isArray(data.products)
+            ? data.products
+                .map((item, index) => mapApiProduct(item, index + 1))
+                .filter((item): item is Product => !!item)
+            : [];
+          setProducts(mapped);
+          setCategories(data.meta?.categories ?? []);
+          setConditionLevels(data.meta?.condition_levels ?? []);
+        } catch (error) {
+          if (cancelled) return;
+          const maybe = error as { message?: string } | undefined;
+          toast({
+            title: "Failed to load nearby listings",
+            description: maybe?.message || "Please try again.",
+            variant: "destructive",
+          });
+          setProducts([]);
+        } finally {
+          if (!cancelled) setIsLoading(false);
+        }
+      })();
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [categoryId, conditionId, distanceKm, getNearby, locationQuery, query, userLocation]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !AMAP_JS_KEY || !AMAP_SECURITY_CODE) {
@@ -642,6 +852,9 @@ const NearbyPage: React.FC = () => {
               {locationStatus === 'requesting' && (
                 <span className="text-xs text-muted-foreground">Requesting location…</span>
               )}
+              {isLoading && (
+                <span className="text-xs text-muted-foreground">Loading nearby listings…</span>
+              )}
             </div>
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -682,7 +895,7 @@ const NearbyPage: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All categories</SelectItem>
-                  {mockCategories.map((category) => (
+                  {categories.map((category) => (
                     <SelectItem key={category.id} value={String(category.id)}>
                       {category.name}
                     </SelectItem>
@@ -695,7 +908,7 @@ const NearbyPage: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All conditions</SelectItem>
-                  {mockConditionLevels.map((condition) => (
+                  {conditionLevels.map((condition) => (
                     <SelectItem key={condition.id} value={String(condition.id)}>
                       {condition.name}
                     </SelectItem>

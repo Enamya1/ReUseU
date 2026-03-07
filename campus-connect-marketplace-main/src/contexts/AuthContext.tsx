@@ -30,6 +30,15 @@ interface AuthContextType {
     params?: { page?: number; page_size?: number },
   ) => Promise<SimilarProductsResponseBody>;
   getProductDetail: (productId: number) => Promise<ProductDetailResponseBody>;
+  getNearby: (params: {
+    lat: number;
+    lng: number;
+    distance_km?: number;
+    category_id?: number;
+    condition_level_id?: number;
+    q?: string;
+    location_q?: string;
+  }) => Promise<NearbyResponseBody>;
   createProduct: (data: CreateProductInput) => Promise<CreateProductResponseBody>;
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   sendMessage: (data: SendMessageInput) => Promise<SendMessageResponseBody>;
@@ -239,6 +248,47 @@ type ProductDetail = {
 type ProductDetailResponseBody = {
   message?: string;
   product?: ProductDetail;
+  errors?: Record<string, string[]>;
+};
+
+type NearbyProductImage = {
+  id?: number;
+  product_id?: number;
+  image_url?: string;
+  image_thumbnail_url?: string | null;
+  is_primary?: boolean;
+};
+
+type NearbyProduct = {
+  id?: number;
+  seller_id?: number;
+  seller?: Partial<User>;
+  dormitory_id?: number | null;
+  dormitory?: DormitoryOption;
+  category_id?: number;
+  category?: MetaCategoryOption;
+  condition_level_id?: number;
+  condition_level?: MetaConditionLevelOption & { level?: number | null };
+  title?: string;
+  description?: string | null;
+  price?: number;
+  status?: "available" | "sold" | "reserved";
+  is_promoted?: number | boolean | null;
+  created_at?: string;
+  images?: NearbyProductImage[];
+  tags?: MetaTagOption[];
+  distance_km?: number | null;
+};
+
+type NearbyResponseBody = {
+  message?: string;
+  center?: { lat?: number; lng?: number };
+  distance_km?: number;
+  products?: NearbyProduct[];
+  meta?: {
+    categories?: MetaCategoryOption[];
+    condition_levels?: MetaConditionLevelOption[];
+  };
   errors?: Record<string, string[]>;
 };
 
@@ -1395,6 +1445,72 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user],
   );
 
+  const getNearby = useCallback(
+    async (params: {
+      lat: number;
+      lng: number;
+      distance_km?: number;
+      category_id?: number;
+      condition_level_id?: number;
+      q?: string;
+      location_q?: string;
+    }): Promise<NearbyResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as NearbyResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as NearbyResponseBody;
+      }
+
+      const url = new URL(apiUrl("/api/user/nearby"));
+      url.searchParams.set("lat", String(params.lat));
+      url.searchParams.set("lng", String(params.lng));
+      if (typeof params.distance_km === "number" && Number.isFinite(params.distance_km)) {
+        url.searchParams.set("distance_km", String(params.distance_km));
+      }
+      if (typeof params.category_id === "number" && Number.isFinite(params.category_id)) {
+        url.searchParams.set("category_id", String(params.category_id));
+      }
+      if (typeof params.condition_level_id === "number" && Number.isFinite(params.condition_level_id)) {
+        url.searchParams.set("condition_level_id", String(params.condition_level_id));
+      }
+      if (params.q) {
+        url.searchParams.set("q", params.q);
+      }
+      if (params.location_q) {
+        url.searchParams.set("location_q", params.location_q);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as NearbyResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as NearbyResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as NearbyResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
   const getSimilarProducts = useCallback(
     async (
       productId: number,
@@ -1692,6 +1808,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getMyProductCards,
         getSellerProfile,
         getRecommendedProducts,
+        getNearby,
         getSimilarProducts,
         getProductDetail,
         createProduct,
