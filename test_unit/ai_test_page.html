@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>black & white AI chat · spacious sides</title>
+    <style>
+        /* ---------- global black & white theme ---------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            background: #000000;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #ffffff;
+            display: flex;
+            line-height: 1.5;
+        }
+
+        /* ---------- sidebar ---------- */
+        .sidebar {
+            width: 260px;
+            background-color: #1a1a1a;
+            border-right: 1px solid #555;
+            display: flex;
+            flex-direction: column;
+            padding: 1.8rem 1.2rem;
+            color: #eeeeee;
+        }
+
+        .sidebar h2 {
+            font-size: 1.2rem;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: #cccccc;
+            border-bottom: 1px solid #555;
+            padding-bottom: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .history-list {
+            list-style: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .history-list li {
+            padding: 0.7rem 1rem;
+            margin-bottom: 0.5rem;
+            background-color: #2a2a2a;
+            border: 1px solid #4a4a4a;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #e0e0e0;
+            cursor: default;
+            transition: 0.1s ease;
+        }
+
+        .history-list li:hover {
+            background-color: #3a3a3a;
+            border-color: #777;
+        }
+
+        .call-btn {
+            background-color: #2f2f2f;
+            color: #ffffff;
+            border: 1px solid #888;
+            padding: 0.9rem 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            border-radius: 40px;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.15s;
+        }
+
+        .call-btn:hover {
+            background-color: #3f3f3f;
+            border-color: #aaa;
+        }
+
+        .call-btn:active {
+            background-color: #1a1a1a;
+            transform: scale(0.97);
+        }
+
+        /* ---------- main panel ---------- */
+        .main {
+            flex: 1;
+            position: relative;
+            background-color: #000000;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 80px;
+            overflow-y: auto;
+            padding: 1.5rem 2rem 0.5rem 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.4s ease, visibility 0.4s;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 70%;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+        }
+
+        .bubble {
+            padding: 0.8rem 1.3rem;
+            border-radius: 22px;
+            border: 1px solid #777;
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            word-wrap: break-word;
+            box-shadow: 0 2px 4px rgba(255,255,255,0.05);
+        }
+
+        .message.user .bubble {
+            background-color: #2d2d2d;
+            border-color: #9e9e9e;
+        }
+
+        .timestamp {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-top: 5px;
+            margin-left: 12px;
+            margin-right: 12px;
+        }
+
+        /* ---------- INPUT : centered initially, slides to bottom ---------- */
+        .input-container {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: top 0.5s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+            /* increase side spacing: left & right padding now 4rem on large screens, 2rem on smaller */
+            padding: 0 4rem;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        /* make side spacing a bit smaller on narrow windows */
+        @media (max-width: 700px) {
+            .input-container {
+                padding: 0 2rem;
+            }
+        }
+
+        .input-area {
+            display: flex;
+            gap: 0.8rem;
+            background-color: #1a1a1a;
+            border: 1px solid #666;
+            border-radius: 60px;
+            padding: 0.4rem 0.4rem 0.4rem 1.5rem;
+            box-shadow: 0 4px 10px rgba(255,255,255,0.05);
+            align-items: center;
+        }
+
+        .input-area input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 0.8rem 0;
+            font-size: 1rem;
+            color: #ffffff;
+            outline: none;
+        }
+
+        .input-area input::placeholder {
+            color: #8a8a8a;
+            font-weight: 300;
+        }
+
+        .input-area button {
+            background-color: #3b3b3b;
+            color: #ffffff;
+            border: 1px solid #888;
+            border-radius: 50px;
+            padding: 0.7rem 1.8rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.15s;
+            white-space: nowrap;
+        }
+
+        .input-area button:hover {
+            background-color: #555;
+            border-color: #bbb;
+        }
+
+        /* chat active state */
+        .main.chat-active .messages-container {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .main.chat-active .input-container {
+            top: auto;
+            bottom: 0;
+            transform: translateY(0);
+            padding-bottom: 1.5rem;
+        }
+
+        /* scrollbar styling */
+        .messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .messages-container::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        .messages-container::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 6px;
+        }
+
+        .history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .history-list::-webkit-scrollbar-track {
+            background: #222;
+        }
+        .history-list::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- SIDEBAR: chat history and call button -->
+    <div class="sidebar">
+        <h2>chat history</h2>
+        <ul class="history-list">
+            <li>dark mode ideas</li>
+            <li>grayscale brainstorm</li>
+            <li>project shadow</li>
+            <li>minimal setup</li>
+            <li>monochrome coffee</li>
+            <li>ui concepts</li>
+            <li>contrast tuning</li>
+        </ul>
+        <button class="call-btn" id="callBtn">
+            Call AI (demo)
+        </button>
+    </div>
+
+    <!-- MAIN PANEL -->
+    <div class="main" id="mainPanel">
+        <!-- messages container (hidden initially) -->
+        <div class="messages-container" id="messagesContainer"></div>
+
+        <!-- input container (centered at start) with extra side space -->
+        <div class="input-container" id="inputContainer">
+            <div class="input-area">
+                <input type="text" id="userInput" placeholder="type something..." autofocus>
+                <button id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const mainPanel = document.getElementById('mainPanel');
+            const messagesContainer = document.getElementById('messagesContainer');
+            const userInput = document.getElementById('userInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const callBtn = document.getElementById('callBtn');
+
+            let firstMessageSent = false;
+
+            function addMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message', sender);
+
+                const bubble = document.createElement('div');
+                bubble.classList.add('bubble');
+                bubble.textContent = text;
+
+                const timestamp = document.createElement('div');
+                timestamp.classList.add('timestamp');
+                const now = new Date();
+                timestamp.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                messageDiv.appendChild(bubble);
+                messageDiv.appendChild(timestamp);
+                messagesContainer.appendChild(messageDiv);
+
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            function simulateAIResponse(userMsg) {
+                let reply = "simulated AI response";
+                const lower = userMsg.toLowerCase();
+
+                if (lower.includes('hello') || lower.includes('hi')) {
+                    reply = "hello. everything is black & white now.";
+                } else if (lower.includes('how are you')) {
+                    reply = "functioning in grayscale, thank you.";
+                } else if (lower.includes('weather')) {
+                    reply = "50% chance of shadows, 50% chance of light.";
+                } else if (lower.includes('call')) {
+                    reply = "use the 'call AI' button in the sidebar.";
+                } else if (lower.includes('bye')) {
+                    reply = "bye. keep it contrasty.";
+                } else {
+                    reply = "echo in black and white: " + userMsg.split(' ').slice(0, 3).join(' ') + '…';
+                }
+
+                addMessage(reply, 'ai');
+            }
+
+            function handleSend() {
+                const rawText = userInput.value.trim();
+                if (rawText === '') return;
+
+                if (!firstMessageSent) {
+                    firstMessageSent = true;
+                    mainPanel.classList.add('chat-active');
+                }
+
+                addMessage(rawText, 'user');
+                userInput.value = '';
+
+                setTimeout(() => {
+                    simulateAIResponse(rawText);
+                }, 500);
+            }
+
+            sendBtn.addEventListener('click', handleSend);
+            userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSend();
+                }
+            });
+
+            callBtn.addEventListener('click', () => {
+                if (!firstMessageSent) {
+                    firstMessageSent = true;
+                    mainPanel.classList.add('chat-active');
+                }
+                addMessage('AI call initiated (demo)', 'ai');
+                alert('Call AI (demo) – no actual call');
+            });
+
+            userInput.focus();
+        })();
+    </script>
+</body>
+</html>
