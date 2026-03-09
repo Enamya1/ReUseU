@@ -94,8 +94,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
       <div className="p-3 space-y-1.5">
         {/* Price */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-base font-semibold text-foreground">
-            {formatPrice(product.price)}
+          <span className="price-text text-base font-semibold text-foreground">
+            {formatPrice(product.price, product.currency)}
           </span>
           {product.condition_level && (
             <Badge variant="outline" className="text-[10px]">
@@ -110,7 +110,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
         </h3>
 
         {distanceLabel ? (
-          <div className="text-[10px] text-tertiary font-medium">{distanceLabel}</div>
+          <div className="numeric-text text-[10px] text-tertiary font-medium">{distanceLabel}</div>
         ) : null}
       </div>
     </Link>

@@ -25,6 +25,7 @@ type EditableProduct = {
   title: string;
   description?: string | null;
   price: number;
+  currency?: string;
   status: 'available' | 'sold' | 'reserved';
   created_at?: string;
   category_id: number;
@@ -406,7 +407,7 @@ const MyListingDetailPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">{t('listingDetail.listedPrice')}</p>
-                  <p className="text-2xl font-display font-bold">{formatPrice(product.price)}</p>
+                  <p className="price-text text-2xl font-bold">{formatPrice(product.price, product.currency)}</p>
                 </div>
                 {product.created_at ? (
                   <div className="text-right">

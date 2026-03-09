@@ -78,6 +78,7 @@ export interface Product {
   title: string;
   description?: string;
   price: number;
+  currency?: string;
   status: 'available' | 'sold' | 'reserved';
   is_promoted?: boolean;
   created_at: string;
@@ -1078,7 +1079,42 @@ export const formatRelativeTime = (dateString: string): string => {
   return `${Math.floor(diffDays / 30)} months ago`;
 };
 
-export const formatPrice = (price: number): string => {
+export const formatPrice = (price: number, currency?: string): string => {
+  const normalizedCurrency = typeof currency === 'string' ? currency.trim() : '';
+  const normalizedNumber = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(price);
+
+  if (normalizedCurrency.toUpperCase() === 'CNY') {
+    return `${normalizedNumber} ¥`;
+  }
+
+  if (/^[a-z]{3}$/i.test(normalizedCurrency)) {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: normalizedCurrency.toUpperCase(),
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(price);
+    } catch {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(price);
+    }
+  }
+
+  if (normalizedCurrency.length > 0) {
+    if (normalizedCurrency === '¥' || normalizedCurrency === '￥') {
+      return `${normalizedNumber} ¥`;
+    }
+    return `${normalizedCurrency}${normalizedNumber}`;
+  }
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',

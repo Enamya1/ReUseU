@@ -159,6 +159,7 @@ type RecommendationProduct = {
   title?: string;
   description?: string | null;
   price?: number;
+  currency?: string;
   status?: "available" | "sold" | "reserved";
   created_at?: string;
   seller_id?: number;
@@ -194,6 +195,7 @@ type SimilarProduct = {
   product_id?: number;
   title?: string;
   price?: number;
+  currency?: string;
   status?: "available" | "sold" | "reserved";
   created_at?: string;
   category_id?: number;
@@ -229,6 +231,7 @@ type ProductDetail = {
   title?: string;
   description?: string | null;
   price?: number;
+  currency?: string;
   status?: "available" | "sold" | "reserved";
   created_at?: string;
   is_promoted?: number | boolean | null;
@@ -272,6 +275,7 @@ type NearbyProduct = {
   title?: string;
   description?: string | null;
   price?: number;
+  currency?: string;
   status?: "available" | "sold" | "reserved";
   is_promoted?: number | boolean | null;
   created_at?: string;
@@ -296,6 +300,7 @@ type MyProductCard = {
   id: number;
   title: string;
   price: number;
+  currency?: string;
   status: "available" | "sold" | "reserved";
   created_at: string;
   image_thumbnail_url?: string | null;
@@ -324,6 +329,7 @@ type SellerProfileProduct = {
   id?: number;
   name?: string;
   price?: number;
+  currency?: string;
   condition_name?: string;
   image_thumbnail_url?: string | null;
   location?: SellerProfileProductLocation;
@@ -485,6 +491,7 @@ type EditableProduct = {
   title: string;
   description?: string | null;
   price: number;
+  currency?: string;
   status: "available" | "sold" | "reserved";
   created_at?: string;
   images?: ProductImage[];

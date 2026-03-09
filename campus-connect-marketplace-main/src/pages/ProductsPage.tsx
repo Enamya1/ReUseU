@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import ProductGrid from '@/components/products/ProductGrid';
-import { type Product } from '@/lib/mockData';
+import { formatPrice, type Product } from '@/lib/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -58,6 +58,7 @@ type RecommendationProduct = {
   title?: string;
   description?: string | null;
   price?: number;
+  currency?: string;
   status?: 'available' | 'sold' | 'reserved';
   created_at?: string;
   is_promoted?: number | boolean | null;
@@ -240,6 +241,7 @@ const ProductsPage: React.FC = () => {
             title: product.title || 'Untitled',
             description: product.description ?? undefined,
             price: typeof product.price === 'number' ? product.price : 0,
+            currency: typeof product.currency === 'string' ? product.currency : undefined,
             status: product.status ?? 'available',
             is_promoted: Boolean(product.is_promoted),
             created_at: product.created_at || new Date().toISOString(),
@@ -286,6 +288,10 @@ const ProductsPage: React.FC = () => {
 
   const maxPrice = useMemo(
     () => Math.max(0, ...products.map((product) => product.price)),
+    [products],
+  );
+  const activeCurrency = useMemo(
+    () => products.find((product) => typeof product.currency === 'string' && product.currency.trim().length > 0)?.currency,
     [products],
   );
 
@@ -393,8 +399,8 @@ const ProductsPage: React.FC = () => {
                   onValueChange={(value) => setPriceRange(value as [number, number])}
                 />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>${priceRange[0].toFixed(0)}</span>
-                  <span>${priceRange[1].toFixed(0)}</span>
+                  <span className="price-text">{formatPrice(priceRange[0], activeCurrency)}</span>
+                  <span className="price-text">{formatPrice(priceRange[1], activeCurrency)}</span>
                 </div>
               </div>
               <div className="space-y-3">
@@ -421,7 +427,7 @@ const ProductsPage: React.FC = () => {
                           <span>{category.name}</span>
                         </span>
                       </span>
-                      <span className="text-xs">{categoryCounts[category.id] ?? 0}</span>
+                      <span className="numeric-text text-xs">{categoryCounts[category.id] ?? 0}</span>
                     </label>
                   ))}
                 </div>

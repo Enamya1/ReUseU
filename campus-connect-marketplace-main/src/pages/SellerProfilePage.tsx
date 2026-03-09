@@ -220,6 +220,7 @@ const SellerProfilePage: React.FC = () => {
             title: item.name || 'Untitled',
             description: undefined,
             price: typeof item.price === 'number' ? item.price : 0,
+            currency: typeof item.currency === 'string' ? item.currency : undefined,
             status: 'available',
             is_promoted: false,
             created_at: new Date().toISOString(),
@@ -411,7 +412,7 @@ const SellerProfilePage: React.FC = () => {
                   {stats.map((stat) => (
                     <div key={stat.label} className="flex items-center justify-between">
                       <span className="text-sm text-slate-500">{stat.label}</span>
-                      <span className="text-lg font-semibold text-slate-900">{stat.value}</span>
+                      <span className="numeric-text text-lg font-semibold text-slate-900">{stat.value}</span>
                     </div>
                   ))}
                 </div>
@@ -422,7 +423,7 @@ const SellerProfilePage: React.FC = () => {
                 <div className="mt-4 space-y-3 text-sm text-slate-600">
                   <div className="flex items-center justify-between">
                     <span>Average response</span>
-                    <span className="font-medium text-slate-900">32 min</span>
+                    <span className="numeric-text font-medium text-slate-900">32 min</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Meetup preference</span>
@@ -444,7 +445,7 @@ const SellerProfilePage: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-display font-bold text-slate-900">Listings by {displaySeller.full_name}</h2>
-              <span className="text-sm text-slate-500">
+              <span className="numeric-text text-sm text-slate-500">
                 {typeof totalProducts === 'number' ? totalProducts : sellerProducts.length} items
               </span>
             </div>

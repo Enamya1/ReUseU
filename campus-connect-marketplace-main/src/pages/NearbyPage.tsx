@@ -99,6 +99,7 @@ type NearbyApiProduct = {
   title?: string;
   description?: string | null;
   price?: number;
+  currency?: string;
   status?: 'available' | 'sold' | 'reserved';
   is_promoted?: number | boolean | null;
   created_at?: string;
@@ -289,6 +290,7 @@ const NearbyPage: React.FC = () => {
       title,
       description: data.description ?? undefined,
       price,
+      currency: typeof data.currency === 'string' ? data.currency : undefined,
       status,
       is_promoted: Boolean(data.is_promoted),
       created_at: createdAt,

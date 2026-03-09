@@ -100,6 +100,7 @@ const MyListingsPage: React.FC = () => {
             title: card.title,
             description: undefined,
             price: card.price,
+            currency: typeof card.currency === 'string' ? card.currency : undefined,
             status: card.status,
             is_promoted: false,
             created_at: card.created_at,
@@ -174,7 +175,7 @@ const MyListingsPage: React.FC = () => {
             <h1 className="text-3xl font-display font-bold text-foreground">
               {t('listings.title')}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="numeric-text text-muted-foreground">
               {t('listings.itemsCount', { count: total })}
             </p>
           </div>

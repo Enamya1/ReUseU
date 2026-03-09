@@ -47,7 +47,7 @@ const FavoritesPage: React.FC = () => {
               Your Favorites
             </h1>
             <p className="text-muted-foreground">
-              {favoriteProducts.length} {favoriteProducts.length === 1 ? 'item' : 'items'} saved
+              <span className="numeric-text">{favoriteProducts.length}</span> {favoriteProducts.length === 1 ? 'item' : 'items'} saved
             </p>
           </div>
         </div>

@@ -163,7 +163,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                 <Link to="/favorites" className="relative">
                   <Heart className="w-5 h-5" />
                   {favorites.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 text-xs bg-primary text-primary-foreground rounded-full flex items-center justify-center">
+                    <span className="numeric-text absolute -top-1 -right-1 w-4 h-4 text-xs bg-primary text-primary-foreground rounded-full flex items-center justify-center">
                       {favorites.length}
                     </span>
                   )}
@@ -178,7 +178,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                   >
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center px-1">
+                      <span className="numeric-text absolute -top-1 -right-1 min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center px-1">
                         {unreadCount}
                       </span>
                     )}
@@ -206,7 +206,9 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                         <div className="min-w-0">
                           <div className="text-sm">
                             {item.notification_text || `New message from ${item.sender_username || 'user'}`}
-                            {item.notification_count && item.notification_count > 1 ? ` (${item.notification_count})` : ''}
+                            {item.notification_count && item.notification_count > 1 ? (
+                              <span className="numeric-text">{` (${item.notification_count})`}</span>
+                            ) : null}
                           </div>
                           <div className="text-xs text-muted-foreground">{formatNotificationTime(item.created_at)}</div>
                         </div>
@@ -369,7 +371,9 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                           <div className="min-w-0">
                             <div className="text-sm">
                               {item.notification_text || `New message from ${item.sender_username || 'user'}`}
-                              {item.notification_count && item.notification_count > 1 ? ` (${item.notification_count})` : ''}
+                              {item.notification_count && item.notification_count > 1 ? (
+                                <span className="numeric-text">{` (${item.notification_count})`}</span>
+                              ) : null}
                             </div>
                             <div className="text-xs text-muted-foreground">{formatNotificationTime(item.created_at)}</div>
                           </div>
@@ -390,7 +394,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                     <Heart className="w-5 h-5" />
                     <span>{t('nav.favorites')}</span>
                     {favorites.length > 0 && (
-                      <span className="ml-auto text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                      <span className="numeric-text ml-auto text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
                         {favorites.length}
                       </span>
                     )}

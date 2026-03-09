@@ -76,6 +76,7 @@ const ProductDetailPage: React.FC = () => {
       title?: string;
       description?: string | null;
       price?: number;
+      currency?: string;
       status?: 'available' | 'sold' | 'reserved';
       created_at?: string;
       is_promoted?: number | boolean | null;
@@ -192,6 +193,7 @@ const ProductDetailPage: React.FC = () => {
         title: data.title || 'Untitled',
         description: data.description ?? undefined,
         price: typeof data.price === 'number' ? data.price : 0,
+        currency: typeof data.currency === 'string' ? data.currency : undefined,
         status: data.status ?? 'available',
         is_promoted: Boolean(data.is_promoted),
         created_at: data.created_at || new Date().toISOString(),
@@ -270,6 +272,7 @@ const ProductDetailPage: React.FC = () => {
       product_id?: number;
       title?: string;
       price?: number;
+      currency?: string;
       status?: 'available' | 'sold' | 'reserved';
       created_at?: string;
       category_id?: number;
@@ -343,6 +346,7 @@ const ProductDetailPage: React.FC = () => {
         title,
         description: undefined,
         price,
+        currency: typeof item.currency === 'string' ? item.currency : undefined,
         status,
         is_promoted: Boolean(item.is_promoted),
         created_at: item.created_at || new Date().toISOString(),
@@ -582,8 +586,8 @@ const ProductDetailPage: React.FC = () => {
                     </Badge>
                   )}
                 </div>
-                <h1 className="text-3xl font-display font-bold text-foreground">
-                  {formatPrice(product.price)}
+                <h1 className="price-text text-3xl font-display font-bold text-foreground">
+                  {formatPrice(product.price, product.currency)}
                 </h1>
               </div>
               <div className="flex gap-2">
@@ -620,7 +624,7 @@ const ProductDetailPage: React.FC = () => {
                 </div>
               )}
               {product.distance_km !== undefined && (
-                <Badge variant="outline" className="text-tertiary border-tertiary">
+                <Badge variant="outline" className="numeric-text text-tertiary border-tertiary">
                   {t('product.distanceKm', { count: product.distance_km })}
                 </Badge>
               )}

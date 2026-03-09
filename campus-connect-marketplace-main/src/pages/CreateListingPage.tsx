@@ -781,7 +781,7 @@ const CreateListingPage: React.FC = () => {
                       <p className="text-muted-foreground">{t('createListing.tagsSubtitle')}</p>
                     </div>
                     {formData.tags.length > 0 && (
-                      <div className="text-sm text-muted-foreground">
+                      <div className="numeric-text text-sm text-muted-foreground">
                         {t('createListing.tagsSelected', { count: formData.tags.length })}
                       </div>
                     )}
