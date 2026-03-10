@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Star } from 'lucide-react';
-import { Product, formatPrice } from '@/lib/mockData';
+import { Product } from '@/lib/mockData';
 import { useFavorites } from '@/contexts/FavoritesContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
@@ -16,8 +17,10 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo }) => {
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { formatSelectedCurrencyParts } = useCurrency();
   const { t } = useTranslation();
   const favorite = isFavorite(product.id);
+  const displayPrice = formatSelectedCurrencyParts(product.price, product.currency);
   const distanceLabel =
     typeof product.distance_km === 'number'
       ? product.distance_km < 1
@@ -94,8 +97,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
       <div className="p-3 space-y-1.5">
         {/* Price */}
         <div className="flex items-center justify-between gap-2">
-          <span className="price-text text-base font-semibold text-foreground">
-            {formatPrice(product.price, product.currency)}
+          <span className="price-text inline-flex items-baseline gap-1 text-base font-semibold text-foreground">
+            <span>{displayPrice.amount}</span>
+            <span className="text-[0.72em] font-medium leading-none">{displayPrice.currency}</span>
           </span>
           {product.condition_level && (
             <Badge variant="outline" className="text-[10px]">

@@ -1081,44 +1081,33 @@ export const formatRelativeTime = (dateString: string): string => {
 
 export const formatPrice = (price: number, currency?: string): string => {
   const normalizedCurrency = typeof currency === 'string' ? currency.trim() : '';
-  const normalizedNumber = new Intl.NumberFormat('en-US', {
+  const amount = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(price);
 
-  if (normalizedCurrency.toUpperCase() === 'CNY') {
-    return `${normalizedNumber} ¥`;
-  }
-
   if (/^[a-z]{3}$/i.test(normalizedCurrency)) {
+    const code = normalizedCurrency.toUpperCase();
     try {
-      return new Intl.NumberFormat('en-US', {
+      const parts = new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: normalizedCurrency.toUpperCase(),
+        currency: code,
+        currencyDisplay: 'narrowSymbol',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(price);
+      }).formatToParts(1);
+      const symbol = parts.find((part) => part.type === 'currency')?.value ?? code.toLowerCase();
+      const marker = symbol.toUpperCase() === code ? code.toLowerCase() : symbol;
+      return `${amount} ${marker}`;
     } catch {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(price);
+      return `${amount} ${code.toLowerCase()}`;
     }
   }
 
   if (normalizedCurrency.length > 0) {
-    if (normalizedCurrency === '¥' || normalizedCurrency === '￥') {
-      return `${normalizedNumber} ¥`;
-    }
-    return `${normalizedCurrency}${normalizedNumber}`;
+    const marker = normalizedCurrency === '￥' ? '¥' : normalizedCurrency;
+    return `${amount} ${marker}`;
   }
 
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(price);
+  return `${amount} $`;
 };

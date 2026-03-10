@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +16,7 @@ import { normalizeImageUrl } from '@/lib/api';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import CurrencySelector from '@/components/currency/CurrencySelector';
 
 type HeaderProps = {
   className?: string;
@@ -41,7 +42,9 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   const [notifications, setNotifications] = useState<MessageNotificationItem[]>([]);
   const [unreadTotal, setUnreadTotal] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
+  const showCurrencySelector = location.pathname === '/products' || location.pathname.startsWith('/product/');
   const primaryNavItems = [
     { to: '/', label: t('nav.home') },
     { to: '/nearby', label: t('nav.nearBy') },
@@ -260,6 +263,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {showCurrencySelector ? <CurrencySelector /> : null}
             </>
           ) : (
             <>
@@ -342,6 +346,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                     <p className="text-xs text-muted-foreground">@{user?.username}</p>
                   </div>
                 </div>
+                {showCurrencySelector ? <CurrencySelector /> : null}
 
                 <DropdownMenu>
                 <DropdownMenuTrigger asChild>

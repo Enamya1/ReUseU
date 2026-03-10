@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 
 // Pages
 import HomePage from "./pages/HomePage";
@@ -54,38 +55,40 @@ const OnboardingGate = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <FavoritesProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route element={<OnboardingGate />}>
-                {/* Public Routes */}
-                <Route path="/" element={<HomeRoute />} />
-                <Route path="/products" element={<ProductsPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
-                <Route path="/product/:id" element={<ProductDetailPage />} />
-                <Route path="/seller/:id" element={<SellerProfilePage />} />
-                <Route path="/nearby" element={<NearbyPage />} />
-                <Route path="/onboarding" element={<OnboardingPage />} />
+      <CurrencyProvider>
+        <FavoritesProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route element={<OnboardingGate />}>
+                  {/* Public Routes */}
+                  <Route path="/" element={<HomeRoute />} />
+                  <Route path="/products" element={<ProductsPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/signup" element={<SignupPage />} />
+                  <Route path="/product/:id" element={<ProductDetailPage />} />
+                  <Route path="/seller/:id" element={<SellerProfilePage />} />
+                  <Route path="/nearby" element={<NearbyPage />} />
+                  <Route path="/onboarding" element={<OnboardingPage />} />
 
-                {/* Protected User Routes */}
-                <Route path="/favorites" element={<FavoritesPage />} />
-                <Route path="/my-listings" element={<MyListingsPage />} />
-                <Route path="/my-listings/:id" element={<MyListingDetailPage />} />
-                <Route path="/create-listing" element={<CreateListingPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/messages" element={<MessagesPage />} />
+                  {/* Protected User Routes */}
+                  <Route path="/favorites" element={<FavoritesPage />} />
+                  <Route path="/my-listings" element={<MyListingsPage />} />
+                  <Route path="/my-listings/:id" element={<MyListingDetailPage />} />
+                  <Route path="/create-listing" element={<CreateListingPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/messages" element={<MessagesPage />} />
 
-                {/* Catch-all */}
-                <Route path="*" element={<NotFound />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </FavoritesProvider>
+                  {/* Catch-all */}
+                  <Route path="*" element={<NotFound />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </FavoritesProvider>
+      </CurrencyProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

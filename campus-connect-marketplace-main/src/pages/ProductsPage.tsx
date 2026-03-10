@@ -20,6 +20,7 @@ import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, List, Search, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { normalizeImageUrl } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
@@ -81,6 +82,7 @@ type RecommendationProduct = {
 
 const ProductsPage: React.FC = () => {
   const { isAuthenticated, getMetaOptions, getRecommendedProducts } = useAuth();
+  const { convertPrice, selectedCurrency } = useCurrency();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [conditionLevels, setConditionLevels] = useState<ConditionLevelOption[]>([]);
@@ -286,13 +288,16 @@ const ProductsPage: React.FC = () => {
     );
   }, [calculateDistanceKm, userLocation]);
 
+  const displayPrices = useMemo(() => {
+    return products.reduce<Record<number, number>>((acc, product) => {
+      acc[product.id] = convertPrice(product.price, product.currency);
+      return acc;
+    }, {});
+  }, [convertPrice, products]);
+
   const maxPrice = useMemo(
-    () => Math.max(0, ...products.map((product) => product.price)),
-    [products],
-  );
-  const activeCurrency = useMemo(
-    () => products.find((product) => typeof product.currency === 'string' && product.currency.trim().length > 0)?.currency,
-    [products],
+    () => Math.max(0, ...Object.values(displayPrices)),
+    [displayPrices],
   );
 
   useEffect(() => {
@@ -315,7 +320,8 @@ const ProductsPage: React.FC = () => {
         (product.description ?? '').toLowerCase().includes(normalizedSearch);
       const matchesCategory =
         selectedCategories.length === 0 || selectedCategories.includes(product.category_id);
-      const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
+      const displayPrice = displayPrices[product.id] ?? 0;
+      const matchesPrice = displayPrice >= priceRange[0] && displayPrice <= priceRange[1];
       const matchesCondition =
         selectedConditions.length === 0 ||
         selectedConditions.includes(product.condition_level_id);
@@ -326,10 +332,10 @@ const ProductsPage: React.FC = () => {
     });
 
     if (sortValue === 'price-asc') {
-      results = [...results].sort((a, b) => a.price - b.price);
+      results = [...results].sort((a, b) => (displayPrices[a.id] ?? 0) - (displayPrices[b.id] ?? 0));
     }
     if (sortValue === 'price-desc') {
-      results = [...results].sort((a, b) => b.price - a.price);
+      results = [...results].sort((a, b) => (displayPrices[b.id] ?? 0) - (displayPrices[a.id] ?? 0));
     }
     if (sortValue === 'newest') {
       results = [...results].sort(
@@ -338,7 +344,7 @@ const ProductsPage: React.FC = () => {
     }
 
     return results;
-  }, [priceRange, products, search, selectedCategories, selectedConditions, selectedTags, sortValue]);
+  }, [displayPrices, priceRange, products, search, selectedCategories, selectedConditions, selectedTags, sortValue]);
 
   useEffect(() => {
     setPage(1);
@@ -399,8 +405,8 @@ const ProductsPage: React.FC = () => {
                   onValueChange={(value) => setPriceRange(value as [number, number])}
                 />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="price-text">{formatPrice(priceRange[0], activeCurrency)}</span>
-                  <span className="price-text">{formatPrice(priceRange[1], activeCurrency)}</span>
+                  <span className="price-text">{formatPrice(priceRange[0], selectedCurrency)}</span>
+                  <span className="price-text">{formatPrice(priceRange[1], selectedCurrency)}</span>
                 </div>
               </div>
               <div className="space-y-3">

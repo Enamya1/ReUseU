@@ -5,9 +5,10 @@ import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { formatPrice, formatRelativeTime } from '@/lib/mockData';
+import { formatRelativeTime } from '@/lib/mockData';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import ProductGrid from '@/components/products/ProductGrid';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,7 @@ const ProductDetailPage: React.FC = () => {
   const { t } = useTranslation();
   const { isAuthenticated, getProductDetail, getSimilarProducts } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { formatSelectedCurrencyParts } = useCurrency();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -417,6 +419,7 @@ const ProductDetailPage: React.FC = () => {
   }
 
   const favorite = isFavorite(product.id);
+  const displayPrice = formatSelectedCurrencyParts(product.price, product.currency);
 
   const handleFavorite = () => {
     if (!isAuthenticated) {
@@ -586,8 +589,9 @@ const ProductDetailPage: React.FC = () => {
                     </Badge>
                   )}
                 </div>
-                <h1 className="price-text text-3xl font-display font-bold text-foreground">
-                  {formatPrice(product.price, product.currency)}
+                <h1 className="price-text inline-flex items-baseline gap-2 text-3xl font-display font-bold text-foreground">
+                  <span>{displayPrice.amount}</span>
+                  <span className="text-[0.48em] font-semibold leading-none">{displayPrice.currency}</span>
                 </h1>
               </div>
               <div className="flex gap-2">
