@@ -65,6 +65,13 @@ const MyListingsPage: React.FC = () => {
           const categoryId = card.category?.id ?? 0;
           const conditionLevelId = card.condition_level?.id ?? 0;
           const thumbnailUrl = card.image_thumbnail_url || undefined;
+          const rawPrice = (card as { price?: number | string }).price;
+          const parsedPrice =
+            typeof rawPrice === 'number'
+              ? rawPrice
+              : typeof rawPrice === 'string'
+                ? Number(rawPrice)
+                : 0;
 
           return {
             id: card.id,
@@ -99,7 +106,7 @@ const MyListingsPage: React.FC = () => {
               : undefined,
             title: card.title,
             description: undefined,
-            price: card.price,
+            price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
             currency: typeof card.currency === 'string' ? card.currency : undefined,
             status: card.status,
             is_promoted: false,

@@ -44,7 +44,11 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
-  const showCurrencySelector = location.pathname === '/products' || location.pathname.startsWith('/product/');
+  const showCurrencySelector =
+    location.pathname === '/products' ||
+    location.pathname.startsWith('/product/') ||
+    location.pathname === '/favorites' ||
+    location.pathname.startsWith('/my-listings');
   const primaryNavItems = [
     { to: '/', label: t('nav.home') },
     { to: '/nearby', label: t('nav.nearBy') },
