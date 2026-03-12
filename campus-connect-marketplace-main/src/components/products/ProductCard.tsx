@@ -63,10 +63,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
         <button
           onClick={handleFavoriteClick}
           className={cn(
-            "absolute top-3 right-3 p-2 rounded-full backdrop-blur-sm transition-all duration-200",
+            "absolute top-3 right-3 p-2.5 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100",
             favorite
-              ? "bg-primary text-primary-foreground"
-              : "bg-card/80 text-foreground hover:bg-card"
+              ? "bg-white text-black shadow-lg hover:shadow-xl border-2 border-white/20"
+              : "bg-transparent text-white border-2 border-white/60 hover:bg-white/10 hover:border-white/80"
           )}
           aria-label={favorite ? t('productCard.favoriteRemove') : t('productCard.favoriteAdd')}
         >

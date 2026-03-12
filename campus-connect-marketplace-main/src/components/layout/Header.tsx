@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import CurrencySelector from '@/components/currency/CurrencySelector';
+import SearchInputEnhanced from '@/components/ui/search-input-enhanced';
+import { SearchSuggestion } from '@/components/ui/search-suggestions';
 
 type HeaderProps = {
   className?: string;
@@ -36,11 +38,16 @@ type MessageNotificationItem = {
 };
 
 const Header: React.FC<HeaderProps> = ({ className }) => {
-  const { user, isAuthenticated, logout, getMessageNotifications } = useAuth();
+  const { user, isAuthenticated, logout, getMessageNotifications, getProductSearchSuggestions } = useAuth();
   const { favorites } = useFavorites();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<MessageNotificationItem[]>([]);
   const [unreadTotal, setUnreadTotal] = useState(0);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
+  const [isLoadingSearchSuggestions, setIsLoadingSearchSuggestions] = useState(false);
+  const searchRequestSequenceRef = useRef(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
@@ -55,7 +62,6 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
     { to: '/ai', label: t('nav.ai') },
     { to: '/my-listings', label: t('nav.myListings') },
     { to: '/messages', label: t('nav.messages') },
-    { to: '/profile', label: t('nav.profile') },
   ];
   const moreNavItems = [
     { to: '/favorites', label: t('nav.favorites') },
@@ -87,6 +93,85 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
     };
   }, [getMessageNotifications, isAuthenticated]);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'user') {
+      setSearchSuggestions([]);
+      setIsLoadingSearchSuggestions(false);
+      return;
+    }
+
+    const normalizedQuery = searchQuery.trim();
+    if (!normalizedQuery) {
+      setSearchSuggestions([]);
+      setIsLoadingSearchSuggestions(false);
+      return;
+    }
+
+    const requestId = searchRequestSequenceRef.current + 1;
+    searchRequestSequenceRef.current = requestId;
+    setIsLoadingSearchSuggestions(true);
+
+    const timerId = window.setTimeout(async () => {
+      try {
+        const response = await getProductSearchSuggestions({
+          q: normalizedQuery,
+          suggestions_limit: 8,
+        });
+        if (searchRequestSequenceRef.current !== requestId) return;
+        const mappedSuggestions = (response.suggestions ?? []).map((suggestion, index) => ({
+          id: `${suggestion}-${index}`,
+          title: suggestion,
+        }));
+        setSearchSuggestions(mappedSuggestions);
+      } catch {
+        if (searchRequestSequenceRef.current !== requestId) return;
+        setSearchSuggestions([]);
+      } finally {
+        if (searchRequestSequenceRef.current === requestId) {
+          setIsLoadingSearchSuggestions(false);
+        }
+      }
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [getProductSearchSuggestions, isAuthenticated, searchQuery, user?.role]);
+
+  const handleSearchInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
+    setSearchQuery(suggestion.title);
+    navigate(`/search?q=${encodeURIComponent(suggestion.title)}`);
+    setMobileMenuOpen(false);
+  };
+
+  const handleSearchSubmit = (query: string) => {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) return;
+    setSearchQuery(normalizedQuery);
+    navigate(`/search?q=${encodeURIComponent(normalizedQuery)}`);
+    setMobileMenuOpen(false);
+  };
+
+  const handleImageSearchUpload = (file: File) => {
+    navigate('/search?mode=visual', {
+      state: { visualFile: file },
+    });
+    setMobileMenuOpen(false);
+  };
+
   const unreadCount = useMemo(
     () => (unreadTotal > 0 ? unreadTotal : notifications.length),
     [notifications.length, unreadTotal],
@@ -110,57 +195,71 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   };
 
   return (
-    <header className={cn("sticky top-0 z-50 w-full bg-transparent mix-blend-difference", className)}>
+    <header className={cn("sticky top-0 z-50 w-full transition-all duration-300", isScrolled ? "bg-background/95 backdrop-blur-sm" : "bg-transparent mix-blend-difference", className)}>
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-4 sm:px-6 sm:py-6">
-        <Link to="/" className="flex items-center gap-3 landing-cursor-hover shrink-0 mr-6 xl:mr-10">
-          <div className="h-11 w-11 rounded-full border border-white flex items-center justify-center">
-            <img
-              src="/logo_enhanced.png"
-              alt="Suki"
-              className="h-8 w-8 object-contain"
-            />
-          </div>
-          <span className="text-xs font-medium tracking-[0.3em] uppercase text-white hidden sm:block">
-            Suki
-          </span>
-        </Link>
+        {/* Left section - Logo and main navigation */}
+        <div className="flex items-center gap-8">
+          <Link to="/" className="flex items-center gap-3 landing-cursor-hover shrink-0">
+            <div className="h-11 w-11 rounded-full border border-white flex items-center justify-center">
+              <img
+                src="/logo_enhanced.png"
+                alt="Suki"
+                className="h-8 w-8 object-contain"
+              />
+            </div>
+            <span className="text-xs font-medium tracking-[0.3em] uppercase text-white hidden sm:block">
+              Suki
+            </span>
+          </Link>
 
-        <nav className="hidden lg:flex items-center gap-8 text-[11px] tracking-[0.3em] uppercase">
-          {primaryNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className="relative text-white/90 hover:text-white transition-colors whitespace-nowrap pb-1 after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-0 after:h-[1px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full"
-              activeClassName="text-white"
-            >
-              {item.label}
-            </NavLink>
-          ))}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="relative inline-flex items-center gap-1 text-white/90 hover:text-white transition-colors whitespace-nowrap pb-1 after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-0 after:h-[1px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full"
+          <nav className="hidden lg:flex items-center gap-8 text-[11px] tracking-[0.3em] uppercase">
+            {primaryNavItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className="relative text-white/90 hover:text-white transition-colors whitespace-nowrap pb-1 after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-0 after:h-[1px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full"
+                activeClassName="text-white"
               >
-                <span>{t('header.more')}</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              {moreNavItems.map((item) => (
-                <DropdownMenuItem key={item.to} asChild>
-                  <Link to={item.to} className="cursor-pointer">
-                    {item.label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </nav>
+                {item.label}
+              </NavLink>
+            ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="relative inline-flex items-center gap-1 text-white/90 hover:text-white transition-colors whitespace-nowrap pb-1 after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-0 after:h-[1px] after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full"
+                >
+                  <span>{t('header.more')}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                {moreNavItems.map((item) => (
+                  <DropdownMenuItem key={item.to} asChild>
+                    <Link to={item.to} className="cursor-pointer">
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </nav>
+        </div>
 
-        <nav className="hidden lg:flex items-center gap-2">
+        {/* Right section - Icons */}
+        <nav className="hidden lg:flex items-center gap-2 ml-auto">
           {isAuthenticated ? (
             <>
+              {showCurrencySelector ? <CurrencySelector /> : null}
+              <SearchInputEnhanced
+                className="text-white"
+                suggestions={searchSuggestions}
+                isLoadingSuggestions={isLoadingSearchSuggestions}
+                onSuggestionClick={handleSuggestionClick}
+                onSearchSubmit={handleSearchSubmit}
+                onChange={handleSearchInputChange}
+                onImageUpload={handleImageSearchUpload}
+              />
               <Button
                 variant="ghost"
                 size="sm"
@@ -267,7 +366,6 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              {showCurrencySelector ? <CurrencySelector /> : null}
             </>
           ) : (
             <>
@@ -350,7 +448,16 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                     <p className="text-xs text-muted-foreground">@{user?.username}</p>
                   </div>
                 </div>
-                {showCurrencySelector ? <CurrencySelector /> : null}
+
+                <SearchInputEnhanced
+                  className="w-full"
+                  suggestions={searchSuggestions}
+                  isLoadingSuggestions={isLoadingSearchSuggestions}
+                  onSuggestionClick={handleSuggestionClick}
+                  onSearchSubmit={handleSearchSubmit}
+                  onChange={handleSearchInputChange}
+                  onImageUpload={handleImageSearchUpload}
+                />
 
                 <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -452,17 +559,24 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                 </div>
               </div>
             ) : (
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" asChild>
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                    {t('common.login')}
-                  </Link>
-                </Button>
-                <Button variant="default" className="flex-1" asChild>
-                  <Link to="/signup" onClick={() => setMobileMenuOpen(false)}>
-                    {t('common.signup')}
-                  </Link>
-                </Button>
+              <div className="space-y-2">
+                <SearchInputEnhanced
+                  className="w-full"
+                  onSearchSubmit={handleSearchSubmit}
+                  onImageUpload={handleImageSearchUpload}
+                />
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" asChild>
+                    <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                      {t('common.login')}
+                    </Link>
+                  </Button>
+                  <Button variant="default" className="flex-1" asChild>
+                    <Link to="/signup" onClick={() => setMobileMenuOpen(false)}>
+                      {t('common.signup')}
+                    </Link>
+                  </Button>
+                </div>
               </div>
             )}
           </div>

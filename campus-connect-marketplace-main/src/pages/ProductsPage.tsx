@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import ProductGrid from '@/components/products/ProductGrid';
+import ProductList from '@/components/products/ProductList';
 import { formatPrice, type Product } from '@/lib/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -64,6 +65,11 @@ type RecommendationProduct = {
   created_at?: string;
   is_promoted?: number | boolean | null;
   seller_id?: number;
+  seller?: {
+    id: number;
+    username: string;
+    profile_picture?: string;
+  };
   dormitory_id?: number | null;
   dormitory?: {
     latitude?: number;
@@ -95,6 +101,7 @@ const ProductsPage: React.FC = () => {
   const [sortValue, setSortValue] = useState('default');
   const [page, setPage] = useState(1);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const isImageLike = (value?: string | null) => {
     if (!value) return false;
     const trimmed = value.trim();
@@ -189,8 +196,8 @@ const ProductsPage: React.FC = () => {
           lookback_days: 30,
         });
         if (cancelled) return;
-        const mapped = (data.products || []).map((item, index) => {
-          const product = item as RecommendationProduct;
+        const mapped = (data.products as RecommendationProduct[] || []).map((item, index) => {
+          const product = item;
           const productId = typeof product.id === 'number' ? product.id : index + 1;
           const images: Product['images'] = [];
           if (product.image_thumbnail_url) {
@@ -235,6 +242,15 @@ const ProductsPage: React.FC = () => {
           return {
             id: productId,
             seller_id: product.seller_id ?? 0,
+            seller: product.seller ? {
+              id: product.seller.id,
+              full_name: product.seller.username,
+              username: product.seller.username,
+              email: '',
+              profile_picture: product.seller.profile_picture,
+              role: 'user',
+              status: 'active'
+            } : undefined,
             dormitory_id: product.dormitory_id ?? 0,
             dormitory,
             category_id: product.category_id ?? 0,
@@ -546,10 +562,18 @@ const ProductsPage: React.FC = () => {
                     </SelectContent>
                   </Select>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon">
+                    <Button 
+                      variant={viewMode === 'card' ? 'default' : 'outline'} 
+                      size="icon"
+                      onClick={() => setViewMode('card')}
+                    >
                       <LayoutGrid className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon">
+                    <Button 
+                      variant={viewMode === 'list' ? 'default' : 'outline'} 
+                      size="icon"
+                      onClick={() => setViewMode('list')}
+                    >
                       <List className="h-4 w-4" />
                     </Button>
                   </div>
@@ -564,11 +588,18 @@ const ProductsPage: React.FC = () => {
               </div>
             </div>
 
-            <ProductGrid
-              products={pagedProducts as Product[]}
-              className="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4"
-              emptyMessage="No products match these filters."
-            />
+            {viewMode === 'card' ? (
+              <ProductGrid
+                products={pagedProducts as Product[]}
+                className="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4"
+                emptyMessage="No products match these filters."
+              />
+            ) : (
+              <ProductList
+                products={pagedProducts as Product[]}
+                emptyMessage="No products match these filters."
+              />
+            )}
 
             {totalPages > 1 ? (
               <Pagination>

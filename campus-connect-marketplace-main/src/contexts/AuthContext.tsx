@@ -45,6 +45,19 @@ interface AuthContextType {
   getMessageContacts: (params?: { limit?: number }) => Promise<MessageContactsResponseBody>;
   getMessages: (params: { conversation_id: number; limit?: number; before_id?: number }) => Promise<MessageThreadResponseBody>;
   getMessageNotifications: (params?: { limit?: number }) => Promise<MessageNotificationsResponseBody>;
+  getProductSearchSuggestions: (params: {
+    q: string;
+    suggestions_limit?: number;
+  }) => Promise<ProductSearchSuggestionsResponseBody>;
+  searchProducts: (params: {
+    q: string;
+    page?: number;
+    page_size?: number;
+  }) => Promise<SearchProductsResponseBody>;
+  searchVisualProducts: (params: {
+    image: File;
+    top_k?: number;
+  }) => Promise<SearchVisualProductsResponseBody>;
   getProductForEdit: (productId: number) => Promise<GetProductForEditResponseBody>;
   updateProduct: (productId: number, data: UpdateProductInput) => Promise<UpdateProductResponseBody>;
   markProductSold: (productId: number) => Promise<MarkProductSoldResponseBody>;
@@ -163,6 +176,11 @@ type RecommendationProduct = {
   status?: "available" | "sold" | "reserved";
   created_at?: string;
   seller_id?: number;
+  seller?: {
+    id: number;
+    username: string;
+    profile_picture?: string;
+  };
   dormitory_id?: number | null;
   dormitory?: DormitoryOption;
   category_id?: number;
@@ -468,6 +486,141 @@ type MessageNotificationsResponseBody = {
   message?: string;
   total?: number;
   messages?: MessageNotificationItem[];
+  errors?: Record<string, string[]>;
+};
+
+type ProductSearchSuggestionsResponseBody = {
+  message?: string;
+  query?: {
+    q?: string;
+    normalized?: string;
+  };
+  suggestions?: string[];
+  errors?: Record<string, string[]>;
+};
+
+type SearchProductItem = {
+  id?: number;
+  seller?: {
+    id?: number;
+    full_name?: string;
+    username?: string;
+    profile_picture?: string;
+  };
+  dormitory?: {
+    id?: number;
+    dormitory_name?: string;
+    location?: string;
+    lat?: number;
+    lng?: number;
+    is_active?: boolean;
+    university_id?: number;
+  };
+  category?: {
+    id?: number;
+    name?: string;
+    parent_id?: number | null;
+    icon?: string | null;
+  };
+  condition_level?: {
+    id?: number;
+    name?: string;
+    sort_order?: number | null;
+  };
+  title?: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  status?: "available" | "sold" | "reserved";
+  is_promoted?: boolean | number | null;
+  created_at?: string;
+  images?: Array<{
+    id?: number;
+    product_id?: number;
+    image_url?: string;
+    image_thumbnail_url?: string;
+    is_primary?: boolean;
+  }>;
+  tags?: Array<{ id?: number; name?: string }>;
+};
+
+type SearchProductsResponseBody = {
+  message?: string;
+  query?: {
+    q?: string;
+    normalized?: string;
+  };
+  page?: number;
+  page_size?: number;
+  total?: number;
+  total_pages?: number;
+  products?: SearchProductItem[];
+  errors?: Record<string, string[]>;
+};
+
+type SearchVisualProductItem = {
+  id?: number;
+  seller_id?: number;
+  category_id?: number;
+  condition_level_id?: number;
+  title?: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  status?: "available" | "sold" | "reserved";
+  is_promoted?: boolean | number | null;
+  created_at?: string;
+  seller?: {
+    id?: number;
+    full_name?: string;
+    username?: string;
+    profile_picture?: string;
+  };
+  dormitory?: {
+    id?: number;
+    dormitory_name?: string;
+    location?: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
+    is_active?: boolean;
+    university_id?: number;
+  };
+  category?: {
+    id?: number;
+    name?: string;
+    parent_id?: number | null;
+    icon?: string | null;
+  };
+  condition_level?: {
+    id?: number;
+    name?: string;
+    sort_order?: number | null;
+    level?: number | null;
+  };
+  image_thumbnail_url?: string;
+  images?: Array<{
+    id?: number;
+    product_id?: number;
+    image_url?: string;
+    image_thumbnail_url?: string;
+    is_primary?: boolean;
+  }>;
+  tags?: Array<{ id?: number; name?: string }>;
+  visual_similarity_score?: number;
+};
+
+type SearchVisualProductsResponseBody = {
+  message?: string;
+  query?: {
+    top_k?: number;
+    model_name?: string;
+    embedding_dim?: number;
+  };
+  count?: number;
+  products?: SearchVisualProductItem[];
+  detail?: unknown;
+  upstream_status?: number;
   errors?: Record<string, string[]>;
 };
 
@@ -1253,6 +1406,219 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user],
   );
 
+  const getProductSearchSuggestions = useCallback(
+    async (params: { q: string; suggestions_limit?: number }): Promise<ProductSearchSuggestionsResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as ProductSearchSuggestionsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as ProductSearchSuggestionsResponseBody;
+      }
+
+      const query = params?.q?.trim() ?? "";
+      if (!query) {
+        throw {
+          message: "Validation Error",
+          errors: { q: ["The q field is required."] },
+        } as ProductSearchSuggestionsResponseBody;
+      }
+
+      if (query.length > 255) {
+        throw {
+          message: "Validation Error",
+          errors: { q: ["The q field must not be greater than 255 characters."] },
+        } as ProductSearchSuggestionsResponseBody;
+      }
+
+      const url = new URL(apiUrl("/api/user/search/products/suggestions"));
+      url.searchParams.set("q", query);
+      if (typeof params?.suggestions_limit === "number" && Number.isFinite(params.suggestions_limit)) {
+        url.searchParams.set("suggestions_limit", String(params.suggestions_limit));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as ProductSearchSuggestionsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as ProductSearchSuggestionsResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as ProductSearchSuggestionsResponseBody;
+      }
+      if (response.status === 422) {
+        throw { message: "Validation Error" } as ProductSearchSuggestionsResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const searchProducts = useCallback(
+    async (params: { q: string; page?: number; page_size?: number }): Promise<SearchProductsResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as SearchProductsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as SearchProductsResponseBody;
+      }
+
+      const query = params?.q?.trim() ?? "";
+      if (!query) {
+        throw {
+          message: "Validation Error",
+          errors: { q: ["The q field is required."] },
+        } as SearchProductsResponseBody;
+      }
+      if (query.length > 255) {
+        throw {
+          message: "Validation Error",
+          errors: { q: ["The q field must not be greater than 255 characters."] },
+        } as SearchProductsResponseBody;
+      }
+
+      const url = new URL(apiUrl("/api/user/search/products"));
+      url.searchParams.set("q", query);
+      if (typeof params?.page === "number" && Number.isFinite(params.page)) {
+        url.searchParams.set("page", String(params.page));
+      }
+      if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
+        url.searchParams.set("page_size", String(params.page_size));
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as SearchProductsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as SearchProductsResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as SearchProductsResponseBody;
+      }
+      if (response.status === 422) {
+        throw { message: "Validation Error" } as SearchProductsResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const searchVisualProducts = useCallback(
+    async (params: { image: File; top_k?: number }): Promise<SearchVisualProductsResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as SearchVisualProductsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as SearchVisualProductsResponseBody;
+      }
+
+      const image = params?.image;
+      if (!(image instanceof File)) {
+        throw {
+          message: "Validation Error",
+          errors: { image: ["The image field is required."] },
+        } as SearchVisualProductsResponseBody;
+      }
+
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+      if (!allowedTypes.includes(image.type)) {
+        throw {
+          message: "Validation Error",
+          errors: { image: ["The image must be a file of type: jpg, jpeg, png, webp."] },
+        } as SearchVisualProductsResponseBody;
+      }
+
+      const maxBytes = 8 * 1024 * 1024;
+      if (image.size > maxBytes) {
+        throw {
+          message: "Validation Error",
+          errors: { image: ["The image must not be greater than 8192 kilobytes."] },
+        } as SearchVisualProductsResponseBody;
+      }
+
+      const topK = params?.top_k;
+      if (typeof topK === "number" && (!Number.isFinite(topK) || topK < 1 || topK > 50)) {
+        throw {
+          message: "Validation Error",
+          errors: { top_k: ["The top k field must be between 1 and 50."] },
+        } as SearchVisualProductsResponseBody;
+      }
+
+      const formData = new FormData();
+      formData.append("image", image);
+      if (typeof topK === "number" && Number.isFinite(topK)) {
+        formData.append("top_k", String(topK));
+      }
+
+      const response = await fetch(apiUrl("/api/user/search/visual"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as SearchVisualProductsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 502) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as SearchVisualProductsResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as SearchVisualProductsResponseBody;
+      }
+      if (response.status === 422) {
+        throw { message: "Validation Error" } as SearchVisualProductsResponseBody;
+      }
+      if (response.status === 502) {
+        throw { message: "AI visual search service unavailable." } as SearchVisualProductsResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
   const getMetaOptions = useCallback(async (): Promise<MetaOptionsResponseBody> => {
     if (!accessToken) {
       throw { message: "Unauthenticated." } as MetaOptionsResponseBody;
@@ -1824,6 +2190,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getMessageContacts,
         getMessages,
         getMessageNotifications,
+        getProductSearchSuggestions,
+        searchProducts,
+        searchVisualProducts,
         getProductForEdit,
         updateProduct,
         markProductSold,

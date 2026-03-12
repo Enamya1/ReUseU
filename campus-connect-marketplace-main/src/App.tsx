@@ -22,6 +22,7 @@ import NearbyPage from "./pages/NearbyPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import SellerProfilePage from "./pages/SellerProfilePage";
 import MessagesPage from "./pages/MessagesPage";
+import SearchResultsPage from "./pages/SearchResultsPage";
 import NotFound from "./pages/NotFound";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -80,6 +81,7 @@ const App = () => (
                   <Route path="/create-listing" element={<CreateListingPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/messages" element={<MessagesPage />} />
+                  <Route path="/search" element={<SearchResultsPage />} />
 
                   {/* Catch-all */}
                   <Route path="*" element={<NotFound />} />
