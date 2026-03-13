@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Package } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Package, Plus, Upload, X } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -49,8 +50,10 @@ const MyListingDetailPage: React.FC = () => {
     getMetaOptions,
     getDormitoriesByUniversity,
     getProductForEdit,
+    getProductEngagement,
     updateProduct,
     markProductSold,
+    updateProductImages,
   } = useAuth();
   const [product, setProduct] = useState<EditableProduct | null>(null);
   const [formData, setFormData] = useState({
@@ -71,6 +74,17 @@ const MyListingDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isMarkingSold, setIsMarkingSold] = useState(false);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [imageUploadFiles, setImageUploadFiles] = useState<File[]>([]);
+  const [imageUploadPreviews, setImageUploadPreviews] = useState<string[]>([]);
+  const [imageUploadPrimaryIndex, setImageUploadPrimaryIndex] = useState(0);
+  const [imageUploadErrors, setImageUploadErrors] = useState<string[]>([]);
+  const [engagementStats, setEngagementStats] = useState<{ views: number; clicks: number; recentVisitors: string[] }>({
+    views: 0,
+    clicks: 0,
+    recentVisitors: [],
+  });
   const [errorState, setErrorState] = useState<'not_found' | 'error' | null>(null);
 
   const productId = useMemo(() => {
@@ -89,6 +103,7 @@ const MyListingDetailPage: React.FC = () => {
     setIsLoading(true);
     setErrorState(null);
     setFieldErrors({});
+    setEngagementStats({ views: 0, clicks: 0, recentVisitors: [] });
 
     const run = async () => {
       try {
@@ -121,6 +136,24 @@ const MyListingDetailPage: React.FC = () => {
           dormitory_id: detail.product.dormitory_id ? String(detail.product.dormitory_id) : '',
           tags: detail.product.tag_ids || detail.product.tags?.map(tag => tag.id) || [],
         });
+
+        try {
+          const engagement = await getProductEngagement(productId);
+          if (cancelled) return;
+          const recentVisitors = (engagement.recent_clickers || [])
+            .map((clicker) => clicker.profile_picture)
+            .filter((profilePicture): profilePicture is string => typeof profilePicture === 'string' && profilePicture.length > 0)
+            .slice(0, 6);
+          setEngagementStats({
+            views: typeof engagement.views === 'number' ? engagement.views : 0,
+            clicks: typeof engagement.clicks === 'number' ? engagement.clicks : 0,
+            recentVisitors,
+          });
+        } catch {
+          if (!cancelled) {
+            setEngagementStats({ views: 0, clicks: 0, recentVisitors: [] });
+          }
+        }
       } catch (error) {
         if (cancelled) return;
         const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
@@ -144,7 +177,27 @@ const MyListingDetailPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [getDormitoriesByUniversity, getMetaOptions, getProductForEdit, isAuthenticated, productId, t, user]);
+  }, [getDormitoriesByUniversity, getMetaOptions, getProductEngagement, getProductForEdit, isAuthenticated, productId, t, user]);
+
+  useEffect(() => {
+    if (isImageDialogOpen) return;
+    if (!imageUploadPreviews.length) return;
+    imageUploadPreviews.forEach((url) => {
+      if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+    });
+    setImageUploadPreviews([]);
+    setImageUploadFiles([]);
+    setImageUploadPrimaryIndex(0);
+    setImageUploadErrors([]);
+  }, [imageUploadPreviews, isImageDialogOpen]);
+
+  useEffect(() => {
+    return () => {
+      imageUploadPreviews.forEach((url) => {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+      });
+    };
+  }, [imageUploadPreviews]);
 
   const updateField = (key: keyof typeof formData, value: string | number[]) => {
     setFormData(prev => ({ ...prev, [key]: value }));
@@ -198,7 +251,7 @@ const MyListingDetailPage: React.FC = () => {
         category_id: Number(formData.category_id),
         condition_level_id: Number(formData.condition_level_id),
         dormitory_id: formData.dormitory_id ? Number(formData.dormitory_id) : null,
-        tag_ids: formData.tags.length ? formData.tags : null,
+        tag_ids: formData.tags.length ? formData.tags : undefined,
       };
 
       const result = await updateProduct(product.id, payload);
@@ -248,6 +301,79 @@ const MyListingDetailPage: React.FC = () => {
       });
     } finally {
       setIsMarkingSold(false);
+    }
+  };
+
+  const handleImageInputChange = (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    const selected = Array.from(fileList);
+    const remaining = Math.max(0, 6 - imageUploadFiles.length);
+    const nextFiles = selected.slice(0, remaining);
+    if (!nextFiles.length) {
+      setImageUploadErrors(['Maximum 6 images are allowed.']);
+      return;
+    }
+
+    setImageUploadFiles((prev) => [...prev, ...nextFiles]);
+    setImageUploadPreviews((prev) => [...prev, ...nextFiles.map((file) => URL.createObjectURL(file))]);
+    setImageUploadErrors([]);
+  };
+
+  const handleRemoveUploadImage = (index: number) => {
+    setImageUploadFiles((prev) => prev.filter((_, idx) => idx !== index));
+    setImageUploadPreviews((prev) => {
+      const next = prev.filter((_, idx) => idx !== index);
+      const removed = prev[index];
+      if (removed?.startsWith('blob:')) URL.revokeObjectURL(removed);
+      return next;
+    });
+    setImageUploadPrimaryIndex((prev) => {
+      if (index === prev) return 0;
+      if (index < prev) return prev - 1;
+      return prev;
+    });
+  };
+
+  const handleUploadImages = async () => {
+    if (!product) return;
+    if (!imageUploadFiles.length) {
+      setImageUploadErrors(['Please select at least one image.']);
+      return;
+    }
+
+    setIsUploadingImages(true);
+    setImageUploadErrors([]);
+    try {
+      const uploadResult = await updateProductImages(product.id, {
+        images: imageUploadFiles,
+        primary_image_index: imageUploadPrimaryIndex,
+      });
+
+      const refreshResult = await getProductForEdit(product.id);
+      if (refreshResult.product) {
+        setProduct(refreshResult.product as EditableProduct);
+      } else if (uploadResult.images?.length) {
+        setProduct((prev) => (prev ? { ...prev, images: uploadResult.images } : prev));
+      }
+      setCurrentImageIndex(0);
+      setIsImageDialogOpen(false);
+      toast({
+        title: t('listingDetail.imagesUpdatedTitle'),
+        description: uploadResult.message || t('listingDetail.imagesUpdatedDesc'),
+      });
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      const nextErrors = maybe?.errors
+        ? Object.values(maybe.errors).flatMap((messages) => messages)
+        : [];
+      setImageUploadErrors(nextErrors);
+      toast({
+        title: t('listingDetail.errorTitle'),
+        description: maybe?.message || t('listingDetail.imagesUpdateErrorDesc'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingImages(false);
     }
   };
 
@@ -367,6 +493,13 @@ const MyListingDetailPage: React.FC = () => {
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-6">
             <div className="rounded-2xl border border-border overflow-hidden bg-card">
+              <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                <p className="text-sm font-medium text-foreground">{t('listingDetail.imagesSectionTitle')}</p>
+                <Button type="button" size="sm" variant="outline" onClick={() => setIsImageDialogOpen(true)}>
+                  <Upload className="h-4 w-4" />
+                  {t('listingDetail.updateImages')}
+                </Button>
+              </div>
               <div className="relative aspect-square bg-muted">
                 {primaryImage ? (
                   <img
@@ -415,6 +548,34 @@ const MyListingDetailPage: React.FC = () => {
                     <p className="text-sm font-medium">{formatRelativeTime(product.created_at)}</p>
                   </div>
                 ) : null}
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl border border-border bg-muted/20 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">{t('listingDetail.viewsLabel')}</p>
+                  <p className="text-base font-semibold text-foreground">{engagementStats.views}</p>
+                </div>
+                <div className="rounded-xl border border-border bg-muted/20 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">{t('listingDetail.clicksLabel')}</p>
+                  <p className="text-base font-semibold text-foreground">{engagementStats.clicks}</p>
+                </div>
+                <div className="rounded-xl border border-border bg-muted/20 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">{t('listingDetail.lastVisitLabel')}</p>
+                  {engagementStats.recentVisitors.length > 0 ? (
+                    <div className="mt-1 flex items-center -space-x-2">
+                      {engagementStats.recentVisitors.map((avatarUrl, index) => (
+                        <img
+                          key={`${avatarUrl}-${index}`}
+                          src={normalizeImageUrl(avatarUrl)}
+                          alt={t('listingDetail.lastVisitAvatarAlt', { index: index + 1 })}
+                          className="h-8 w-8 rounded-full border-2 border-background object-cover bg-muted"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-foreground">{t('listingDetail.lastVisitEmpty')}</p>
+                  )}
+                </div>
               </div>
 
               {product.description ? (
@@ -590,6 +751,98 @@ const MyListingDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+      <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('listingDetail.updateImages')}</DialogTitle>
+            <DialogDescription>{t('listingDetail.updateImagesHint')}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="listing_images_upload">{t('createListing.uploadLabel')}</Label>
+              <Input
+                id="listing_images_upload"
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                multiple
+                onChange={(event) => {
+                  handleImageInputChange(event.target.files);
+                  event.currentTarget.value = '';
+                }}
+                disabled={isUploadingImages || imageUploadFiles.length >= 6}
+              />
+              <p className="text-xs text-muted-foreground">{t('listingDetail.imageUploadLimitHint')}</p>
+            </div>
+
+            {imageUploadPreviews.length ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {imageUploadPreviews.map((previewUrl, index) => (
+                  <div
+                    key={previewUrl}
+                    className={cn(
+                      "relative aspect-square rounded-xl overflow-hidden border",
+                      imageUploadPrimaryIndex === index ? "border-primary" : "border-border",
+                    )}
+                  >
+                    <img
+                      src={previewUrl}
+                      alt={t('createListing.photoAlt', { index: index + 1 })}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-foreground/80 px-2 py-1 text-xs text-background">
+                      <button
+                        type="button"
+                        className="font-medium"
+                        onClick={() => setImageUploadPrimaryIndex(index)}
+                      >
+                        {imageUploadPrimaryIndex === index
+                          ? t('createListing.primary')
+                          : t('listingDetail.setPrimary')}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full p-1 hover:bg-background/20"
+                        onClick={() => handleRemoveUploadImage(index)}
+                        aria-label={t('listingDetail.removeImage')}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {imageUploadFiles.length < 6 ? (
+                  <label
+                    htmlFor="listing_images_upload"
+                    className="aspect-square cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:border-primary hover:text-primary flex items-center justify-center"
+                  >
+                    <Plus className="h-8 w-8" />
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
+
+            {imageUploadErrors.length ? (
+              <div className="space-y-1">
+                {imageUploadErrors.map((message, index) => (
+                  <p key={`${message}-${index}`} className="text-xs text-destructive">
+                    {message}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsImageDialogOpen(false)} disabled={isUploadingImages}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="button" onClick={handleUploadImages} disabled={isUploadingImages || !imageUploadFiles.length}>
+              {isUploadingImages ? t('listingDetail.uploadingImages') : t('listingDetail.saveImages')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };

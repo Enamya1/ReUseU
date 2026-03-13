@@ -59,8 +59,10 @@ interface AuthContextType {
     top_k?: number;
   }) => Promise<SearchVisualProductsResponseBody>;
   getProductForEdit: (productId: number) => Promise<GetProductForEditResponseBody>;
+  getProductEngagement: (productId: number) => Promise<ProductEngagementResponseBody>;
   updateProduct: (productId: number, data: UpdateProductInput) => Promise<UpdateProductResponseBody>;
   markProductSold: (productId: number) => Promise<MarkProductSoldResponseBody>;
+  updateProductImages: (productId: number, data: UpdateProductImagesInput) => Promise<UpdateProductImagesResponseBody>;
 }
 
 interface SignupData {
@@ -401,6 +403,7 @@ type CreateProductInput = {
   images?: File[] | null;
   thumbnail_images?: File[] | null;
   image_urls?: string[] | null;
+  image_thumbnail_urls?: string[] | null;
 };
 
 type CreateProductResponseBody = {
@@ -658,14 +661,30 @@ type GetProductForEditResponseBody = {
   errors?: Record<string, string[]>;
 };
 
+type ProductEngagementResponseBody = {
+  message?: string;
+  product_id?: number;
+  views?: number;
+  clicks?: number;
+  recent_clickers?: Array<{
+    id?: number;
+    profile_picture?: string | null;
+    last_visit_at?: string;
+    last_clicked_at?: string;
+    clicked_at?: string;
+    updated_at?: string;
+  }>;
+  errors?: Record<string, string[]>;
+};
+
 type UpdateProductInput = {
-  title: string;
+  title?: string;
   description?: string | null;
-  price: number;
-  category_id: number;
-  condition_level_id: number;
+  price?: number;
+  category_id?: number;
+  condition_level_id?: number;
   dormitory_id?: number | null;
-  tag_ids?: number[] | null;
+  tag_ids?: number[];
 };
 
 type UpdateProductResponseBody = {
@@ -677,6 +696,21 @@ type UpdateProductResponseBody = {
 type MarkProductSoldResponseBody = {
   message?: string;
   product?: { id: number; status: "sold" | "available" | "reserved" };
+  errors?: Record<string, string[]>;
+};
+
+type UpdateProductImagesInput = {
+  images?: File[] | null;
+  thumbnail_images?: File[] | null;
+  image_urls?: string[] | null;
+  image_thumbnail_urls?: string[] | null;
+  primary_image_index?: number | null;
+};
+
+type UpdateProductImagesResponseBody = {
+  message?: string;
+  product_id?: number;
+  images?: ProductImage[];
   errors?: Record<string, string[]>;
 };
 
@@ -1140,6 +1174,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               if (Array.isArray(data.image_urls)) {
                 data.image_urls.forEach((imageUrl) => form.append("image_urls[]", imageUrl));
               }
+              if (Array.isArray(data.image_thumbnail_urls)) {
+                data.image_thumbnail_urls.forEach((thumbnailUrl) => form.append("image_thumbnail_urls[]", thumbnailUrl));
+              }
               (data.images || []).forEach((file) => form.append("images[]", file));
               (data.thumbnail_images || []).forEach((file) => form.append("thumbnail_images[]", file));
               return form;
@@ -1156,6 +1193,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 primary_image_index:
                   typeof data.primary_image_index === "number" ? data.primary_image_index : undefined,
                 image_urls: Array.isArray(data.image_urls) ? data.image_urls : undefined,
+                image_thumbnail_urls: Array.isArray(data.image_thumbnail_urls) ? data.image_thumbnail_urls : undefined,
               }),
             ),
       });
@@ -2037,12 +2075,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const payload = removeUndefined({
         title: data.title,
-        description: data.description ?? null,
+        description: data.description,
         price: data.price,
         category_id: data.category_id,
         condition_level_id: data.condition_level_id,
-        dormitory_id: data.dormitory_id ?? null,
-        tag_ids: data.tag_ids ?? null,
+        dormitory_id: data.dormitory_id,
+        tag_ids: data.tag_ids,
       });
 
       const response = await fetch(apiUrl(`/api/user/products/${productId}`), {
@@ -2075,6 +2113,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       if (response.status === 404) {
         throw { message: "Product not found." } as UpdateProductResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const getProductEngagement = useCallback(
+    async (productId: number): Promise<ProductEngagementResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as ProductEngagementResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as ProductEngagementResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/user/products/${productId}/engagement`), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as ProductEngagementResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as ProductEngagementResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as ProductEngagementResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Product not found." } as ProductEngagementResponseBody;
       }
       return { message: "Request failed" };
     },
@@ -2118,6 +2199,80 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       if (response.status === 404) {
         throw { message: "Product not found." } as MarkProductSoldResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
+  const updateProductImages = useCallback(
+    async (productId: number, data: UpdateProductImagesInput): Promise<UpdateProductImagesResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as UpdateProductImagesResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as UpdateProductImagesResponseBody;
+      }
+
+      const hasFiles = (data.images?.length || 0) > 0 || (data.thumbnail_images?.length || 0) > 0;
+      const response = await fetch(apiUrl(`/api/user/products/${productId}/images`), {
+        method: "POST",
+        headers: hasFiles
+          ? {
+              Accept: "application/json",
+              Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+            }
+          : {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+            },
+        body: hasFiles
+          ? (() => {
+              const form = new FormData();
+              if (typeof data.primary_image_index === "number") {
+                form.set("primary_image_index", String(data.primary_image_index));
+              }
+              if (Array.isArray(data.image_urls)) {
+                data.image_urls.forEach((imageUrl) => form.append("image_urls[]", imageUrl));
+              }
+              if (Array.isArray(data.image_thumbnail_urls)) {
+                data.image_thumbnail_urls.forEach((thumbnailUrl) => form.append("image_thumbnail_urls[]", thumbnailUrl));
+              }
+              (data.images || []).forEach((file) => form.append("images[]", file));
+              (data.thumbnail_images || []).forEach((file) => form.append("thumbnail_images[]", file));
+              return form;
+            })()
+          : JSON.stringify(
+              removeUndefined({
+                primary_image_index:
+                  typeof data.primary_image_index === "number" ? data.primary_image_index : undefined,
+                image_urls: Array.isArray(data.image_urls) ? data.image_urls : undefined,
+                image_thumbnail_urls: Array.isArray(data.image_thumbnail_urls) ? data.image_thumbnail_urls : undefined,
+              }),
+            ),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as UpdateProductImagesResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as UpdateProductImagesResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: You can only modify your own products." } as UpdateProductImagesResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Product not found." } as UpdateProductImagesResponseBody;
       }
       return { message: "Request failed" };
     },
@@ -2194,8 +2349,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         searchProducts,
         searchVisualProducts,
         getProductForEdit,
+        getProductEngagement,
         updateProduct,
         markProductSold,
+        updateProductImages,
       }}
     >
       {children}

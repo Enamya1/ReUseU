@@ -196,7 +196,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
 
   return (
     <header className={cn("sticky top-0 z-50 w-full transition-all duration-300", isScrolled ? "bg-background/95 backdrop-blur-sm" : "bg-transparent mix-blend-difference", className)}>
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-4 sm:px-6 sm:py-6">
+      <div className="flex w-full items-center justify-between gap-5 px-4 py-4 sm:px-6 sm:py-6">
         {/* Left section - Logo and main navigation */}
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-3 landing-cursor-hover shrink-0">

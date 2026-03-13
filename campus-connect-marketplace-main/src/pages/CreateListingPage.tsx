@@ -406,6 +406,7 @@ const CreateListingPage: React.FC = () => {
         images: files.length ? files : null,
         thumbnail_images: thumbnailFile && files.length ? files : null,
         image_urls: urls.length ? urls : null,
+        image_thumbnail_urls: urls.length ? urls : null,
       });
 
       toast({
