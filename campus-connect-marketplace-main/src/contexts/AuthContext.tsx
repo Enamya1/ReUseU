@@ -5,6 +5,8 @@ import i18n from '@/i18n';
 
 interface AuthContextType {
   user: User | null;
+  accessToken: string | null;
+  tokenType: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<boolean>;
@@ -2322,7 +2324,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!accessToken,
+        accessToken,
+        tokenType,
+        isAuthenticated: !!user,
         isAdmin: user?.role === 'admin',
         login,
         adminLogin,

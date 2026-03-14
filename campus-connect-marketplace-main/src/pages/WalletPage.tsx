@@ -65,9 +65,12 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import CurrencySelector from '@/components/currency/CurrencySelector';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { apiUrl } from '@/lib/api';
 
 const WalletPage = () => {
-  const { user } = useAuth();
+  const { user, accessToken, tokenType } = useAuth();
   const { formatWithSelectedCurrency, selectedCurrency, setSelectedCurrency, convertPrice, currencies } = useCurrency();
   
   // Set default currency to CNY on load
@@ -95,6 +98,9 @@ const WalletPage = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newWalletName, setNewWalletName] = useState('');
   const [newWalletDescription, setNewWalletDescription] = useState('');
+  const [newWalletTypeId, setNewWalletTypeId] = useState<string>('1'); // Default to 1 (Default)
+  const [newWalletCurrency, setNewWalletCurrency] = useState('CNY');
+  const [newWalletInitialBalance, setNewWalletInitialBalance] = useState('0');
 
   const selectedWallet = useMemo(() => 
     wallets.find(w => w.id === selectedWalletId), 
@@ -119,34 +125,73 @@ const WalletPage = () => {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
   [statusHistory, selectedWalletId]);
 
-  const handleCreateWallet = () => {
+  const handleCreateWallet = async () => {
     if (!newWalletName.trim()) {
       toast.error('Please enter a wallet name');
       return;
     }
 
+    if (!accessToken) {
+      toast.error('Authentication session expired. Please log in again.');
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newWallet: WalletType = {
-        id: `W-${Math.floor(100000 + Math.random() * 900000)}`,
-        user_id: user?.id || 1,
-        balance: 0,
-        currency: 'CNY',
-        status: 'active',
-        created_at: new Date().toISOString(),
-        metadata: { 
-          type: newWalletName,
-          description: newWalletDescription
-        }
-      };
-      setWallets([...wallets, newWallet]);
+    try {
+      const response = await fetch(apiUrl('/api/wallets'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        },
+        body: JSON.stringify({
+          wallet_type_id: parseInt(newWalletTypeId),
+          name: newWalletName,
+          description: newWalletDescription,
+          currency: newWalletCurrency,
+          initial_balance: parseFloat(newWalletInitialBalance) || 0
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const newWallet: WalletType = {
+          id: data.wallet?.id?.toString() || `W-${Math.floor(100000 + Math.random() * 900000)}`,
+          user_id: user?.id || 1,
+          balance: parseFloat(newWalletInitialBalance) || 0,
+          currency: newWalletCurrency,
+          status: 'active',
+          created_at: new Date().toISOString(),
+          metadata: { 
+            type: newWalletName,
+            description: newWalletDescription
+          }
+        };
+        setWallets([...wallets, newWallet]);
+        toast.success(data.message || 'Wallet created successfully');
+        setIsCreateDialogOpen(false);
+        setNewWalletName('');
+        setNewWalletDescription('');
+        setNewWalletTypeId('1');
+        setNewWalletCurrency('CNY');
+        setNewWalletInitialBalance('0');
+      } else if (response.status === 409) {
+        toast.error(data.message || 'Wallet already exists.');
+      } else if (response.status === 422) {
+        const errors = data.errors;
+        const firstError = Object.values(errors)[0] as string[];
+        toast.error(firstError[0] || 'Validation Error');
+      } else {
+        toast.error(data.message || 'Failed to create wallet');
+      }
+    } catch (error) {
+      console.error('Error creating wallet:', error);
+      toast.error('An error occurred while creating the wallet');
+    } finally {
       setIsLoading(false);
-      setIsCreateDialogOpen(false);
-      setNewWalletName('');
-      setNewWalletDescription('');
-      toast.success('Wallet created successfully');
-    }, 1000);
+    }
   };
 
   const handleTopUp = () => {
@@ -355,22 +400,67 @@ const WalletPage = () => {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium">Wallet Name</label>
+                  <Label className="text-sm font-medium">Wallet Type</Label>
+                  <RadioGroup 
+                    value={newWalletTypeId} 
+                    onValueChange={setNewWalletTypeId}
+                    className="flex gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="1" id="type-default" />
+                      <Label htmlFor="type-default" className="cursor-pointer">Default</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="2" id="type-escrow" />
+                      <Label htmlFor="type-escrow" className="cursor-pointer">Escrow</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium">Wallet Name</Label>
                   <Input 
                     id="name"
                     placeholder="e.g. My Savings, Daily Expenses" 
                     value={newWalletName}
                     onChange={(e) => setNewWalletName(e.target.value)}
+                    maxLength={120}
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <label htmlFor="description" className="text-sm font-medium">Description (Optional)</label>
+                  <Label htmlFor="description" className="text-sm font-medium">Description (Optional)</Label>
                   <Input 
                     id="description"
                     placeholder="What is this wallet for?" 
                     value={newWalletDescription}
                     onChange={(e) => setNewWalletDescription(e.target.value)}
+                    maxLength={500}
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="currency" className="text-sm font-medium">Currency</Label>
+                    <Input 
+                      id="currency"
+                      value={newWalletCurrency}
+                      onChange={(e) => setNewWalletCurrency(e.target.value.toUpperCase())}
+                      maxLength={3}
+                      placeholder="CNY"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="balance" className="text-sm font-medium">Initial Balance</Label>
+                    <Input 
+                      id="balance"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newWalletInitialBalance}
+                      onChange={(e) => setNewWalletInitialBalance(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
               <DialogFooter>
