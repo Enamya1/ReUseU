@@ -18,6 +18,7 @@ import MyListingsPage from "./pages/MyListingsPage";
 import MyListingDetailPage from "./pages/MyListingDetailPage";
 import CreateListingPage from "./pages/CreateListingPage";
 import ProfilePage from "./pages/ProfilePage";
+import WalletPage from "./pages/WalletPage";
 import NearbyPage from "./pages/NearbyPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import SellerProfilePage from "./pages/SellerProfilePage";
@@ -80,6 +81,7 @@ const App = () => (
                   <Route path="/my-listings/:id" element={<MyListingDetailPage />} />
                   <Route path="/create-listing" element={<CreateListingPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/wallet" element={<WalletPage />} />
                   <Route path="/messages" element={<MessagesPage />} />
                   <Route path="/search" element={<SearchResultsPage />} />
 

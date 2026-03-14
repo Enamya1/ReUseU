@@ -99,6 +99,38 @@ export interface BehavioralEvent {
   session_id: string;
 }
 
+export interface Wallet {
+  id: string;
+  user_id: number;
+  balance: number;
+  currency: string;
+  status: 'active' | 'frozen' | 'closed';
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface Transaction {
+  id: string;
+  wallet_id: string;
+  type: 'top-up' | 'withdrawal' | 'transfer_in' | 'transfer_out' | 'fee';
+  amount: number;
+  fee: number;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  description: string;
+  related_wallet_id?: string;
+  created_at: string;
+}
+
+export interface WalletStatusHistory {
+  id: string;
+  wallet_id: string;
+  old_status: string;
+  new_status: string;
+  reason: string;
+  changed_by: number;
+  created_at: string;
+}
+
 // Mock Universities
 export const mockUniversities: University[] = [
   { id: 1, name: 'State University', domain: 'stateuniv.edu', location: 'Downtown Campus' },
@@ -179,6 +211,73 @@ export const mockDormitories: Dormitory[] = [
     is_active: true,
     university_id: 4,
   },
+];
+
+export const mockWallets: Wallet[] = [
+  {
+    id: 'W-123456',
+    user_id: 1,
+    balance: 1000,
+    currency: 'CNY',
+    status: 'active',
+    created_at: '2024-01-01T10:00:00Z',
+    metadata: { type: 'Personal Wallet' }
+  },
+  {
+    id: 'W-654321',
+    user_id: 1,
+    balance: 500,
+    currency: 'CNY',
+    status: 'frozen',
+    created_at: '2024-02-15T14:30:00Z',
+    metadata: { type: 'Savings' }
+  }
+];
+
+export const mockTransactions: Transaction[] = [
+  {
+    id: 'T-1',
+    wallet_id: 'W-123456',
+    type: 'top-up',
+    amount: 500,
+    fee: 0,
+    status: 'completed',
+    description: 'Manual Top-up',
+    created_at: '2024-03-01T08:00:00Z'
+  },
+  {
+    id: 'T-2',
+    wallet_id: 'W-123456',
+    type: 'transfer_out',
+    amount: 200,
+    fee: 2,
+    status: 'completed',
+    description: 'Payment for product #101',
+    related_wallet_id: 'W-999999',
+    created_at: '2024-03-05T12:00:00Z'
+  },
+  {
+    id: 'T-3',
+    wallet_id: 'W-654321',
+    type: 'withdrawal',
+    amount: 100,
+    fee: 1,
+    status: 'pending',
+    description: 'Bank Withdrawal',
+    created_at: '2024-03-10T15:00:00Z'
+  }
+];
+
+export const mockWalletHistory: WalletStatusHistory[] = [
+  {
+    id: 'H-1',
+    wallet_id: 'W-654321',
+    old_status: 'active',
+    new_status: 'frozen',
+    reason: 'Security Verification Required',
+    changed_by: 0,
+    created_at: '2024-02-20T11:00:00Z'
+  }
 ];
 
 // Mock Categories

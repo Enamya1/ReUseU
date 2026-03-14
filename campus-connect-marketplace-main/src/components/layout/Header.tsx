@@ -55,11 +55,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   const { t } = useTranslation();
 
   const userBalance = 100; // Placeholder until API connection
-  const showCurrencySelector =
-    location.pathname === '/products' ||
-    location.pathname.startsWith('/product/') ||
-    location.pathname === '/favorites' ||
-    location.pathname.startsWith('/my-listings');
+  const showCurrencySelector = true;
   const primaryNavItems = [
     { to: '/', label: t('nav.home') },
     { to: '/nearby', label: t('nav.nearBy') },
@@ -254,7 +250,6 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
         <nav className="hidden lg:flex items-center gap-2 ml-auto">
           {isAuthenticated ? (
             <>
-              {showCurrencySelector ? <CurrencySelector /> : null}
               <SearchInputEnhanced
                 className="text-white"
                 suggestions={searchSuggestions}
@@ -264,6 +259,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                 onChange={handleSearchInputChange}
                 onImageUpload={handleImageSearchUpload}
               />
+              {showCurrencySelector ? <CurrencySelector /> : null}
               <Button
                 variant="ghost"
                 size="sm"
