@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
 import { User } from '@/lib/mockData';
 import { apiUrl, apiPyUrl } from '@/lib/api';
 import i18n from '@/i18n';
@@ -47,6 +47,7 @@ interface AuthContextType {
   getMessageContacts: (params?: { limit?: number }) => Promise<MessageContactsResponseBody>;
   getMessages: (params: { conversation_id: number; limit?: number; before_id?: number }) => Promise<MessageThreadResponseBody>;
   getMessageNotifications: (params?: { limit?: number }) => Promise<MessageNotificationsResponseBody>;
+  refreshBalance: () => Promise<number | null>;
   getProductSearchSuggestions: (params: {
     q: string;
     suggestions_limit?: number;
@@ -1136,7 +1137,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return true;
     },
-    [accessToken, tokenType, user],
+    [accessToken, tokenType, user?.role],
   );
 
   const createProduct = useCallback(
@@ -1224,7 +1225,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { message: "Request failed" };
     },
-    [accessToken, tokenType, user],
+    [accessToken, tokenType, user?.role],
   );
 
   const createTag = useCallback(
@@ -1265,7 +1266,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { message: "Request failed" };
     },
-    [accessToken, tokenType, user],
+    [accessToken, tokenType, user?.role],
   );
 
   const sendMessage = useCallback(
@@ -1309,7 +1310,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { message: "Request failed" };
     },
-    [accessToken, tokenType, user],
+    [accessToken, tokenType, user?.role],
   );
 
   const getMessageContacts = useCallback(
@@ -1353,7 +1354,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { message: "Request failed" };
     },
-    [accessToken, tokenType, user],
+    [accessToken, tokenType, user?.role],
   );
 
   const getMessages = useCallback(
@@ -1404,7 +1405,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { message: "Request failed" };
     },
-    [accessToken, tokenType, user],
+    [accessToken, tokenType, user?.role],
   );
 
   const getMessageNotifications = useCallback(
@@ -1448,8 +1449,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { message: "Request failed" };
     },
-    [accessToken, tokenType, user],
+    [accessToken, tokenType, user?.role],
   );
+
+  const refreshBalance = useCallback(async (): Promise<number | null> => {
+    if (!accessToken || user?.role !== "user") return null;
+
+    try {
+      const response = await fetch(apiUrl("/api/wallets"), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const wallets = data.wallets || [];
+      if (wallets.length === 0) return 0;
+
+      // Use the balance of the first (primary) wallet
+      const primaryBalance = parseFloat(wallets[0].balance || "0");
+      setUser((prev) => {
+        if (prev && prev.balance !== primaryBalance) {
+          return { ...prev, balance: primaryBalance };
+        }
+        return prev;
+      });
+      return primaryBalance;
+    } catch (error) {
+      console.error("Error refreshing balance:", error);
+      return null;
+    }
+  }, [accessToken, tokenType, user?.role]);
 
   const getProductSearchSuggestions = useCallback(
     async (params: { q: string; suggestions_limit?: number }): Promise<ProductSearchSuggestionsResponseBody> => {
@@ -1511,7 +1545,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { message: "Request failed" };
     },
-    [accessToken, tokenType, user],
+    [accessToken, tokenType, user?.role],
   );
 
   const searchProducts = useCallback(
@@ -1697,7 +1731,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw { message: "Unauthorized: Only users can access this endpoint." } as MetaOptionsResponseBody;
     }
     return { message: "Request failed" };
-  }, [accessToken, tokenType, user]);
+  }, [accessToken, tokenType, user?.role]);
 
   const getMyProductCards = useCallback(
     async (params?: { page?: number; page_size?: number }): Promise<MyProductCardsResponseBody> => {
@@ -2323,47 +2357,82 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw { message: "Dormitory not found for the user." } as DormitoriesByUniversityResponseBody;
     }
     return { message: "Request failed" };
-  }, [accessToken, tokenType, user]);
+  }, [accessToken, tokenType, user?.role]);
+
+  const contextValue = useMemo(() => ({
+    user,
+    accessToken,
+    tokenType,
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'admin',
+    login,
+    adminLogin,
+    signup,
+    logout,
+    updateProfile,
+    getUniversityOptions,
+    updateUniversitySettings,
+    getMetaOptions,
+    getDormitoriesByUniversity,
+    getMyProductCards,
+    getSellerProfile,
+    getRecommendedProducts,
+    getNearby,
+    getSimilarProducts,
+    getProductDetail,
+    createProduct,
+    createTag,
+    sendMessage,
+    getMessageContacts,
+    getMessages,
+    getMessageNotifications,
+    refreshBalance,
+    getProductSearchSuggestions,
+    searchProducts,
+    searchVisualProducts,
+    getProductForEdit,
+    getProductEngagement,
+    updateProduct,
+    markProductSold,
+    updateProductImages,
+  }), [
+    user,
+    accessToken,
+    tokenType,
+    login,
+    adminLogin,
+    signup,
+    logout,
+    updateProfile,
+    getUniversityOptions,
+    updateUniversitySettings,
+    getMetaOptions,
+    getDormitoriesByUniversity,
+    getMyProductCards,
+    getSellerProfile,
+    getRecommendedProducts,
+    getNearby,
+    getSimilarProducts,
+    getProductDetail,
+    createProduct,
+    createTag,
+    sendMessage,
+    getMessageContacts,
+    getMessages,
+    getMessageNotifications,
+    refreshBalance,
+    getProductSearchSuggestions,
+    searchProducts,
+    searchVisualProducts,
+    getProductForEdit,
+    getProductEngagement,
+    updateProduct,
+    markProductSold,
+    updateProductImages,
+  ]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        accessToken,
-        tokenType,
-        isAuthenticated: !!user,
-        isAdmin: user?.role === 'admin',
-        login,
-        adminLogin,
-        signup,
-        logout,
-        updateProfile,
-        getUniversityOptions,
-        updateUniversitySettings,
-        getMetaOptions,
-        getDormitoriesByUniversity,
-        getMyProductCards,
-        getSellerProfile,
-        getRecommendedProducts,
-        getNearby,
-        getSimilarProducts,
-        getProductDetail,
-        createProduct,
-        createTag,
-        sendMessage,
-        getMessageContacts,
-        getMessages,
-        getMessageNotifications,
-        getProductSearchSuggestions,
-        searchProducts,
-        searchVisualProducts,
-        getProductForEdit,
-        getProductEngagement,
-        updateProduct,
-        markProductSold,
-        updateProductImages,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

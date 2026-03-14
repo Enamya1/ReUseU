@@ -43,7 +43,7 @@ type MessageNotificationItem = {
 };
 
 const Header: React.FC<HeaderProps> = ({ className }) => {
-  const { user, isAuthenticated, logout, getMessageNotifications, getProductSearchSuggestions } = useAuth();
+  const { user, isAuthenticated, logout, getMessageNotifications, getProductSearchSuggestions, refreshBalance } = useAuth();
   const { favorites } = useFavorites();
   const { formatWithSelectedCurrency } = useCurrency();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -58,7 +58,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   const location = useLocation();
   const { t } = useTranslation();
 
-  const userBalance = 100; // Placeholder until API connection
+  const userBalance = user?.balance ?? 0;
   const showCurrencySelector = true;
   const primaryNavItems = [
     { to: '/', label: t('nav.home') },
@@ -85,6 +85,12 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
         if (cancelled) return;
         setNotifications(response.messages ?? []);
         setUnreadTotal(response.total ?? (response.messages?.length ?? 0));
+
+        // If there's a wallet notification, refresh the balance
+        const hasWalletNotification = response.messages?.some(m => m.notification_type?.startsWith('wallet_'));
+        if (hasWalletNotification) {
+          refreshBalance();
+        }
       } catch {
         if (cancelled) return;
         setNotifications([]);
@@ -92,10 +98,15 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
       }
     };
     run();
+    // Also refresh balance on mount if authenticated
+    if (isAuthenticated) {
+      refreshBalance();
+    }
+    
     return () => {
       cancelled = true;
     };
-  }, [getMessageNotifications, isAuthenticated]);
+  }, [getMessageNotifications, isAuthenticated, refreshBalance]);
 
   useEffect(() => {
     const handleScroll = () => {

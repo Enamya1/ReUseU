@@ -17,6 +17,7 @@ export interface User {
   account_completed?: boolean;
   role: 'user' | 'admin';
   status: 'active' | 'inactive';
+  balance?: number;
 }
 
 export interface University {
@@ -113,7 +114,7 @@ export interface Wallet {
 export interface Transaction {
   id: string;
   wallet_id: string;
-  type: 'top-up' | 'withdrawal' | 'transfer_in' | 'transfer_out' | 'fee';
+  type: 'top-up' | 'withdrawal' | 'transfer_in' | 'transfer_out' | 'fee' | 'deposit' | 'initial' | 'transfer' | 'withdraw' | 'unknown';
   amount: number;
   fee: number;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';

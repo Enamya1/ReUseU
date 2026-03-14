@@ -75,7 +75,7 @@ import { Label } from '@/components/ui/label';
 import { apiUrl } from '@/lib/api';
 
 const WalletPage = () => {
-  const { user, accessToken, tokenType } = useAuth();
+  const { user, accessToken, tokenType, refreshBalance } = useAuth();
   const { formatWithSelectedCurrency, selectedCurrency, setSelectedCurrency, convertPrice, currencies } = useCurrency();
   
   const [wallets, setWallets] = useState<WalletType[]>([]);
@@ -128,6 +128,8 @@ const WalletPage = () => {
         if (transformedWallets.length > 0 && !selectedWalletId) {
           setSelectedWalletId(transformedWallets[0].id);
         }
+        // Sync global balance
+        refreshBalance();
       } else {
         toast.error(data.message || 'Failed to fetch wallets');
       }
@@ -442,8 +444,9 @@ const WalletPage = () => {
       return;
     }
 
-    if (selectedWallet && selectedWallet.balance < amount) {
-      toast.error('Insufficient funds');
+    const availableBalance = selectedWallet?.metadata?.available_balance as number || 0;
+    if (availableBalance < amount) {
+      toast.error('Insufficient available balance');
       return;
     }
 
@@ -605,18 +608,29 @@ const WalletPage = () => {
       case 'top-up':
       case 'deposit':
       case 'initial':
-        return <ArrowDownLeft className="w-4 h-4 text-green-500" />;
-      case 'withdrawal':
-      case 'withdraw':
-        return <ArrowUpRight className="w-4 h-4 text-red-500" />;
       case 'transfer':
       case 'transfer_in':
         return <ArrowDownLeft className="w-4 h-4 text-green-500" />;
+      case 'withdrawal':
+      case 'withdraw':
       case 'transfer_out':
-        return <ArrowUpRight className="w-4 h-4 text-blue-500" />;
+      case 'fee':
+        return <ArrowUpRight className="w-4 h-4 text-red-500" />;
       default:
         return <Clock className="w-4 h-4 text-gray-500" />;
     }
+  };
+
+  const isCredit = (type: string) => {
+    return ['top-up', 'transfer_in', 'deposit', 'initial', 'transfer'].includes(type);
+  };
+
+  const getTransactionColorClass = (type: string) => {
+    return isCredit(type) ? 'text-green-500' : 'text-red-500';
+  };
+
+  const getTransactionPrefix = (type: string) => {
+    return isCredit(type) ? '+' : '-';
   };
 
   if (!user) {
@@ -1117,10 +1131,8 @@ const WalletPage = () => {
                                   <TableCell className="max-w-[150px] truncate text-muted-foreground text-xs">
                                     {tx.description}
                                   </TableCell>
-                                  <TableCell className={`text-right font-medium numeric-text ${
-                                    tx.type === 'top-up' || tx.type === 'transfer_in' || tx.type === 'deposit' || tx.type === 'initial' || tx.type === 'transfer' ? 'text-green-500' : 'text-red-500'
-                                  }`}>
-                                    {tx.type === 'top-up' || tx.type === 'transfer_in' || tx.type === 'deposit' || tx.type === 'initial' || tx.type === 'transfer' ? '+' : '-'}
+                                  <TableCell className={`text-right font-medium numeric-text ${getTransactionColorClass(tx.type)}`}>
+                                    {getTransactionPrefix(tx.type)}
                                     {formatWithSelectedCurrency(tx.amount, selectedWallet.currency)}
                                   </TableCell>
                                   <TableCell className="text-right">
