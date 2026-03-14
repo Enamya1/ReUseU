@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown, Plus } from 'lucide-react';
+import { Bell, Heart, Menu, X, LogOut, Settings, ShoppingBag, ChevronDown, Plus, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { normalizeImageUrl } from '@/lib/api';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ type MessageNotificationItem = {
 const Header: React.FC<HeaderProps> = ({ className }) => {
   const { user, isAuthenticated, logout, getMessageNotifications, getProductSearchSuggestions } = useAuth();
   const { favorites } = useFavorites();
+  const { formatWithSelectedCurrency } = useCurrency();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<MessageNotificationItem[]>([]);
   const [unreadTotal, setUnreadTotal] = useState(0);
@@ -51,6 +53,8 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
+
+  const userBalance = 100; // Placeholder until API connection
   const showCurrencySelector =
     location.pathname === '/products' ||
     location.pathname.startsWith('/product/') ||
@@ -263,6 +267,19 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
               <Button
                 variant="ghost"
                 size="sm"
+                className="rounded-full border border-white/30 text-white hover:bg-white hover:text-black px-3 gap-2"
+                asChild
+              >
+                <Link to="/wallet" className="flex items-center">
+                  <Wallet className="w-4 h-4" />
+                  <span className="numeric-text font-medium text-xs">
+                    {formatWithSelectedCurrency(userBalance, 'CNY')}
+                  </span>
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 className="rounded-full border border-white/30 text-white hover:bg-white hover:text-black px-4"
                 asChild
               >
@@ -347,6 +364,12 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                     <p className="text-xs text-muted-foreground">@{user?.username}</p>
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/wallet" className="cursor-pointer">
+                      <Wallet className="w-4 h-4 mr-2" />
+                      {t('nav.wallet') || 'Wallet'}
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/my-listings" className="cursor-pointer">
                       <ShoppingBag className="w-4 h-4 mr-2" />
@@ -436,17 +459,29 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
 
             {isAuthenticated ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={normalizeImageUrl(user?.profile_picture)} alt={user?.full_name} />
-                    <AvatarFallback className="bg-tertiary text-tertiary-foreground">
-                      {user?.full_name?.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-medium">{user?.full_name}</p>
-                    <p className="text-xs text-muted-foreground">@{user?.username}</p>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={normalizeImageUrl(user?.profile_picture)} alt={user?.full_name} />
+                      <AvatarFallback className="bg-tertiary text-tertiary-foreground">
+                        {user?.full_name?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium">{user?.full_name}</p>
+                      <p className="text-xs text-muted-foreground">@{user?.username}</p>
+                    </div>
                   </div>
+                  <Link 
+                    to="/wallet" 
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background hover:bg-muted transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Wallet className="w-4 h-4 text-primary" />
+                    <span className="numeric-text font-semibold text-xs">
+                      {formatWithSelectedCurrency(userBalance, 'CNY')}
+                    </span>
+                  </Link>
                 </div>
 
                 <SearchInputEnhanced
