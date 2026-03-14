@@ -59,7 +59,12 @@ import {
   MoreVertical,
   Lock,
   Unlock,
-  Coins
+  Coins,
+  Globe,
+  Eye,
+  EyeOff,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -73,19 +78,152 @@ const WalletPage = () => {
   const { user, accessToken, tokenType } = useAuth();
   const { formatWithSelectedCurrency, selectedCurrency, setSelectedCurrency, convertPrice, currencies } = useCurrency();
   
-  // Set default currency to CNY on load
-  useEffect(() => {
-    setSelectedCurrency('CNY');
-  }, [setSelectedCurrency]);
+  const [wallets, setWallets] = useState<WalletType[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [statusHistory, setStatusHistory] = useState<WalletStatusHistory[]>([]);
   
-  const [wallets, setWallets] = useState<WalletType[]>(mockWallets);
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
-  const [statusHistory, setStatusHistory] = useState<WalletStatusHistory[]>(mockWalletHistory);
-  
-  const [selectedWalletId, setSelectedWalletId] = useState<string>(wallets[0]?.id || '');
+  const [selectedWalletId, setSelectedWalletId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'frozen'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'frozen' | 'closed'>('all');
   const [isLoading, setIsLoading] = useState(false);
+  const [walletStatusReason, setWalletStatusReason] = useState('');
+
+  // Fetch wallets from API
+  const fetchWallets = async () => {
+    if (!accessToken) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(apiUrl('/api/wallets'), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const transformedWallets: WalletType[] = (data.wallets || []).map((w: any) => ({
+          id: w.id.toString(),
+          user_id: w.user_id || user?.id || 0,
+          balance: parseFloat(w.balance),
+          currency: w.currency,
+          status: w.status_code || 'active', // Use status_code from API (e.g., "active")
+          is_public: w.is_public === 1 || w.is_public === true,
+          created_at: w.created_at,
+          metadata: {
+            type: w.name,
+            description: w.description,
+            wallet_type_code: w.wallet_type_code,
+            wallet_type_name: w.wallet_type_name,
+            available_balance: parseFloat(w.available_balance || '0'),
+            locked_balance: parseFloat(w.locked_balance || '0'),
+            frozen_at: w.frozen_at,
+            freeze_reason: w.freeze_reason
+          }
+        }));
+        setWallets(transformedWallets);
+        if (transformedWallets.length > 0 && !selectedWalletId) {
+          setSelectedWalletId(transformedWallets[0].id);
+        }
+      } else {
+        toast.error(data.message || 'Failed to fetch wallets');
+      }
+    } catch (error) {
+      console.error('Error fetching wallets:', error);
+      toast.error('An error occurred while fetching wallets');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (accessToken) {
+      fetchWallets();
+    }
+  }, [accessToken]);
+
+  // Fetch transactions for selected wallet
+  const fetchTransactions = async () => {
+    if (!accessToken || !selectedWalletId) return;
+    
+    try {
+      const response = await fetch(apiUrl(`/api/wallets/${selectedWalletId}/transactions?limit=50`), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const transformedTransactions: Transaction[] = (data.transactions || []).map((t: any) => ({
+          id: (t.id || '').toString(),
+          wallet_id: (t.wallet_id || selectedWalletId).toString(),
+          type: t.type || 'unknown',
+          amount: parseFloat(t.amount || '0'),
+          fee: 0,
+          status: t.status || 'pending',
+          description: t.reference || t.type || 'Transaction',
+          created_at: t.created_at || new Date().toISOString(),
+          related_wallet_id: t.related_wallet_id?.toString(),
+          metadata: typeof t.metadata === 'string' ? JSON.parse(t.metadata) : (t.metadata || {})
+        }));
+        setTransactions(transformedTransactions);
+      } else {
+        toast.error(data.message || 'Failed to fetch transactions');
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      toast.error('An error occurred while fetching transactions');
+    }
+  };
+
+  useEffect(() => {
+    if (accessToken && selectedWalletId) {
+      fetchTransactions();
+      fetchStatusHistory();
+    }
+  }, [accessToken, selectedWalletId]);
+
+  // Fetch status history for selected wallet
+  const fetchStatusHistory = async () => {
+    if (!accessToken || !selectedWalletId) return;
+    
+    try {
+      const response = await fetch(apiUrl(`/api/wallets/${selectedWalletId}/status-history`), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const transformedHistory: WalletStatusHistory[] = (data.history || []).map((h: any) => ({
+          id: (h.id || '').toString(),
+          wallet_id: (h.wallet_id || selectedWalletId).toString(),
+          previous_status: h.previous_status,
+          new_status: h.new_status,
+          reason: h.reason,
+          created_at: h.created_at || new Date().toISOString(),
+          metadata: typeof h.metadata === 'string' ? JSON.parse(h.metadata) : (h.metadata || {})
+        }));
+        setStatusHistory(transformedHistory);
+      } else {
+        toast.error(data.message || 'Failed to fetch status history');
+      }
+    } catch (error) {
+      console.error('Error fetching status history:', error);
+      toast.error('An error occurred while fetching status history');
+    }
+  };
 
   // Form states
   const [topUpAmount, setTopUpAmount] = useState('');
@@ -96,6 +234,11 @@ const WalletPage = () => {
   
   // Create Wallet states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isTopUpDialogOpen, setIsTopUpDialogOpen] = useState(false);
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [isFreezeDialogOpen, setIsFreezeDialogOpen] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [newWalletName, setNewWalletName] = useState('');
   const [newWalletDescription, setNewWalletDescription] = useState('');
   const [newWalletTypeId, setNewWalletTypeId] = useState<string>('1'); // Default to 1 (Default)
@@ -157,19 +300,7 @@ const WalletPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        const newWallet: WalletType = {
-          id: data.wallet?.id?.toString() || `W-${Math.floor(100000 + Math.random() * 900000)}`,
-          user_id: user?.id || 1,
-          balance: parseFloat(newWalletInitialBalance) || 0,
-          currency: newWalletCurrency,
-          status: 'active',
-          created_at: new Date().toISOString(),
-          metadata: { 
-            type: newWalletName,
-            description: newWalletDescription
-          }
-        };
-        setWallets([...wallets, newWallet]);
+        await fetchWallets();
         toast.success(data.message || 'Wallet created successfully');
         setIsCreateDialogOpen(false);
         setNewWalletName('');
@@ -194,71 +325,109 @@ const WalletPage = () => {
     }
   };
 
-  const handleTopUp = () => {
+  const handleTopUp = async () => {
     const amount = parseFloat(topUpAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Please enter a valid amount');
+    if (isNaN(amount) || amount < 0.01) {
+      toast.error('Please enter a valid amount (minimum 0.01)');
       return;
     }
 
+    if (!accessToken || !selectedWalletId) return;
+
     setIsLoading(true);
-    setTimeout(() => {
-      setWallets(wallets.map(w => 
-        w.id === selectedWalletId ? { ...w, balance: w.balance + amount } : w
-      ));
-      
-      const newTx: Transaction = {
-        id: `T-${Math.random().toString(36).substr(2, 9)}`,
-        wallet_id: selectedWalletId,
-        type: 'top-up',
-        amount: amount,
-        fee: 0,
-        status: 'completed',
-        description: 'Manual Top-up',
-        created_at: new Date().toISOString()
-      };
-      setTransactions([newTx, ...transactions]);
-      
-      setTopUpAmount('');
+    try {
+      const response = await fetch(apiUrl(`/api/wallets/${selectedWalletId}/top-up`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        },
+        body: JSON.stringify({
+          amount: amount,
+          type: 'top-up',
+          reference: `Top-up via Web`,
+          metadata: { source: 'web_app' }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await fetchWallets();
+        await fetchTransactions();
+        setTopUpAmount('');
+        setIsTopUpDialogOpen(false);
+        toast.success(data.message || 'Wallet topped up successfully');
+      } else if (response.status === 409) {
+        toast.error(data.message || 'Wallet is not active.');
+      } else if (response.status === 422) {
+        const firstError = Object.values(data.errors || {})[0] as string[];
+        toast.error(firstError?.[0] || 'Validation Error');
+      } else {
+        toast.error(data.message || 'Failed to top up wallet');
+      }
+    } catch (error) {
+      console.error('Error topping up wallet:', error);
+      toast.error('An error occurred during top-up');
+    } finally {
       setIsLoading(false);
-      toast.success('Top-up successful');
-    }, 1000);
+    }
   };
 
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Please enter a valid amount');
+    if (isNaN(amount) || amount < 0.01) {
+      toast.error('Please enter a valid amount (minimum 0.01)');
       return;
     }
 
-    if (selectedWallet && selectedWallet.balance < amount) {
-      toast.error('Insufficient funds');
+    if (selectedWallet && (selectedWallet.metadata?.available_balance as number || 0) < amount) {
+      toast.error('Insufficient available balance');
       return;
     }
+
+    if (!accessToken || !selectedWalletId) return;
 
     setIsLoading(true);
-    setTimeout(() => {
-      setWallets(wallets.map(w => 
-        w.id === selectedWalletId ? { ...w, balance: w.balance - amount } : w
-      ));
-      
-      const newTx: Transaction = {
-        id: `T-${Math.random().toString(36).substr(2, 9)}`,
-        wallet_id: selectedWalletId,
-        type: 'withdrawal',
-        amount: amount,
-        fee: 1, // Fixed fee for simulation
-        status: 'completed',
-        description: 'Bank Withdrawal',
-        created_at: new Date().toISOString()
-      };
-      setTransactions([newTx, ...transactions]);
-      
-      setWithdrawAmount('');
+    try {
+      const response = await fetch(apiUrl(`/api/wallets/${selectedWalletId}/withdraw`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        },
+        body: JSON.stringify({
+          amount: amount,
+          type: 'withdrawal',
+          reference: `Withdrawal via Web`,
+          metadata: { source: 'web_app' }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await fetchWallets();
+        await fetchTransactions();
+        setWithdrawAmount('');
+        setIsWithdrawDialogOpen(false);
+        toast.success(data.message || 'Wallet withdrawal completed successfully');
+      } else if (response.status === 409) {
+        toast.error(data.message || 'Insufficient available balance.');
+      } else if (response.status === 422) {
+        const firstError = Object.values(data.errors || {})[0] as string[];
+        toast.error(firstError?.[0] || 'Validation Error');
+      } else {
+        toast.error(data.message || 'Failed to withdraw funds');
+      }
+    } catch (error) {
+      console.error('Error withdrawing from wallet:', error);
+      toast.error('An error occurred during withdrawal');
+    } finally {
       setIsLoading(false);
-      toast.success('Withdrawal successful');
-    }, 1000);
+    }
   };
 
   const handleTransfer = () => {
@@ -299,37 +468,123 @@ const WalletPage = () => {
       
       setTransferAmount('');
       setTransferRecipient('');
+      setIsTransferDialogOpen(false);
       setIsLoading(false);
       toast.success('Transfer successful');
     }, 1000);
   };
 
-  const handleToggleFreeze = () => {
-    if (!selectedWallet) return;
+  const handleToggleFreeze = async () => {
+    if (!selectedWallet || !selectedWalletId || !accessToken) return;
     
-    const newStatus = selectedWallet.status === 'active' ? 'frozen' : 'active';
+    const action = selectedWallet.status === 'frozen' ? 'unfreeze' : 'freeze';
     
     setIsLoading(true);
-    setTimeout(() => {
-      setWallets(wallets.map(w => 
-        w.id === selectedWalletId ? { ...w, status: newStatus as any } : w
-      ));
-      
-      const newHistory: WalletStatusHistory = {
-        id: `H-${Math.random().toString(36).substr(2, 9)}`,
-        wallet_id: selectedWalletId,
-        old_status: selectedWallet.status,
-        new_status: newStatus,
-        reason: freezeReason || 'User request',
-        changed_by: user?.id || 1,
-        created_at: new Date().toISOString()
-      };
-      setStatusHistory([newHistory, ...statusHistory]);
-      
-      setFreezeReason('');
+    try {
+      const response = await fetch(apiUrl(`/api/wallets/${selectedWalletId}/status-requests`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        },
+        body: JSON.stringify({
+          action: action,
+          reason: freezeReason || (action === 'freeze' ? 'User requested freeze' : 'User requested unfreeze')
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.status === 201 || response.ok) {
+        toast.success(data.message || 'Wallet status request submitted successfully');
+        setFreezeReason('');
+        setIsFreezeDialogOpen(false);
+        await fetchWallets();
+        await fetchStatusHistory();
+      } else {
+        toast.error(data.message || 'Failed to submit status request');
+      }
+    } catch (error) {
+      console.error('Error submitting status request:', error);
+      toast.error('An error occurred while submitting the request');
+    } finally {
       setIsLoading(false);
-      toast.success(`Wallet ${newStatus === 'frozen' ? 'frozen' : 'unfrozen'} successfully`);
-    }, 1000);
+    }
+  };
+
+  const handleTogglePublicity = async () => {
+    if (!selectedWallet || !selectedWalletId || !accessToken) return;
+    
+    const newPublicStatus = !selectedWallet.is_public;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(apiUrl(`/api/wallets/${selectedWalletId}`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        },
+        body: JSON.stringify({
+          is_public: newPublicStatus
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || `Wallet set to ${newPublicStatus ? 'public' : 'private'}`);
+        await fetchWallets();
+      } else {
+        toast.error(data.message || 'Failed to update wallet publicity');
+      }
+    } catch (error) {
+      console.error('Error updating publicity:', error);
+      toast.error('An error occurred while updating publicity');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleToggleWalletStatus = async () => {
+    if (!selectedWallet || !selectedWalletId || !accessToken) return;
+    
+    const isClosed = selectedWallet.status === 'closed';
+    const endpoint = isClosed ? 'open' : 'close';
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(apiUrl(`/api/wallets/${selectedWalletId}/${endpoint}`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `${tokenType || 'Bearer'} ${accessToken}`
+        },
+        body: JSON.stringify({
+          reason: walletStatusReason || `User requested to ${endpoint} wallet`
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || `Wallet ${isClosed ? 'opened' : 'closed'} successfully`);
+        setWalletStatusReason('');
+        setIsStatusDialogOpen(false);
+        await fetchWallets();
+        await fetchStatusHistory();
+      } else {
+        toast.error(data.message || `Failed to ${endpoint} wallet`);
+      }
+    } catch (error) {
+      console.error(`Error ${endpoint}ing wallet:`, error);
+      toast.error(`An error occurred while trying to ${endpoint} the wallet`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -348,9 +603,13 @@ const WalletPage = () => {
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'top-up':
+      case 'deposit':
+      case 'initial':
         return <ArrowDownLeft className="w-4 h-4 text-green-500" />;
       case 'withdrawal':
+      case 'withdraw':
         return <ArrowUpRight className="w-4 h-4 text-red-500" />;
+      case 'transfer':
       case 'transfer_in':
         return <ArrowDownLeft className="w-4 h-4 text-green-500" />;
       case 'transfer_out':
@@ -508,8 +767,13 @@ const WalletPage = () => {
                             <Wallet className="w-5 h-5" />
                           </div>
                           <div>
-                            <div className="font-medium">{wallet.id}</div>
-                            <div className="text-xs text-muted-foreground">{wallet.metadata?.type as string || 'General'}</div>
+                            <div className="flex items-center gap-1.5 font-medium">
+                              {wallet.metadata?.type as string || wallet.id}
+                              {wallet.is_public && <Globe className="w-3 h-3 text-green-500" />}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+                              {wallet.metadata?.wallet_type_name as string || 'General Wallet'}
+                            </div>
                           </div>
                         </div>
                         <div className="text-right">
@@ -547,9 +811,31 @@ const WalletPage = () => {
                         <CardTitle className="flex items-center gap-2">
                           <Wallet className="w-5 h-5 text-primary" />
                           {selectedWallet.metadata?.type as string || 'Wallet Details'}
+                          <span className="text-[10px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider ml-2">
+                            {selectedWallet.metadata?.wallet_type_name as string || 'General'}
+                          </span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="flex items-center gap-2">
                           ID: {selectedWallet.id} • Created {format(new Date(selectedWallet.created_at), 'PPP')}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={`h-6 px-2 text-[10px] gap-1 ${selectedWallet.is_public ? 'text-green-500 bg-green-500/10 hover:bg-green-500/20' : 'text-muted-foreground bg-muted hover:bg-muted/80'}`}
+                            onClick={handleTogglePublicity}
+                            disabled={isLoading}
+                          >
+                            {selectedWallet.is_public ? (
+                              <>
+                                <Globe className="w-3 h-3" />
+                                Public
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-3 h-3" />
+                                Private
+                              </>
+                            )}
+                          </Button>
                         </CardDescription>
                         {selectedWallet.metadata?.description && (
                           <p className="text-sm text-muted-foreground mt-1 italic">
@@ -561,17 +847,31 @@ const WalletPage = () => {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="flex flex-col items-center justify-center py-6">
-                      <span className="text-sm text-muted-foreground font-medium uppercase tracking-wider mb-2">Available Balance</span>
+                      <span className="text-sm text-muted-foreground font-medium uppercase tracking-wider mb-2">Total Balance</span>
                       <h2 className="text-5xl font-bold numeric-text tracking-tighter">
                         {formatWithSelectedCurrency(selectedWallet.balance, selectedWallet.currency)}
                       </h2>
+                      
+                      {/* Balance Breakdown */}
+                      {(selectedWallet.metadata?.available_balance !== undefined || selectedWallet.metadata?.locked_balance !== undefined) && (
+                        <div className="flex gap-4 mt-4 text-[10px] font-semibold uppercase tracking-tight">
+                          <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-green-500/5 border border-green-500/10 text-green-600">
+                            <span className="opacity-70 mb-0.5 text-[8px]">Available</span>
+                            <span>{formatWithSelectedCurrency(selectedWallet.metadata.available_balance as number || 0, selectedWallet.currency)}</span>
+                          </div>
+                          <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-orange-500/5 border border-orange-500/10 text-orange-600">
+                            <span className="opacity-70 mb-0.5 text-[8px]">Locked</span>
+                            <span>{formatWithSelectedCurrency(selectedWallet.metadata.locked_balance as number || 0, selectedWallet.currency)}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {/* Top Up Dialog */}
-                      <Dialog>
+                      <Dialog open={isTopUpDialogOpen} onOpenChange={setIsTopUpDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen'}>
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
                             <ArrowDownLeft className="w-5 h-5 text-green-500" />
                             <span>Top Up</span>
                           </Button>
@@ -593,16 +893,16 @@ const WalletPage = () => {
                             </div>
                           </div>
                           <DialogFooter>
-                            <Button variant="outline" onClick={() => setTopUpAmount('')}>Cancel</Button>
+                            <Button variant="outline" onClick={() => setIsTopUpDialogOpen(false)}>Cancel</Button>
                             <Button onClick={handleTopUp} disabled={isLoading}>Confirm Top Up</Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
 
                       {/* Withdraw Dialog */}
-                      <Dialog>
+                      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen'}>
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
                             <ArrowUpRight className="w-5 h-5 text-red-500" />
                             <span>Withdraw</span>
                           </Button>
@@ -625,16 +925,16 @@ const WalletPage = () => {
                             </div>
                           </div>
                           <DialogFooter>
-                            <Button variant="outline" onClick={() => setWithdrawAmount('')}>Cancel</Button>
+                            <Button variant="outline" onClick={() => setIsWithdrawDialogOpen(false)}>Cancel</Button>
                             <Button onClick={handleWithdraw} disabled={isLoading}>Confirm Withdrawal</Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
 
                       {/* Transfer Dialog */}
-                      <Dialog>
+                      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen'}>
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
                             <Send className="w-5 h-5 text-blue-500" />
                             <span>Transfer</span>
                           </Button>
@@ -664,19 +964,16 @@ const WalletPage = () => {
                             </div>
                           </div>
                           <DialogFooter>
-                            <Button variant="outline" onClick={() => {
-                              setTransferAmount('');
-                              setTransferRecipient('');
-                            }}>Cancel</Button>
+                            <Button variant="outline" onClick={() => setIsTransferDialogOpen(false)}>Cancel</Button>
                             <Button onClick={handleTransfer} disabled={isLoading}>Send Funds</Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
 
                       {/* Freeze/Unfreeze Dialog */}
-                      <Dialog>
+                      <Dialog open={isFreezeDialogOpen} onOpenChange={setIsFreezeDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed">
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'closed'}>
                             {selectedWallet.status === 'frozen' ? (
                               <>
                                 <Unlock className="w-5 h-5 text-green-500" />
@@ -710,10 +1007,59 @@ const WalletPage = () => {
                             </div>
                           </div>
                           <DialogFooter>
-                            <Button variant="outline" onClick={() => setFreezeReason('')}>Cancel</Button>
+                            <Button variant="outline" onClick={() => setIsFreezeDialogOpen(false)}>Cancel</Button>
                             <Button 
                               variant={selectedWallet.status === 'frozen' ? 'default' : 'destructive'}
                               onClick={handleToggleFreeze} 
+                              disabled={isLoading}
+                            >
+                              Confirm
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+
+                      {/* Open/Close Wallet Dialog */}
+                      <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed">
+                            {selectedWallet.status === 'closed' ? (
+                              <>
+                                <Power className="w-5 h-5 text-green-500" />
+                                <span>Open Wallet</span>
+                              </>
+                            ) : (
+                              <>
+                                <PowerOff className="w-5 h-5 text-gray-500" />
+                                <span>Close Wallet</span>
+                              </>
+                            )}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>{selectedWallet.status === 'closed' ? 'Open Wallet' : 'Close Wallet'}</DialogTitle>
+                            <DialogDescription>
+                              {selectedWallet.status === 'closed' 
+                                ? 'Reactivate your wallet to start making transactions again.' 
+                                : 'Deactivate your wallet. Note: Only non-primary wallets can be closed.'}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Reason (Optional)</label>
+                              <Input 
+                                placeholder="Provide a reason..." 
+                                value={walletStatusReason}
+                                onChange={(e) => setWalletStatusReason(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>Cancel</Button>
+                            <Button 
+                              variant={selectedWallet.status === 'closed' ? 'default' : 'destructive'}
+                              onClick={handleToggleWalletStatus} 
                               disabled={isLoading}
                             >
                               Confirm
@@ -772,9 +1118,9 @@ const WalletPage = () => {
                                     {tx.description}
                                   </TableCell>
                                   <TableCell className={`text-right font-medium numeric-text ${
-                                    tx.type === 'top-up' || tx.type === 'transfer_in' ? 'text-green-500' : 'text-red-500'
+                                    tx.type === 'top-up' || tx.type === 'transfer_in' || tx.type === 'deposit' || tx.type === 'initial' || tx.type === 'transfer' ? 'text-green-500' : 'text-red-500'
                                   }`}>
-                                    {tx.type === 'top-up' || tx.type === 'transfer_in' ? '+' : '-'}
+                                    {tx.type === 'top-up' || tx.type === 'transfer_in' || tx.type === 'deposit' || tx.type === 'initial' || tx.type === 'transfer' ? '+' : '-'}
                                     {formatWithSelectedCurrency(tx.amount, selectedWallet.currency)}
                                   </TableCell>
                                   <TableCell className="text-right">

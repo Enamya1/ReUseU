@@ -105,6 +105,7 @@ export interface Wallet {
   balance: number;
   currency: string;
   status: 'active' | 'frozen' | 'closed';
+  is_public?: boolean;
   created_at: string;
   metadata?: Record<string, unknown>;
 }
@@ -1208,5 +1209,5 @@ export const formatPrice = (price: number, currency?: string): string => {
     return `${amount} ${marker}`;
   }
 
-  return `${amount} $`;
+  return `${amount} ¥`;
 };

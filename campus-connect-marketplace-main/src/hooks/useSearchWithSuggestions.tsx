@@ -25,7 +25,7 @@ export const useSearchWithSuggestions = () => {
           description: 'High quality, excellent condition',
           image: '/api/placeholder/60/60',
           price: Math.floor(Math.random() * 500) + 50,
-          currency: 'USD',
+          currency: 'CNY',
           category: 'Electronics',
           confidence: Math.random() * 0.3 + 0.7 // 0.7 to 1.0
         },
@@ -35,7 +35,7 @@ export const useSearchWithSuggestions = () => {
           description: 'Good condition, great value',
           image: '/api/placeholder/60/60',
           price: Math.floor(Math.random() * 200) + 20,
-          currency: 'USD',
+          currency: 'CNY',
           category: 'General',
           confidence: Math.random() * 0.3 + 0.5 // 0.5 to 0.8
         },
@@ -45,7 +45,7 @@ export const useSearchWithSuggestions = () => {
           description: 'Barely used, perfect condition',
           image: '/api/placeholder/60/60',
           price: Math.floor(Math.random() * 800) + 100,
-          currency: 'USD',
+          currency: 'CNY',
           category: 'Premium',
           confidence: Math.random() * 0.2 + 0.8 // 0.8 to 1.0
         }

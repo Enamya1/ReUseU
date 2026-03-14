@@ -26,16 +26,20 @@ type HeaderProps = {
 };
 
 type MessageNotificationItem = {
-  id?: number;
-  conversation_id?: number;
+  id?: number | string;
+  conversation_id?: number | null;
   sender_id?: number;
   sender_username?: string;
   sender_profile_picture?: string;
-  product_id?: number;
+  product_id?: number | null;
   notification_type?: string;
   notification_text?: string;
   notification_count?: number;
   created_at?: string;
+  amount?: number;
+  currency?: string;
+  wallet_id?: number;
+  transaction_ledger_id?: number;
 };
 
 const Header: React.FC<HeaderProps> = ({ className }) => {
@@ -185,6 +189,12 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   };
 
   const handleNotificationClick = (item: MessageNotificationItem) => {
+    if (item.notification_type?.startsWith('wallet_')) {
+      navigate('/wallet');
+      setMobileMenuOpen(false);
+      return;
+    }
+
     const params = new URLSearchParams();
     if (item.conversation_id) params.set('conversationId', String(item.conversation_id));
     if (item.sender_id) params.set('receiverId', String(item.sender_id));

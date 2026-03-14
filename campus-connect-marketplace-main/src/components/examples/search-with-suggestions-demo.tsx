@@ -16,7 +16,7 @@ const SearchWithSuggestionsDemo: React.FC = () => {
       description: 'Excellent condition, 256GB, Space Gray',
       image: '/api/placeholder/60/60',
       price: 899,
-      currency: 'USD',
+      currency: 'CNY',
       category: 'Electronics',
       confidence: 0.95
     },
@@ -26,7 +26,7 @@ const SearchWithSuggestionsDemo: React.FC = () => {
       description: 'Like new, 8GB RAM, 256GB SSD',
       image: '/api/placeholder/60/60',
       price: 1099,
-      currency: 'USD',
+      currency: 'CNY',
       category: 'Electronics',
       confidence: 0.88
     },
@@ -36,7 +36,7 @@ const SearchWithSuggestionsDemo: React.FC = () => {
       description: 'Size 10, White/Red, Limited Edition',
       image: '/api/placeholder/60/60',
       price: 250,
-      currency: 'USD',
+      currency: 'CNY',
       category: 'Fashion',
       confidence: 0.82
     },
@@ -46,7 +46,7 @@ const SearchWithSuggestionsDemo: React.FC = () => {
       description: 'Ergonomic design, RGB lighting',
       image: '/api/placeholder/60/60',
       price: 299,
-      currency: 'USD',
+      currency: 'CNY',
       category: 'Furniture',
       confidence: 0.75
     },
@@ -56,7 +56,7 @@ const SearchWithSuggestionsDemo: React.FC = () => {
       description: 'Programmable, 12-cup capacity',
       image: '/api/placeholder/60/60',
       price: 89,
-      currency: 'USD',
+      currency: 'CNY',
       category: 'Home & Kitchen',
       confidence: 0.68
     }

@@ -98,9 +98,9 @@ const SearchSuggestions = React.forwardRef<HTMLDivElement, SearchSuggestionsProp
                     </h4>
                     {suggestion.price && (
                       <span className="text-sm font-semibold text-primary">
-                        {suggestion.currency && suggestion.currency !== 'USD' 
-                          ? `${suggestion.price} ${suggestion.currency}`
-                          : `$${suggestion.price}`
+                        {suggestion.currency 
+                          ? `${suggestion.currency === 'CNY' ? '¥' : suggestion.currency === 'USD' ? '$' : ''}${suggestion.price}${!['CNY', 'USD'].includes(suggestion.currency) ? ` ${suggestion.currency}` : ''}`
+                          : `¥${suggestion.price}`
                         }
                       </span>
                     )}

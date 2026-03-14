@@ -22,7 +22,7 @@ type CurrencyContextValue = {
 const CurrencyContext = createContext<CurrencyContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'selected-currency';
-const DEFAULT_CURRENCY = 'USD';
+const DEFAULT_CURRENCY = 'CNY';
 const CRYPTO_CODES = new Set([
   'BTC',
   'ETH',

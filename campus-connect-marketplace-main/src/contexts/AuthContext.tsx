@@ -475,16 +475,21 @@ type MessageThreadResponseBody = {
 };
 
 type MessageNotificationItem = {
-  id?: number;
-  conversation_id?: number;
+  id?: number | string;
+  conversation_id?: number | null;
   sender_id?: number;
   sender_username?: string;
   sender_profile_picture?: string;
-  product_id?: number;
+  product_id?: number | null;
   notification_type?: string;
   notification_text?: string;
   notification_count?: number;
   created_at?: string;
+  // Transaction fields
+  amount?: number;
+  currency?: string;
+  wallet_id?: number;
+  transaction_ledger_id?: number;
 };
 
 type MessageNotificationsResponseBody = {
