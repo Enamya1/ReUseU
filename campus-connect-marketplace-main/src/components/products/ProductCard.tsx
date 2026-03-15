@@ -84,13 +84,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className, linkTo })
         )}
 
         {/* Status Badge */}
-        {product.status !== 'available' && (
+        {product.status !== 'available' ? (
           <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center">
             <Badge variant="secondary" className="text-base font-semibold">
               {product.status === 'sold' ? t('product.sold') : t('product.reserved')}
             </Badge>
           </div>
-        )}
+        ) : (product.exchange_type || product.exchange_target || product.target_product_title) ? (
+          <div className="absolute bottom-3 left-3">
+            <Badge variant="hero" className="text-[10px] h-5 px-1.5 border-0 font-bold tracking-tighter uppercase">
+              {product.exchange_type === 'exchange_only' ? t('createListing.exchangeOnly') : t('createListing.exchangeTitle')}
+            </Badge>
+          </div>
+        ) : null}
       </div>
 
       {/* Content */}

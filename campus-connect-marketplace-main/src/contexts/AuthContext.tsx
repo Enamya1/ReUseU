@@ -42,6 +42,7 @@ interface AuthContextType {
     location_q?: string;
   }) => Promise<NearbyResponseBody>;
   createProduct: (data: CreateProductInput) => Promise<CreateProductResponseBody>;
+  createExchangeProduct: (data: CreateExchangeProductInput) => Promise<CreateExchangeProductResponseBody>;
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   sendMessage: (data: SendMessageInput) => Promise<SendMessageResponseBody>;
   getMessageContacts: (params?: { limit?: number }) => Promise<MessageContactsResponseBody>;
@@ -330,6 +331,8 @@ type MyProductCard = {
   dormitory?: DormitoryOption & { university_id?: number };
   category?: { id: number; name: string; parent_id?: number | null };
   condition_level?: MetaConditionLevelOption;
+  exchange_type?: "exchange_only" | "exchange_or_purchase" | null;
+  target_product_title?: string | null;
 };
 
 type MyProductCardsResponseBody = {
@@ -414,6 +417,36 @@ type CreateProductResponseBody = {
   product?: unknown;
   images?: unknown[];
   tag_ids?: number[];
+  errors?: Record<string, string[]>;
+};
+
+type CreateExchangeProductInput = {
+  product_id?: number;
+  exchange_type: "exchange_only" | "exchange_or_purchase";
+  target_product_category_id?: number;
+  target_product_condition_id?: number;
+  target_product_title?: string;
+  expiration_date?: string;
+  category_id?: number;
+  condition_level_id?: number;
+  title?: string;
+  description?: string | null;
+  price?: number;
+  currency?: string;
+  dormitory_id?: number | null;
+  tag_ids?: number[] | null;
+  primary_image_index?: number | null;
+  images?: File[] | null;
+  thumbnail_images?: File[] | null;
+  image_urls?: string[] | null;
+  image_thumbnail_urls?: string[] | null;
+};
+
+type CreateExchangeProductResponseBody = {
+  message?: string;
+  exchange_product?: unknown;
+  product?: unknown;
+  images?: unknown[];
   errors?: Record<string, string[]>;
 };
 
@@ -661,6 +694,11 @@ type EditableProduct = {
   images?: ProductImage[];
   tags?: MetaTagOption[];
   tag_ids?: number[];
+  exchange_type?: "exchange_only" | "exchange_or_purchase" | null;
+  target_product_title?: string | null;
+  target_product_category_id?: number | null;
+  target_product_condition_id?: number | null;
+  expiration_date?: string | null;
 };
 
 type GetProductForEditResponseBody = {
@@ -693,6 +731,11 @@ type UpdateProductInput = {
   condition_level_id?: number;
   dormitory_id?: number | null;
   tag_ids?: number[];
+  exchange_type?: "exchange_only" | "exchange_or_purchase" | null;
+  target_product_title?: string | null;
+  target_product_category_id?: number | null;
+  target_product_condition_id?: number | null;
+  expiration_date?: string | null;
 };
 
 type UpdateProductResponseBody = {
@@ -1136,6 +1179,112 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       return true;
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const createExchangeProduct = useCallback(
+    async (data: CreateExchangeProductInput): Promise<CreateExchangeProductResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as CreateExchangeProductResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreateExchangeProductResponseBody;
+      }
+
+      const hasFiles = (data.images?.length || 0) > 0 || (data.thumbnail_images?.length || 0) > 0;
+      const url = apiUrl("/api/user/exchange-products");
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: hasFiles
+          ? {
+              Accept: "application/json",
+              Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+            }
+          : {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+            },
+        body: hasFiles
+          ? (() => {
+              const form = new FormData();
+              form.set("exchange_type", data.exchange_type);
+              if (data.product_id) form.set("product_id", String(data.product_id));
+              if (data.target_product_category_id) {
+                form.set("target_product_category_id", String(data.target_product_category_id));
+              }
+              if (data.target_product_condition_id) {
+                form.set("target_product_condition_id", String(data.target_product_condition_id));
+              }
+              if (data.target_product_title) form.set("target_product_title", data.target_product_title);
+              if (data.expiration_date) form.set("expiration_date", data.expiration_date);
+              if (data.category_id) form.set("category_id", String(data.category_id));
+              if (data.condition_level_id) form.set("condition_level_id", String(data.condition_level_id));
+              if (data.title) form.set("title", data.title);
+              if (data.description) form.set("description", data.description);
+              if (typeof data.price === "number") form.set("price", String(data.price));
+              if (data.currency) form.set("currency", data.currency);
+              if (typeof data.dormitory_id === "number") form.set("dormitory_id", String(data.dormitory_id));
+              if (typeof data.primary_image_index === "number") {
+                form.set("primary_image_index", String(data.primary_image_index));
+              }
+              if (Array.isArray(data.tag_ids)) {
+                data.tag_ids.forEach((id) => form.append("tag_ids[]", String(id)));
+              }
+              if (Array.isArray(data.image_urls)) {
+                data.image_urls.forEach((imageUrl) => form.append("image_urls[]", imageUrl));
+              }
+              if (Array.isArray(data.image_thumbnail_urls)) {
+                data.image_thumbnail_urls.forEach((thumbnailUrl) => form.append("image_thumbnail_urls[]", thumbnailUrl));
+              }
+              (data.images || []).forEach((file) => form.append("images[]", file));
+              (data.thumbnail_images || []).forEach((file) => form.append("thumbnail_images[]", file));
+              return form;
+            })()
+          : JSON.stringify(
+              removeUndefined({
+                product_id: data.product_id,
+                exchange_type: data.exchange_type,
+                target_product_category_id: data.target_product_category_id,
+                target_product_condition_id: data.target_product_condition_id,
+                target_product_title: data.target_product_title,
+                expiration_date: data.expiration_date,
+                category_id: data.category_id,
+                condition_level_id: data.condition_level_id,
+                title: data.title,
+                description: data.description || undefined,
+                price: data.price,
+                currency: data.currency,
+                dormitory_id: typeof data.dormitory_id === "number" ? data.dormitory_id : undefined,
+                tag_ids: Array.isArray(data.tag_ids) ? data.tag_ids : undefined,
+                primary_image_index:
+                  typeof data.primary_image_index === "number" ? data.primary_image_index : undefined,
+                image_urls: Array.isArray(data.image_urls) ? data.image_urls : undefined,
+                image_thumbnail_urls: Array.isArray(data.image_thumbnail_urls) ? data.image_thumbnail_urls : undefined,
+              }),
+            ),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as CreateExchangeProductResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as CreateExchangeProductResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreateExchangeProductResponseBody;
+      }
+      return { message: "Request failed" };
     },
     [accessToken, tokenType, user?.role],
   );
@@ -2122,6 +2271,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         condition_level_id: data.condition_level_id,
         dormitory_id: data.dormitory_id,
         tag_ids: data.tag_ids,
+        exchange_type: data.exchange_type,
+        target_product_title: data.target_product_title,
+        target_product_category_id: data.target_product_category_id,
+        target_product_condition_id: data.target_product_condition_id,
+        expiration_date: data.expiration_date,
       });
 
       const response = await fetch(apiUrl(`/api/user/products/${productId}`), {
@@ -2381,7 +2535,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getSimilarProducts,
     getProductDetail,
     createProduct,
-    createTag,
+      createExchangeProduct,
+      createTag,
     sendMessage,
     getMessageContacts,
     getMessages,

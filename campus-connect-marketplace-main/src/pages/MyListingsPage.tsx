@@ -27,7 +27,15 @@ const MyListingsPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
+  const [activeTab, setActiveTab] = useState<'sell' | 'exchange'>('sell');
   const skeletonItems = useMemo(() => Array.from({ length: pageSize }, (_, i) => i), [pageSize]);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (activeTab === 'exchange') return !!p.exchange_type;
+      return !p.exchange_type;
+    });
+  }, [products, activeTab]);
 
   const paginationItems = useMemo(() => {
     if (totalPages <= 7) {
@@ -111,6 +119,8 @@ const MyListingsPage: React.FC = () => {
             status: card.status,
             is_promoted: false,
             created_at: card.created_at,
+            exchange_type: card.exchange_type,
+            target_product_title: card.target_product_title,
             images: thumbnailUrl
               ? [
                   {
@@ -194,6 +204,25 @@ const MyListingsPage: React.FC = () => {
           </Button>
         </div>
 
+        <div className="flex items-center gap-2 mb-8 bg-muted/50 p-1 rounded-lg w-fit">
+          <Button
+            variant={activeTab === 'sell' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('sell')}
+            className="rounded-md"
+          >
+            {t('createListing.sell')}
+          </Button>
+          <Button
+            variant={activeTab === 'exchange' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('exchange')}
+            className="rounded-md"
+          >
+            {t('createListing.exchange')}
+          </Button>
+        </div>
+
         {isLoading ? (
           <div className="space-y-8">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
@@ -215,14 +244,16 @@ const MyListingsPage: React.FC = () => {
               <div className="h-10 w-48 rounded-full bg-muted animate-pulse" />
             </div>
           </div>
-        ) : products.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="max-w-md mx-auto text-center py-12">
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Package className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-semibold mb-2">{t('listings.emptyTitle')}</h2>
+            <h2 className="text-xl font-semibold mb-2">
+              {activeTab === 'sell' ? t('listings.emptyTitle') : t('listings.noExchangeListings')}
+            </h2>
             <p className="text-muted-foreground mb-6">
-              {t('listings.emptySubtitle')}
+              {activeTab === 'sell' ? t('listings.emptySubtitle') : t('listings.noExchangeListingsSubtitle')}
             </p>
             <Button asChild>
               <Link to="/create-listing">
@@ -234,7 +265,7 @@ const MyListingsPage: React.FC = () => {
         ) : (
           <div className="space-y-8">
             <ProductGrid
-              products={products}
+              products={filteredProducts}
               getProductLink={(product) => `/my-listings/${product.id}`}
             />
 

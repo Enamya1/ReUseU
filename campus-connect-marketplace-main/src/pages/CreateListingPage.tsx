@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Upload, X, Plus, ImageIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Upload, X, Plus, ImageIcon, ShoppingBag, ArrowLeftRight } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 
-type Step = 'details' | 'media' | 'tags' | 'review';
+type Step = 'type' | 'details' | 'media' | 'tags' | 'review';
 
 type MediaItem =
   | { kind: 'file'; file: File; previewUrl: string }
@@ -26,11 +26,11 @@ type TagOption = { id: number; name: string };
 type DormitoryOption = { id: number; dormitory_name: string; is_active?: boolean; university_id?: number };
 
 const CreateListingPage: React.FC = () => {
-  const { user, isAuthenticated, createProduct, createTag, getMetaOptions, getDormitoriesByUniversity } = useAuth();
+  const { user, isAuthenticated, createProduct, createExchangeProduct, createTag, getMetaOptions, getDormitoriesByUniversity } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
   
-  const [currentStep, setCurrentStep] = useState<Step>('details');
+  const [currentStep, setCurrentStep] = useState<Step>('type');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMetaLoading, setIsMetaLoading] = useState(false);
   const [isDormitoriesLoading, setIsDormitoriesLoading] = useState(false);
@@ -50,6 +50,8 @@ const CreateListingPage: React.FC = () => {
   const [dormitories, setDormitories] = useState<DormitoryOption[]>([]);
   
   const [formData, setFormData] = useState({
+    listingType: 'sell' as 'sell' | 'exchange',
+    exchange_type: 'exchange_only' as 'exchange_only' | 'exchange_or_purchase',
     title: '',
     description: '',
     price: '',
@@ -57,6 +59,10 @@ const CreateListingPage: React.FC = () => {
     condition_level_id: '',
     dormitory_id: user?.dormitory_id?.toString() || '',
     tags: [] as number[],
+    target_product_category_id: '',
+    target_product_condition_id: '',
+    target_product_title: '',
+    expiration_date: '',
   });
 
   useEffect(() => {
@@ -140,12 +146,27 @@ const CreateListingPage: React.FC = () => {
     };
   }, [getDormitoriesByUniversity, isAuthenticated, t]);
 
-  const steps: { id: Step; label: string }[] = [
-    { id: 'details', label: t('createListing.details') },
-    { id: 'media', label: t('createListing.photos') },
-    { id: 'tags', label: t('createListing.tags') },
-    { id: 'review', label: t('createListing.review') },
-  ];
+  useEffect(() => {
+    if (formData.listingType === 'exchange' && currentStep === 'media') {
+      setCurrentStep('details');
+    }
+  }, [formData.listingType, currentStep]);
+
+  const steps = useMemo(() => {
+    const baseSteps: { id: Step; label: string }[] = [
+      { id: 'type', label: t('createListing.type') },
+      { id: 'details', label: t('createListing.details') },
+      { id: 'media', label: t('createListing.photos') },
+      { id: 'tags', label: t('createListing.tags') },
+      { id: 'review', label: t('createListing.review') },
+    ];
+
+    if (formData.listingType === 'exchange') {
+      return baseSteps.filter((step) => step.id !== 'media');
+    }
+
+    return baseSteps;
+  }, [formData.listingType, t]);
 
   const currentStepIndex = steps.findIndex(s => s.id === currentStep);
 
@@ -305,8 +326,10 @@ const CreateListingPage: React.FC = () => {
 
   const canProceed = (): boolean => {
     switch (currentStep) {
+      case 'type':
+        return !!formData.listingType;
       case 'details':
-        return !!(
+        const basicFields = !!(
           formData.title &&
           formData.price &&
           Number.parseFloat(formData.price) >= 0.01 &&
@@ -314,6 +337,10 @@ const CreateListingPage: React.FC = () => {
           formData.condition_level_id &&
           (!dormitoryRequired || !!formData.dormitory_id)
         );
+        if (formData.listingType === 'exchange') {
+          return basicFields && !!formData.exchange_type;
+        }
+        return basicFields;
       case 'media':
         return media.length > 0;
       case 'tags':
@@ -394,20 +421,43 @@ const CreateListingPage: React.FC = () => {
       const resolvedPrimaryIndex =
         typeof thumbnailIndex === 'number' ? thumbnailIndex : media.length ? primaryImageIndex : null;
 
-      const result = await createProduct({
-        category_id: categoryId,
-        condition_level_id: conditionLevelId,
-        title: formData.title.trim(),
-        description: formData.description.trim() || null,
-        price,
-        dormitory_id: Number.isFinite(dormitoryId) ? dormitoryId : undefined,
-        tag_ids: formData.tags.length ? formData.tags : null,
-        primary_image_index: resolvedPrimaryIndex,
-        images: files.length ? files : null,
-        thumbnail_images: thumbnailFile && files.length ? files : null,
-        image_urls: urls.length ? urls : null,
-        image_thumbnail_urls: urls.length ? urls : null,
-      });
+      let result;
+      if (formData.listingType === 'exchange') {
+        result = await createExchangeProduct({
+          exchange_type: formData.exchange_type,
+          category_id: categoryId,
+          condition_level_id: conditionLevelId,
+          title: formData.title.trim(),
+          description: formData.description.trim() || null,
+          price,
+          dormitory_id: Number.isFinite(dormitoryId) ? dormitoryId : undefined,
+          tag_ids: formData.tags.length ? formData.tags : null,
+          primary_image_index: resolvedPrimaryIndex,
+          images: files.length ? files : null,
+          thumbnail_images: thumbnailFile && files.length ? files : null,
+          image_urls: urls.length ? urls : null,
+          image_thumbnail_urls: urls.length ? urls : null,
+          target_product_category_id: formData.target_product_category_id ? Number(formData.target_product_category_id) : undefined,
+          target_product_condition_id: formData.target_product_condition_id ? Number(formData.target_product_condition_id) : undefined,
+          target_product_title: formData.target_product_title.trim() || undefined,
+          expiration_date: formData.expiration_date || undefined,
+        });
+      } else {
+        result = await createProduct({
+          category_id: categoryId,
+          condition_level_id: conditionLevelId,
+          title: formData.title.trim(),
+          description: formData.description.trim() || null,
+          price,
+          dormitory_id: Number.isFinite(dormitoryId) ? dormitoryId : undefined,
+          tag_ids: formData.tags.length ? formData.tags : null,
+          primary_image_index: resolvedPrimaryIndex,
+          images: files.length ? files : null,
+          thumbnail_images: thumbnailFile && files.length ? files : null,
+          image_urls: urls.length ? urls : null,
+          image_thumbnail_urls: urls.length ? urls : null,
+        });
+      }
 
       toast({
         title: t('createListing.createSuccessTitle'),
@@ -467,6 +517,8 @@ const CreateListingPage: React.FC = () => {
   const selectedCondition = conditionLevels.find(c => c.id.toString() === formData.condition_level_id);
   const selectedDormitory = dormitories.find(d => d.id.toString() === formData.dormitory_id);
   const selectedTags = tags.filter(t => formData.tags.includes(t.id));
+  const selectedTargetCategory = categories.find(c => c.id.toString() === formData.target_product_category_id);
+  const selectedTargetCondition = conditionLevels.find(c => c.id.toString() === formData.target_product_condition_id);
   const primaryPreviewUrl = mediaPreviewUrls[primaryImageIndex] || mediaPreviewUrls[0] || '';
 
   return (
@@ -521,6 +573,74 @@ const CreateListingPage: React.FC = () => {
         {/* Form Content */}
         <div className="flex-1 container py-10">
           <div className="max-w-5xl mx-auto">
+            {/* Type Selection Step */}
+            {currentStep === 'type' && (
+              <div className="animate-fade-in">
+                <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-8">
+                  <div className="text-center">
+                    <h2 className="text-3xl font-display font-bold mb-3">{t('createListing.typeTitle')}</h2>
+                    <p className="text-muted-foreground text-lg max-w-2xl mx-auto">{t('createListing.typeSubtitle')}</p>
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => updateField('listingType', 'sell')}
+                      className={cn(
+                        "relative flex flex-col items-center gap-6 p-8 rounded-2xl border-2 transition-all group",
+                        formData.listingType === 'sell'
+                          ? "border-primary bg-primary/5 shadow-md"
+                          : "border-border hover:border-primary/50 hover:bg-muted/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-20 h-20 rounded-2xl flex items-center justify-center transition-colors",
+                        formData.listingType === 'sell' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                      )}>
+                        <ShoppingBag className="w-10 h-10" />
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-xl font-bold mb-2">{t('createListing.sellTitle')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('createListing.sellDescription')}</p>
+                      </div>
+                      {formData.listingType === 'sell' && (
+                        <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                        </div>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => updateField('listingType', 'exchange')}
+                      className={cn(
+                        "relative flex flex-col items-center gap-6 p-8 rounded-2xl border-2 transition-all group",
+                        formData.listingType === 'exchange'
+                          ? "border-primary bg-primary/5 shadow-md"
+                          : "border-border hover:border-primary/50 hover:bg-muted/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-20 h-20 rounded-2xl flex items-center justify-center transition-colors",
+                        formData.listingType === 'exchange' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                      )}>
+                        <ArrowLeftRight className="w-10 h-10" />
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-xl font-bold mb-2">{t('createListing.exchangeTitle')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('createListing.exchangeDescription')}</p>
+                      </div>
+                      {formData.listingType === 'exchange' && (
+                        <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Details Step */}
             {currentStep === 'details' && (
               <div className="animate-fade-in">
@@ -659,6 +779,104 @@ const CreateListingPage: React.FC = () => {
                         <p className="text-xs text-destructive">{fieldErrors.description[0]}</p>
                       ) : null}
                     </div>
+
+                    {formData.listingType === 'exchange' && (
+                      <>
+                        <div className="md:col-span-2 pt-6 border-t border-border">
+                          <h3 className="text-xl font-display font-bold mb-6">{t('createListing.exchangeSettingsTitle')}</h3>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>{t('createListing.exchangeTypeLabel')}</Label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <button
+                              type="button"
+                              onClick={() => updateField('exchange_type', 'exchange_only')}
+                              className={cn(
+                                "p-4 rounded-xl border text-sm font-medium transition-all",
+                                formData.exchange_type === 'exchange_only'
+                                  ? "border-primary bg-primary/5 text-primary"
+                                  : "border-border hover:border-primary/50"
+                              )}
+                            >
+                              {t('createListing.exchangeOnly')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateField('exchange_type', 'exchange_or_purchase')}
+                              className={cn(
+                                "p-4 rounded-xl border text-sm font-medium transition-all",
+                                formData.exchange_type === 'exchange_or_purchase'
+                                  ? "border-primary bg-primary/5 text-primary"
+                                  : "border-border hover:border-primary/50"
+                              )}
+                            >
+                              {t('createListing.exchangeOrPurchase')}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="target_product_title">{t('createListing.targetTitleLabel')}</Label>
+                          <Input
+                            id="target_product_title"
+                            placeholder={t('createListing.targetTitlePlaceholder')}
+                            value={formData.target_product_title}
+                            onChange={(e) => updateField('target_product_title', e.target.value)}
+                            className="h-12"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="target_category">{t('createListing.targetCategoryLabel')}</Label>
+                          <Select
+                            value={formData.target_product_category_id}
+                            onValueChange={(val) => updateField('target_product_category_id', val)}
+                          >
+                            <SelectTrigger id="target_category" className="h-12">
+                              <SelectValue placeholder={t('createListing.categoryPlaceholder')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id.toString()}>
+                                  {cat.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="target_condition">{t('createListing.targetConditionLabel')}</Label>
+                          <Select
+                            value={formData.target_product_condition_id}
+                            onValueChange={(val) => updateField('target_product_condition_id', val)}
+                          >
+                            <SelectTrigger id="target_condition" className="h-12">
+                              <SelectValue placeholder={t('createListing.conditionPlaceholder')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {conditionLevels.map((lvl) => (
+                                <SelectItem key={lvl.id} value={lvl.id.toString()}>
+                                  {lvl.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="expiration_date">{t('createListing.expirationDateLabel')}</Label>
+                          <Input
+                            id="expiration_date"
+                            type="date"
+                            value={formData.expiration_date}
+                            onChange={(e) => updateField('expiration_date', e.target.value)}
+                            className="h-12"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -859,7 +1077,51 @@ const CreateListingPage: React.FC = () => {
                           <p className="text-2xl font-bold">${formData.price}</p>
                           <h3 className="text-lg font-semibold">{formData.title || t('createListing.untitled')}</h3>
                         </div>
+                        <Badge variant={formData.listingType === 'exchange' ? 'hero' : 'secondary'}>
+                          {formData.listingType === 'exchange' ? t('createListing.exchangeTitle') : t('createListing.sellTitle')}
+                        </Badge>
                       </div>
+
+                      {formData.listingType === 'exchange' && (
+                        <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-3">
+                          <h4 className="font-semibold text-primary flex items-center gap-2">
+                            <ArrowLeftRight className="w-4 h-4" />
+                            {t('createListing.exchangeSettingsTitle')}
+                          </h4>
+                          <div className="grid gap-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">{t('createListing.exchangeTypeLabel')}</span>
+                              <span className="font-medium">
+                                {formData.exchange_type === 'exchange_only' ? t('createListing.exchangeOnly') : t('createListing.exchangeOrPurchase')}
+                              </span>
+                            </div>
+                            {formData.target_product_title && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">{t('createListing.targetTitleLabel')}</span>
+                                <span className="font-medium">{formData.target_product_title}</span>
+                              </div>
+                            )}
+                            {selectedTargetCategory && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">{t('createListing.targetCategoryLabel')}</span>
+                                <span className="font-medium">{selectedTargetCategory.name}</span>
+                              </div>
+                            )}
+                            {selectedTargetCondition && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">{t('createListing.targetConditionLabel')}</span>
+                                <span className="font-medium">{selectedTargetCondition.name}</span>
+                              </div>
+                            )}
+                            {formData.expiration_date && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">{t('createListing.expirationDateLabel')}</span>
+                                <span className="font-medium">{formData.expiration_date}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {formData.description && (
                         <p className="text-muted-foreground">{formData.description}</p>

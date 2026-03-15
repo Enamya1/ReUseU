@@ -20,6 +20,7 @@ import CreateListingPage from "./pages/CreateListingPage";
 import ProfilePage from "./pages/ProfilePage";
 import WalletPage from "./pages/WalletPage";
 import NearbyPage from "./pages/NearbyPage";
+import ExchangePage from "./pages/ExchangePage";
 import OnboardingPage from "./pages/OnboardingPage";
 import SellerProfilePage from "./pages/SellerProfilePage";
 import MessagesPage from "./pages/MessagesPage";
@@ -73,6 +74,7 @@ const App = () => (
                   <Route path="/product/:id" element={<ProductDetailPage />} />
                   <Route path="/seller/:id" element={<SellerProfilePage />} />
                   <Route path="/nearby" element={<NearbyPage />} />
+                  <Route path="/exchange" element={<ExchangePage />} />
                   <Route path="/onboarding" element={<OnboardingPage />} />
 
                   {/* Protected User Routes */}

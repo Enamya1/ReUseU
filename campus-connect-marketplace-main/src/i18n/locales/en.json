@@ -19,6 +19,7 @@
     "ai": "AI",
     "profile": "Profile",
     "nearBy": "Near By",
+    "exchange": "Exchange",
     "favorites": "Favorites",
     "wallet": "Wallet",
     "createListing": "Create Listing"
@@ -70,6 +71,16 @@
     "ctaTitle": "Ready to start trading?",
     "ctaSubtitle": "Join thousands of students already using Suki to buy and sell on campus.",
     "ctaButton": "Create Free Account"
+  },
+  "exchange": {
+    "title": "Item Exchange",
+    "subtitle": "Find products available for exchange with other students",
+    "searchPlaceholder": "Search for items to exchange...",
+    "wants": "Wants in exchange:",
+    "sellerInfo": "Seller Information",
+    "productInfo": "Product Details",
+    "noResults": "No exchange items found matching your search.",
+    "exchangeWith": "Exchange with"
   },
   "landing": {
     "nav": {
@@ -277,7 +288,9 @@
     "emptySubtitle": "Start selling by creating your first listing.",
     "createListing": "Create listing",
     "loadErrorTitle": "Error",
-    "loadErrorDesc": "Failed to load your listings"
+    "loadErrorDesc": "Failed to load your listings",
+    "noExchangeListings": "No exchange listings yet",
+    "noExchangeListingsSubtitle": "Start trading by creating your first exchange listing."
   },
   "listingDetail": {
     "notFoundTitle": "Listing not found",
@@ -334,10 +347,28 @@
   "createListing": {
     "title": "Create Listing",
     "back": "Back",
+    "sell": "Sell",
+    "exchange": "Exchange",
+    "type": "Type",
     "details": "Details",
     "photos": "Photos",
     "tags": "Tags",
     "review": "Review",
+    "typeTitle": "What kind of listing is this?",
+    "typeSubtitle": "Choose whether you want to sell your item for cash or exchange it for something else.",
+    "sellTitle": "Sell",
+    "sellDescription": "List your item for a fixed price in cash.",
+    "exchangeTitle": "Exchange",
+    "exchangeDescription": "Trade your item for another product or service.",
+    "exchangeSettingsTitle": "Exchange Settings",
+    "exchangeTypeLabel": "Exchange Type *",
+    "exchangeOnly": "Exchange Only",
+    "exchangeOrPurchase": "Exchange or Purchase",
+    "targetTitleLabel": "What are you looking for? (Optional)",
+    "targetTitlePlaceholder": "e.g., iPhone 13, iPad Air...",
+    "targetCategoryLabel": "Target Category (Optional)",
+    "targetConditionLabel": "Target Condition (Optional)",
+    "expirationDateLabel": "Listing Expiration Date (Optional)",
     "detailsTitle": "Item Details",
     "detailsSubtitle": "Tell us about what you're selling",
     "titleLabel": "Title *",

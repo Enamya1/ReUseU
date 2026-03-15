@@ -38,6 +38,11 @@ type EditableProduct = {
   category?: CategoryOption;
   condition_level?: ConditionLevelOption;
   dormitory?: DormitoryOption;
+  exchange_type?: 'exchange_only' | 'exchange_or_purchase' | null;
+  target_product_title?: string | null;
+  target_product_category_id?: number | null;
+  target_product_condition_id?: number | null;
+  expiration_date?: string | null;
 };
 
 const MyListingDetailPage: React.FC = () => {
@@ -64,6 +69,11 @@ const MyListingDetailPage: React.FC = () => {
     condition_level_id: '',
     dormitory_id: '',
     tags: [] as number[],
+    exchange_type: '' as 'exchange_only' | 'exchange_or_purchase' | '',
+    target_product_title: '',
+    target_product_category_id: '',
+    target_product_condition_id: '',
+    expiration_date: '',
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -135,6 +145,11 @@ const MyListingDetailPage: React.FC = () => {
           condition_level_id: detail.product.condition_level_id ? String(detail.product.condition_level_id) : '',
           dormitory_id: detail.product.dormitory_id ? String(detail.product.dormitory_id) : '',
           tags: detail.product.tag_ids || detail.product.tags?.map(tag => tag.id) || [],
+          exchange_type: detail.product.exchange_type || '',
+          target_product_title: detail.product.target_product_title || '',
+          target_product_category_id: detail.product.target_product_category_id ? String(detail.product.target_product_category_id) : '',
+          target_product_condition_id: detail.product.target_product_condition_id ? String(detail.product.target_product_condition_id) : '',
+          expiration_date: detail.product.expiration_date || '',
         });
 
         try {
@@ -252,6 +267,11 @@ const MyListingDetailPage: React.FC = () => {
         condition_level_id: Number(formData.condition_level_id),
         dormitory_id: formData.dormitory_id ? Number(formData.dormitory_id) : null,
         tag_ids: formData.tags.length ? formData.tags : undefined,
+        exchange_type: formData.exchange_type || undefined,
+        target_product_title: formData.target_product_title || undefined,
+        target_product_category_id: formData.target_product_category_id ? Number(formData.target_product_category_id) : undefined,
+        target_product_condition_id: formData.target_product_condition_id ? Number(formData.target_product_condition_id) : undefined,
+        expiration_date: formData.expiration_date || undefined,
       };
 
       const result = await updateProduct(product.id, payload);
@@ -734,6 +754,91 @@ const MyListingDetailPage: React.FC = () => {
                 </div>
                 {fieldErrors.tag_ids?.[0] ? <p className="text-xs text-destructive">{fieldErrors.tag_ids[0]}</p> : null}
               </div>
+
+              {product.exchange_type && (
+                <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-4">
+                  <h4 className="font-semibold text-primary flex items-center gap-2">
+                    {t('createListing.exchangeSettingsTitle')}
+                  </h4>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="exchange_type">{t('createListing.exchangeTypeLabel')}</Label>
+                    <Select
+                      value={formData.exchange_type || ''}
+                      onValueChange={(value) => updateField('exchange_type', value)}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder={t('createListing.exchangeTypeLabel')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="exchange_only">{t('createListing.exchangeOnly')}</SelectItem>
+                        <SelectItem value="exchange_or_purchase">{t('createListing.exchangeOrPurchase')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="target_product_title">{t('createListing.targetTitleLabel')}</Label>
+                    <Input
+                      id="target_product_title"
+                      value={formData.target_product_title}
+                      onChange={(e) => updateField('target_product_title', e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="target_category">{t('createListing.targetCategoryLabel')}</Label>
+                      <Select
+                        value={formData.target_product_category_id}
+                        onValueChange={(value) => updateField('target_product_category_id', value)}
+                      >
+                        <SelectTrigger className="h-12">
+                          <SelectValue placeholder={t('createListing.categoryPlaceholder')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id.toString()}>
+                              {category.icon ? `${category.icon} ` : ''}{category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="target_condition">{t('createListing.targetConditionLabel')}</Label>
+                      <Select
+                        value={formData.target_product_condition_id}
+                        onValueChange={(value) => updateField('target_product_condition_id', value)}
+                      >
+                        <SelectTrigger className="h-12">
+                          <SelectValue placeholder={t('createListing.conditionPlaceholder')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {conditionLevels.map((level) => (
+                            <SelectItem key={level.id} value={level.id.toString()}>
+                              {level.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="expiration_date">{t('createListing.expirationDateLabel')}</Label>
+                    <Input
+                      id="expiration_date"
+                      type="date"
+                      value={formData.expiration_date}
+                      onChange={(e) => updateField('expiration_date', e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button type="submit" disabled={isSaving}>

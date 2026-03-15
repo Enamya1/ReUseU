@@ -86,6 +86,12 @@ export interface Product {
   images: ProductImage[];
   tags: Tag[];
   distance_km?: number;
+  exchange_target?: string;
+  exchange_type?: 'exchange_only' | 'exchange_or_purchase' | null;
+  target_product_title?: string | null;
+  target_product_category_id?: number | null;
+  target_product_condition_id?: number | null;
+  expiration_date?: string | null;
 }
 
 export interface BehavioralEvent {
@@ -402,6 +408,7 @@ export const mockProducts: Product[] = [
     ],
     tags: [mockTags[2], mockTags[7]],
     distance_km: 0.3,
+    exchange_target: 'Gaming PC or iPad Pro',
   },
   {
     id: 2,
@@ -423,6 +430,7 @@ export const mockProducts: Product[] = [
     ],
     tags: [mockTags[0], mockTags[6]],
     distance_km: 1.2,
+    exchange_target: 'Art Supplies or Sketchbooks',
   },
   {
     id: 3,
@@ -445,6 +453,7 @@ export const mockProducts: Product[] = [
     ],
     tags: [mockTags[3], mockTags[5], mockTags[8]],
     distance_km: 0.5,
+    exchange_target: 'Standing Desk',
   },
   {
     id: 4,

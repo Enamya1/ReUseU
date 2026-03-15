@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Heart, Share2, MapPin, Clock, User, ChevronLeft, ChevronRight, MessageCircle, AlertCircle } from 'lucide-react';
+import { Heart, Share2, MapPin, Clock, User, ChevronLeft, ChevronRight, MessageCircle, AlertCircle, ArrowLeftRight } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,13 +14,13 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
-import type { Category, ConditionLevel, Dormitory, Product, ProductImage, Tag, User as UserProfile } from '@/lib/mockData';
+import type { Category, ConditionLevel, Dormitory, Product, ProductImage, Tag, User as UserProfile, MetaCategoryOption, MetaConditionLevelOption } from '@/lib/mockData';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { isAuthenticated, getProductDetail, getSimilarProducts } = useAuth();
+  const { isAuthenticated, getProductDetail, getSimilarProducts, getMetaOptions } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { formatSelectedCurrencyParts } = useCurrency();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -28,6 +28,22 @@ const ProductDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [similarLoading, setSimilarLoading] = useState(true);
+  const [categories, setCategories] = useState<MetaCategoryOption[]>([]);
+  const [conditions, setConditions] = useState<MetaConditionLevelOption[]>([]);
+
+  useEffect(() => {
+    const fetchMeta = async () => {
+      if (!isAuthenticated) return;
+      try {
+        const data = await getMetaOptions();
+        if (data.categories) setCategories(data.categories);
+        if (data.condition_levels) setConditions(data.condition_levels);
+      } catch (error) {
+        console.error('Error fetching meta options:', error);
+      }
+    };
+    fetchMeta();
+  }, [getMetaOptions, isAuthenticated]);
 
   useEffect(() => {
     if (!id) {
@@ -100,6 +116,12 @@ const ProductDetailPage: React.FC = () => {
       distance_km?: number | null;
       image_url?: string | null;
       image_thumbnail_url?: string | null;
+      exchange_type?: 'exchange_only' | 'exchange_or_purchase' | null;
+      exchange_target?: string;
+      target_product_title?: string | null;
+      target_product_category_id?: number | null;
+      target_product_condition_id?: number | null;
+      expiration_date?: string | null;
     }): Product => {
       const resolvedId = typeof data.id === 'number' ? data.id : productId;
       const images: ProductImage[] = Array.isArray(data.images)
@@ -202,6 +224,12 @@ const ProductDetailPage: React.FC = () => {
         images,
         tags,
         distance_km: typeof data.distance_km === 'number' ? data.distance_km : undefined,
+        exchange_type: data.exchange_type,
+        exchange_target: data.exchange_target,
+        target_product_title: data.target_product_title,
+        target_product_category_id: data.target_product_category_id,
+        target_product_condition_id: data.target_product_condition_id,
+        expiration_date: data.expiration_date,
       };
     };
 
@@ -489,6 +517,16 @@ const ProductDetailPage: React.FC = () => {
     );
   };
 
+  const getTargetCategoryName = (id?: number | null) => {
+    if (!id) return null;
+    return categories.find(c => c.id === id)?.name;
+  };
+
+  const getTargetConditionName = (id?: number | null) => {
+    if (!id) return null;
+    return conditions.find(c => c.id === id)?.name;
+  };
+
   return (
     <MainLayout>
       <div className="container py-6 md:py-10">
@@ -674,6 +712,50 @@ const ProductDetailPage: React.FC = () => {
                 <p className="text-muted-foreground leading-relaxed">
                   {product.description}
                 </p>
+              </div>
+            )}
+
+            {/* Exchange Settings */}
+            {(product.exchange_type || product.target_product_title) && (
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-4">
+                <h3 className="font-semibold text-primary flex items-center gap-2">
+                  <ArrowLeftRight className="w-4 h-4" />
+                  {t('createListing.exchangeSettingsTitle')}
+                </h3>
+                <div className="grid gap-3 text-sm">
+                  {product.exchange_type && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">{t('createListing.exchangeTypeLabel')}</span>
+                      <Badge variant="hero" className="text-[10px] uppercase font-bold tracking-tighter">
+                        {product.exchange_type === 'exchange_only' ? t('createListing.exchangeOnly') : t('createListing.exchangeOrPurchase')}
+                      </Badge>
+                    </div>
+                  )}
+                  {product.target_product_title && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('createListing.targetProductTitleLabel')}</span>
+                      <span className="font-medium">{product.target_product_title}</span>
+                    </div>
+                  )}
+                  {product.target_product_category_id && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('createListing.targetProductCategoryLabel')}</span>
+                      <span className="font-medium">{getTargetCategoryName(product.target_product_category_id) || t('common.loading')}</span>
+                    </div>
+                  )}
+                  {product.target_product_condition_id && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('createListing.targetProductConditionLabel')}</span>
+                      <span className="font-medium">{getTargetConditionName(product.target_product_condition_id) || t('common.loading')}</span>
+                    </div>
+                  )}
+                  {product.expiration_date && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('createListing.expirationDateLabel')}</span>
+                      <span className="font-medium">{new Date(product.expiration_date).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

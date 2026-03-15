@@ -63,6 +63,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   const primaryNavItems = [
     { to: '/', label: t('nav.home') },
     { to: '/nearby', label: t('nav.nearBy') },
+    { to: '/exchange', label: t('nav.exchange') },
     { to: '/ai', label: t('nav.ai') },
     { to: '/my-listings', label: t('nav.myListings') },
     { to: '/messages', label: t('nav.messages') },
