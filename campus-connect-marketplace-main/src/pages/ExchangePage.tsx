@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import { mockProducts, type Product } from '@/lib/mockData';
+import { type Product } from '@/lib/mockData';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,24 +9,140 @@ import { Search, ArrowRightLeft, User, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { normalizeImageUrl } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
 
 const ExchangePage: React.FC = () => {
   const { t } = useTranslation();
   const { formatWithSelectedCurrency } = useCurrency();
+  const { isAuthenticated, getRecommendedExchangeProducts } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [exchangeProducts, setExchangeProducts] = useState<Product[]>([]);
 
-  // Filter products that have exchange info and match the search query
-  const exchangeProducts = useMemo(() => {
-    return mockProducts.filter((product) => {
-      const hasExchange = !!(product.exchange_target || product.target_product_title || product.exchange_type);
-      const matchesSearch = 
-        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (product.exchange_target?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (product.target_product_title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setExchangeProducts([]);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const data = await getRecommendedExchangeProducts({
+          page: 1,
+          page_size: 10,
+          random_count: 3,
+          lookback_days: 30,
+        });
+        if (cancelled) return;
+        const mapped = (data.exchange_products || []).map((item, index) => {
+          const product = item.product || {};
+          const ex = item.exchange_product || {};
+          const productId = typeof product.id === 'number' ? product.id : index + 1;
+
+          const images: Product['images'] = [];
+          if (product.image_thumbnail_url) {
+            const normalized = normalizeImageUrl(product.image_thumbnail_url) || product.image_thumbnail_url;
+            images.push({
+              id: 0,
+              product_id: productId,
+              image_url: normalized,
+              image_thumbnail_url: normalized,
+              is_primary: true,
+            });
+          }
+
+          const conditionLevel = product.condition_level
+            ? {
+                id: product.condition_level.id!,
+                name: product.condition_level.name!,
+                description: undefined,
+                sort_order: product.condition_level.level ?? 0,
+              }
+            : undefined;
+
+          return {
+            id: productId,
+            seller_id: product.seller_id ?? 0,
+            seller: product.seller
+              ? {
+                  id: product.seller.id,
+                  full_name: product.seller.username,
+                  username: product.seller.username,
+                  email: '',
+                  profile_picture: product.seller.profile_picture,
+                  role: 'user',
+                  status: 'active',
+                }
+              : undefined,
+            dormitory_id: product.dormitory_id ?? 0,
+            dormitory:
+              typeof product.dormitory?.latitude === 'number' && typeof product.dormitory?.longitude === 'number'
+                ? {
+                    id: 0,
+                    dormitory_name: '',
+                    domain: '',
+                    location: undefined,
+                    lat: product.dormitory.latitude,
+                    lng: product.dormitory.longitude,
+                    is_active: true,
+                    university_id: 0,
+                  }
+                : undefined,
+            category_id: product.category_id ?? 0,
+            category: product.category
+              ? { id: product.category.id!, name: product.category.name!, parent_id: product.category.parent_id ?? undefined, icon: undefined }
+              : undefined,
+            condition_level_id: product.condition_level_id ?? product.condition_level?.id ?? 0,
+            condition_level: conditionLevel,
+            title: product.title || 'Untitled',
+            description: product.description ?? undefined,
+            price: typeof product.price === 'number' ? product.price : 0,
+            currency: typeof product.currency === 'string' ? product.currency : undefined,
+            status: (product.status as Product['status']) ?? 'available',
+            is_promoted: Boolean(product.is_promoted),
+            created_at: product.created_at || new Date().toISOString(),
+            images,
+            tags: Array.isArray(product.tags)
+              ? product.tags.map((tag) => ({ id: tag.id!, name: tag.name! }))
+              : [],
+            exchange_type: ex.exchange_type ?? null,
+            target_product_title: ex.target_product_title ?? null,
+            target_product_category_id: ex.target_product_category?.id ?? null,
+            target_product_condition_id: ex.target_product_condition?.id ?? null,
+            expiration_date: ex.expiration_date ?? null,
+          } as Product;
+        });
+        setExchangeProducts(mapped);
+      } catch (error) {
+        if (cancelled) return;
+        const maybe = error as { detail?: string; message?: string } | undefined;
+        toast({
+          title: 'Unable to load exchange products',
+          description: maybe?.detail || maybe?.message || 'Could not load exchange recommendations.',
+          variant: 'destructive',
+        });
+        setExchangeProducts([]);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getRecommendedExchangeProducts, isAuthenticated]);
+
+  const filteredExchangeProducts = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return exchangeProducts.filter((product) => {
+      const hasExchange = !!(product.target_product_title || product.exchange_target || product.exchange_type);
+      const matchesSearch =
+        product.title.toLowerCase().includes(q) ||
+        (product.description?.toLowerCase().includes(q) ?? false) ||
+        (product.exchange_target?.toLowerCase().includes(q) ?? false) ||
+        (product.target_product_title?.toLowerCase().includes(q) ?? false);
       return hasExchange && matchesSearch;
     });
-  }, [searchQuery]);
+  }, [exchangeProducts, searchQuery]);
 
   return (
     <MainLayout>
@@ -52,9 +168,9 @@ const ExchangePage: React.FC = () => {
           </div>
         </div>
 
-        {exchangeProducts.length > 0 ? (
+        {filteredExchangeProducts.length > 0 ? (
           <div className="flex flex-col gap-4">
-            {exchangeProducts.map((product) => (
+            {filteredExchangeProducts.map((product) => (
               <Card key={product.id} className="overflow-hidden border-primary/10 hover:border-primary/30 transition-all hover:shadow-md group">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row items-stretch">

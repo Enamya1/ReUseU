@@ -45,6 +45,14 @@ interface AuthContextType {
   createExchangeProduct: (data: CreateExchangeProductInput) => Promise<CreateExchangeProductResponseBody>;
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   sendMessage: (data: SendMessageInput) => Promise<SendMessageResponseBody>;
+  getRecommendedExchangeProducts: (params?: {
+    page?: number;
+    page_size?: number;
+    random_count?: number;
+    lookback_days?: number;
+    seed?: number;
+    exchange_type?: "exchange_only" | "exchange_or_purchase";
+  }) => Promise<ExchangeRecommendationsResponseBody>;
   getMessageContacts: (params?: { limit?: number }) => Promise<MessageContactsResponseBody>;
   getMessages: (params: { conversation_id: number; limit?: number; before_id?: number }) => Promise<MessageThreadResponseBody>;
   getMessageNotifications: (params?: { limit?: number }) => Promise<MessageNotificationsResponseBody>;
@@ -210,6 +218,33 @@ type RecommendationsResponseBody = {
   last_product_id?: number;
   last_product_at?: string | null;
   products?: RecommendationProduct[];
+  detail?: string;
+  errors?: Record<string, string[]>;
+};
+
+type ExchangeRecommendationItem = {
+  exchange_product?: {
+    id?: number;
+    exchange_type?: "exchange_only" | "exchange_or_purchase";
+    exchange_status?: string;
+    expiration_date?: string | null;
+    target_product_title?: string | null;
+    target_product_category?: { id?: number; name?: string };
+    target_product_condition?: { id?: number; name?: string; level?: number | null };
+  };
+  product?: RecommendationProduct;
+};
+
+type ExchangeRecommendationsResponseBody = {
+  message?: string;
+  page?: number;
+  page_size?: number;
+  random_count?: number;
+  last_event_id?: number;
+  last_event_at?: string | null;
+  last_exchange_product_id?: number;
+  last_exchange_product_at?: string | null;
+  exchange_products?: ExchangeRecommendationItem[];
   detail?: string;
   errors?: Record<string, string[]>;
 };
@@ -2046,6 +2081,76 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user],
   );
 
+  const getRecommendedExchangeProducts = useCallback(
+    async (params?: {
+      page?: number;
+      page_size?: number;
+      random_count?: number;
+      lookback_days?: number;
+      seed?: number;
+      exchange_type?: "exchange_only" | "exchange_or_purchase";
+    }): Promise<ExchangeRecommendationsResponseBody> => {
+      if (!accessToken) {
+        throw { detail: "Missing Authorization header" } as ExchangeRecommendationsResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { detail: "Only users can access this endpoint" } as ExchangeRecommendationsResponseBody;
+      }
+
+      const endpoint = apiPyUrl("/py/api/user/recommendations/exchange-products");
+      const url = new URL(endpoint, window.location.origin);
+      if (typeof params?.page === "number" && Number.isFinite(params.page)) {
+        url.searchParams.set("page", String(params.page));
+      }
+      if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
+        url.searchParams.set("page_size", String(params.page_size));
+      }
+      if (typeof params?.random_count === "number" && Number.isFinite(params.random_count)) {
+        url.searchParams.set("random_count", String(params.random_count));
+      }
+      if (typeof params?.lookback_days === "number" && Number.isFinite(params.lookback_days)) {
+        url.searchParams.set("lookback_days", String(params.lookback_days));
+      }
+      if (typeof params?.seed === "number" && Number.isFinite(params.seed)) {
+        url.searchParams.set("seed", String(params.seed));
+      }
+      if (params?.exchange_type) {
+        url.searchParams.set("exchange_type", params.exchange_type);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as ExchangeRecommendationsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 422) throw responseBody;
+        if (response.status === 502) throw responseBody;
+        if (response.status === 503) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { detail: "Missing Authorization header" } as ExchangeRecommendationsResponseBody;
+      if (response.status === 403) throw { detail: "Only users can access this endpoint" } as ExchangeRecommendationsResponseBody;
+      if (response.status === 422) throw { detail: "Invalid exchange_type" } as ExchangeRecommendationsResponseBody;
+      if (response.status === 502) throw { detail: "Could not reach Laravel" } as ExchangeRecommendationsResponseBody;
+      if (response.status === 503) throw { detail: "Database unavailable" } as ExchangeRecommendationsResponseBody;
+      return { detail: "Request failed" };
+    },
+    [accessToken, tokenType, user],
+  );
+
   const getNearby = useCallback(
     async (params: {
       lat: number;
@@ -2531,6 +2636,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getMyProductCards,
     getSellerProfile,
     getRecommendedProducts,
+    getRecommendedExchangeProducts,
     getNearby,
     getSimilarProducts,
     getProductDetail,
@@ -2566,6 +2672,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getMyProductCards,
     getSellerProfile,
     getRecommendedProducts,
+    getRecommendedExchangeProducts,
     getNearby,
     getSimilarProducts,
     getProductDetail,
