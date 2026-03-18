@@ -20,6 +20,39 @@ const ExchangePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [exchangeProducts, setExchangeProducts] = useState<Product[]>([]);
 
+  type ApiSeller = { id: number; username: string; profile_picture?: string };
+  type ApiDormitory = { latitude?: number; longitude?: number };
+  type ApiCategory = { id: number; name: string; parent_id?: number | null };
+  type ApiCondition = { id: number; name: string; level?: number | null };
+  type ApiTag = { id: number; name: string };
+  type ApiProduct = {
+    id?: number;
+    title?: string;
+    description?: string | null;
+    price?: number;
+    currency?: string;
+    status?: 'available' | 'sold' | 'reserved';
+    created_at?: string;
+    is_promoted?: number | boolean | null;
+    seller_id?: number;
+    seller?: ApiSeller;
+    dormitory_id?: number | null;
+    dormitory?: ApiDormitory;
+    category_id?: number;
+    category?: ApiCategory;
+    condition_level_id?: number;
+    condition_level?: ApiCondition;
+    tags?: ApiTag[];
+    image_thumbnail_url?: string | null;
+  };
+  type ApiExchange = {
+    exchange_type?: 'exchange_only' | 'exchange_or_purchase';
+    target_product_title?: string | null;
+    target_product_category?: { id?: number; name?: string };
+    target_product_condition?: { id?: number; name?: string; level?: number | null };
+    expiration_date?: string | null;
+  };
+
   useEffect(() => {
     if (!isAuthenticated) {
       setExchangeProducts([]);
@@ -36,8 +69,8 @@ const ExchangePage: React.FC = () => {
         });
         if (cancelled) return;
         const mapped = (data.exchange_products || []).map((item, index) => {
-          const product = item.product || {};
-          const ex = item.exchange_product || {};
+          const product = (item.product || {}) as ApiProduct;
+          const ex = (item.exchange_product || {}) as ApiExchange;
           const productId = typeof product.id === 'number' ? product.id : index + 1;
 
           const images: Product['images'] = [];
@@ -214,7 +247,7 @@ const ExchangePage: React.FC = () => {
                           </span>
                         </div>
                         {product.exchange_type && (
-                          <Badge variant="hero" className="text-[9px] h-4 px-1 uppercase font-bold tracking-tighter">
+                          <Badge variant="secondary" className="text-[9px] h-4 px-1 uppercase font-bold tracking-tighter">
                             {product.exchange_type === 'exchange_only' ? t('createListing.exchangeOnly') : t('createListing.exchangeOrPurchase')}
                           </Badge>
                         )}

@@ -14,7 +14,8 @@ import { type Product } from '@/lib/mockData';
 import { normalizeImageUrl } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
-import { MapPin, Search, SlidersHorizontal } from 'lucide-react';
+import { MapPin, Search, SlidersHorizontal, ArrowRightLeft, ChevronRight } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
 const AMAP_SECURITY_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE ?? '';
@@ -113,6 +114,32 @@ type NearbyResponseBody = {
   center?: { lat?: number; lng?: number };
   distance_km?: number;
   products?: NearbyApiProduct[];
+  exchange_products?: Array<{
+    exchange_product?: {
+      id?: number;
+      exchange_type?: 'exchange_only' | 'exchange_or_purchase';
+      exchange_status?: string;
+      expiration_date?: string | null;
+      target_product_title?: string | null;
+      target_product_category?: { id?: number; name?: string };
+      target_product_condition?: { id?: number; name?: string; sort_order?: number | null };
+    };
+    product?: {
+      id?: number;
+      dormitory?: {
+        id?: number;
+        dormitory_name?: string;
+        domain?: string;
+        address?: string;
+        lat?: number;
+        lng?: number;
+        is_active?: boolean;
+      };
+      distance_km?: number;
+      title?: string;
+      description?: string | null;
+    };
+  }>;
   meta?: {
     categories?: Array<{ id: number; name: string; icon?: string | null }>;
     condition_levels?: Array<{ id: number; name: string; description?: string | null; sort_order?: number | null }>;
@@ -177,11 +204,59 @@ const NearbyPage: React.FC = () => {
     Array<{ id: number; name: string; description?: string | null; sort_order?: number | null }>
   >([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [exchangeOnly, setExchangeOnly] = useState(false);
+  const [exchangeLocations, setExchangeLocations] = useState<Array<{ lat: number; lng: number; dormitoryId?: number }>>([]);
   const { user, getNearby } = useAuth();
   const profileImage = useMemo(
     () => normalizeImageUrl(user?.profile_picture) ?? '/placeholder.svg',
     [user?.profile_picture],
   );
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  const ExchangePointer: React.FC<{ size?: number; borderColor?: string; bgColor?: string; hasTail?: boolean }> = ({
+    size = 58,
+    borderColor = '#10b981',
+    bgColor = '#047857',
+    hasTail = true,
+  }) => {
+    const circleStyle: React.CSSProperties = {
+      width: size,
+      height: size,
+      border: `4px solid ${borderColor}`,
+      borderRadius: '50%',
+      overflow: 'hidden',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+      backgroundColor: bgColor,
+      position: 'relative',
+      transform: 'translate(-50%, -50%)',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'white',
+    };
+    return (
+      <div style={circleStyle}>
+        <ArrowRightLeft size={Math.round(size * 0.45)} />
+        {hasTail ? (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: -15,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '10px solid transparent',
+              borderRight: '10px solid transparent',
+              borderTop: `15px solid ${borderColor}`,
+              filter: 'drop-shadow(0 4px 2px rgba(0,0,0,0.2))',
+            }}
+          />
+        ) : null}
+      </div>
+    );
+  };
 
   const mapApiProduct = (data: NearbyApiProduct, fallbackId: number): Product | null => {
     const resolvedId = typeof data.id === 'number' ? data.id : fallbackId;
@@ -300,7 +375,12 @@ const NearbyPage: React.FC = () => {
     };
   };
 
-  const filteredProducts = useMemo(() => products, [products]);
+  const filteredProducts = useMemo(() => {
+    if (!exchangeOnly) return products;
+    return products.filter(
+      (p) => !!(p.exchange_type || p.target_product_title || p.exchange_target),
+    );
+  }, [exchangeOnly, products]);
 
   const dormGroups = useMemo<DormGroup[]>(() => {
     const grouped = new Map<number, DormGroup>();
@@ -396,6 +476,16 @@ const NearbyPage: React.FC = () => {
                 .filter((item): item is Product => !!item)
             : [];
           setProducts(mapped);
+          const exLocs =
+            Array.isArray(data.exchange_products)
+              ? data.exchange_products.flatMap((entry) => {
+                  const d = entry?.product?.dormitory;
+                  if (!d) return [];
+                  if (typeof d.lat !== 'number' || typeof d.lng !== 'number') return [];
+                  return [{ lat: d.lat, lng: d.lng, dormitoryId: typeof d.id === 'number' ? d.id : undefined }];
+                })
+              : [];
+          setExchangeLocations(exLocs);
           setCategories(data.meta?.categories ?? []);
           setConditionLevels(data.meta?.condition_levels ?? []);
         } catch (error) {
@@ -472,7 +562,7 @@ const NearbyPage: React.FC = () => {
     productMarkerRootsRef.current.forEach((root) => root.unmount());
     productMarkerRootsRef.current = [];
     productMarkerContainersRef.current = [];
-    markersRef.current = visibleDormGroups.map((group) => {
+    const newMarkers: AMapMarker[] = visibleDormGroups.map((group) => {
       const container = document.createElement('div');
       const root = createRoot(container);
       const previewProduct = group.products[0];
@@ -488,12 +578,42 @@ const NearbyPage: React.FC = () => {
       });
       marker.on('click', () => {
         setSelectedDormitoryId(group.dormitoryId);
+        setIsPanelOpen(true);
       });
       productMarkerRootsRef.current.push(root);
       productMarkerContainersRef.current.push(container);
       return marker;
     });
-  }, [mapReady, visibleDormGroups]);
+    for (const loc of exchangeLocations) {
+      const exchangeContainer = document.createElement('div');
+      const exchangeRoot = createRoot(exchangeContainer);
+      exchangeRoot.render(<ExchangePointer />);
+      const exchangeMarker = new amapRef.current!.Marker({
+        position: [loc.lng, loc.lat],
+        map: mapRef.current!,
+        content: exchangeContainer,
+      });
+      if (loc.dormitoryId) {
+        exchangeMarker.on('click', () => {
+          setSelectedDormitoryId(loc.dormitoryId!);
+          setIsPanelOpen(true);
+        });
+      }
+      productMarkerRootsRef.current.push(exchangeRoot);
+      productMarkerContainersRef.current.push(exchangeContainer);
+      newMarkers.push(exchangeMarker);
+    }
+    markersRef.current = newMarkers;
+  }, [exchangeLocations, mapReady, visibleDormGroups]);
+  
+  useEffect(() => {
+    if (selectedDormitoryId && selectedDormitoryProducts.length > 0) {
+      setIsPanelOpen(true);
+    }
+    if (!selectedDormitoryId || selectedDormitoryProducts.length === 0) {
+      setIsPanelOpen(false);
+    }
+  }, [selectedDormitoryId, selectedDormitoryProducts.length]);
 
   useEffect(() => {
     if (!mapRef.current || !amapRef.current || !userLocation || !mapReady) {
@@ -836,7 +956,14 @@ const NearbyPage: React.FC = () => {
           />
         </div>
 
-        <div className="absolute bottom-4 left-4 right-4 lg:right-[360px] z-10">
+        <div
+          className={[
+            'absolute bottom-4 left-4 right-4 z-10',
+            selectedDormitoryId && selectedDormitoryProducts.length > 0 && isPanelOpen
+              ? 'lg:right-[360px]'
+              : 'lg:right-4',
+          ].join(' ')}
+        >
           <div className="flex flex-col gap-4 rounded-2xl bg-card/80 p-4 shadow-card backdrop-blur">
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <MapPin className="w-4 h-4 text-primary" />
@@ -877,6 +1004,14 @@ const NearbyPage: React.FC = () => {
                   placeholder="Search by dorm or area..."
                   className="pl-9"
                 />
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={exchangeOnly}
+                  onCheckedChange={setExchangeOnly}
+                  aria-label="Exchange products only"
+                />
+                <span className="text-sm text-foreground">Exchange only</span>
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <div className="flex items-center justify-between text-xs font-semibold text-foreground">
@@ -926,19 +1061,22 @@ const NearbyPage: React.FC = () => {
         </div>
 
         <div className="pointer-events-none absolute inset-0 z-10">
-          <div className="pointer-events-auto absolute right-0 top-0 bottom-0 hidden w-[360px] h-full overflow-hidden bg-card/85 p-4 shadow-card backdrop-blur lg:block">
+          <div
+            className={[
+              'pointer-events-auto absolute right-0 top-0 bottom-0 hidden w-[360px] h-full overflow-hidden bg-card/85 p-4 shadow-card backdrop-blur lg:block',
+              'transform transition-transform duration-300 ease-out',
+              selectedDormitoryId && selectedDormitoryProducts.length > 0 && isPanelOpen ? 'translate-x-0' : 'translate-x-full',
+            ].join(' ')}
+            aria-hidden={!(selectedDormitoryId && selectedDormitoryProducts.length > 0 && isPanelOpen)}
+          >
             <div className="text-sm font-semibold text-foreground">Selected dormitory</div>
             <div className="mt-4 flex h-[calc(100%-1.5rem)] min-h-0 flex-col gap-4">
-              {selectedDormitoryId ? (
+              {selectedDormitoryId && selectedDormitoryProducts.length > 0 ? (
                 <div className="text-sm text-muted-foreground">
                   {selectedDormitoryProducts.length} listing
                   {selectedDormitoryProducts.length === 1 ? '' : 's'} available
                 </div>
-              ) : (
-                <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
-                  Click a dorm pin to preview listings.
-                </div>
-              )}
+              ) : null}
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                 <div className="grid gap-3">
                   {selectedDormitoryProducts.map((product) => (
@@ -952,6 +1090,26 @@ const NearbyPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+          {/* Outside retract button */}
+          <div
+            className={[
+              'pointer-events-auto absolute top-1/2 hidden -translate-y-1/2 lg:flex',
+              selectedDormitoryId && selectedDormitoryProducts.length > 0 && isPanelOpen ? 'right-[360px]' : 'right-0 pointer-events-none',
+            ].join(' ')}
+          >
+            {selectedDormitoryId && selectedDormitoryProducts.length > 0 && isPanelOpen ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setIsPanelOpen(false)}
+                aria-label="Hide panel"
+                className="rounded-full shadow-sm mr-2"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
