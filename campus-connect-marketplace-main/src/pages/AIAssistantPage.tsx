@@ -3,8 +3,9 @@ import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, Mic, Send, PhoneOff, VolumeX, Clock, X, Sparkles, User } from 'lucide-react';
+import { ArrowLeft, Mic, Send, PhoneOff, VolumeX, Clock, X, Sparkles, User, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 type ChatMessage = {
   id: string;
@@ -65,6 +66,7 @@ const AIAssistantPage: React.FC = () => {
   const [reducedMotion, setReducedMotion] = useState(false);
   const callAiBtnRef = useRef<HTMLButtonElement | null>(null);
   const endCallBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [chatTitle, setChatTitle] = useState('校物圈');
 
   useEffect(() => {
     const el = containerRef.current;
@@ -133,6 +135,36 @@ const AIAssistantPage: React.FC = () => {
     'bg-card/80 text-foreground';
   const statusText = muted ? 'Muted' : (voiceStatus === 'listening' ? 'Listening...' : 'Speaking...');
 
+  const handleRenameChat = () => {
+    const next = window.prompt('Rename chat', chatTitle);
+    if (next && next.trim()) {
+      setChatTitle(next.trim());
+    }
+  };
+
+  const handleClearConversation = () => {
+    setMessages([{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
+  };
+
+  const handleExportConversation = () => {
+    const payload = {
+      title: chatTitle,
+      messages,
+      exportedAt: new Date().toISOString(),
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().replace(/[:]/g, '-').slice(0, 19);
+    a.href = url;
+    a.download = `ai-chat-${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <MainLayout showFooter={false}>
       <a href="#chat-main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 z-50 rounded-md bg-primary px-3 py-2 text-primary-foreground">
@@ -186,7 +218,7 @@ const AIAssistantPage: React.FC = () => {
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <div className="text-base font-semibold tracking-tight">校物圈</div>
+                  <div className="text-base font-semibold tracking-tight">{chatTitle}</div>
                   <div className="text-xs text-muted-foreground">AI Assistant</div>
                 </div>
               </div>
@@ -210,6 +242,28 @@ const AIAssistantPage: React.FC = () => {
                   <Mic className="mr-2 h-4 w-4" />
                   Call AI
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="outline" size="icon" className="rounded-full" aria-label="Chat settings">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onSelect={handleRenameChat}>
+                      Rename chat
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setShowHistory(true)}>
+                      Open history
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={handleExportConversation}>
+                      Export conversation (JSON)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleClearConversation}>
+                      Clear conversation
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
