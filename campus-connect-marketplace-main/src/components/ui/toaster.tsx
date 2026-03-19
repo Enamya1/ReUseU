@@ -7,11 +7,23 @@ export function Toaster() {
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, ...props }) {
+        const safeTitle =
+          typeof title === "string" || typeof title === "number"
+            ? title
+            : title && typeof title === "object" && "message" in (title as any)
+            ? String((title as any).message)
+            : undefined;
+        const safeDescription =
+          typeof description === "string" || typeof description === "number"
+            ? description
+            : description && typeof description === "object" && "message" in (description as any)
+            ? String((description as any).message)
+            : undefined;
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && <ToastDescription>{description}</ToastDescription>}
+              {safeTitle != null && <ToastTitle>{safeTitle}</ToastTitle>}
+              {safeDescription != null && <ToastDescription>{safeDescription}</ToastDescription>}
             </div>
             {action}
             <ToastClose />

@@ -428,6 +428,11 @@ const NearbyPage: React.FC = () => {
     return filteredProducts.filter((product) => product.dormitory_id === selectedDormitoryId);
   }, [filteredProducts, selectedDormitoryId, visibleDormitoryIds]);
 
+  const selectedDormitoryName = useMemo(() => {
+    const first = selectedDormitoryProducts[0]?.dormitory?.dormitory_name;
+    return first || 'Selected dormitory';
+  }, [selectedDormitoryProducts]);
+
   useEffect(() => {
     if (selectedDormitoryId && !visibleDormitoryIds.has(selectedDormitoryId)) {
       setSelectedDormitoryId(null);
@@ -1069,20 +1074,23 @@ const NearbyPage: React.FC = () => {
             ].join(' ')}
             aria-hidden={!(selectedDormitoryId && selectedDormitoryProducts.length > 0 && isPanelOpen)}
           >
-            <div className="text-sm font-semibold text-foreground">Selected dormitory</div>
-            <div className="mt-4 flex h-[calc(100%-1.5rem)] min-h-0 flex-col gap-4">
-              {selectedDormitoryId && selectedDormitoryProducts.length > 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  {selectedDormitoryProducts.length} listing
-                  {selectedDormitoryProducts.length === 1 ? '' : 's'} available
+            <div className="flex h-full flex-col">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-foreground">{selectedDormitoryName}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {selectedDormitoryProducts.length} listing
+                    {selectedDormitoryProducts.length === 1 ? '' : 's'} available
+                  </div>
                 </div>
-              ) : null}
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              </div>
+              <div className="mt-3 h-px w-full bg-border/60" />
+              <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
                 <div className="grid gap-3">
                   {selectedDormitoryProducts.map((product) => (
                     <div
                       key={product.id}
-                      className="rounded-2xl border border-white/10 bg-background/70 p-3 shadow-sm transition hover:border-primary/40 hover:bg-background/90"
+                      className="rounded-xl border border-white/10 bg-background/70 p-2.5 shadow-sm transition hover:border-primary/40 hover:bg-background/90"
                     >
                       <ProductCard product={product} />
                     </div>

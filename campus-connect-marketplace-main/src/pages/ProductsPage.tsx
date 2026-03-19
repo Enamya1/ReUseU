@@ -394,7 +394,7 @@ const ProductsPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="container py-8 md:py-12">
+      <div className="container py-8 md:py-12 products-no-borders">
         <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
           <aside className="space-y-8">
             <div className="rounded-2xl border border-border bg-card p-5 space-y-4">

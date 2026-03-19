@@ -198,6 +198,12 @@
     background: var(--gradient-primary);
   }
 
+  .products-no-borders *,
+  .products-no-borders *::before,
+  .products-no-borders *::after {
+    border-width: 0 !important;
+  }
+
   .bg-gradient-hero {
     background: var(--gradient-hero);
   }

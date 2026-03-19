@@ -27,6 +27,7 @@ import MessagesPage from "./pages/MessagesPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import NotFound from "./pages/NotFound";
 import { useAuth } from "@/contexts/AuthContext";
+import AIAssistantPage from "./pages/AIAssistantPage";
 
 
 const queryClient = new QueryClient();
@@ -86,6 +87,7 @@ const App = () => (
                   <Route path="/wallet" element={<WalletPage />} />
                   <Route path="/messages" element={<MessagesPage />} />
                   <Route path="/search" element={<SearchResultsPage />} />
+                  <Route path="/ai" element={<AIAssistantPage />} />
 
                   {/* Catch-all */}
                   <Route path="*" element={<NotFound />} />

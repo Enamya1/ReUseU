@@ -222,7 +222,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
         {/* Left section - Logo and main navigation */}
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-3 landing-cursor-hover shrink-0">
-            <div className="h-11 w-11 rounded-full border border-white flex items-center justify-center">
+            <div className="h-11 w-11 rounded-full flex items-center justify-center">
               <img
                 src="/logo_enhanced.png"
                 alt="Suki"
@@ -285,7 +285,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="rounded-full border border-white/30 text-white hover:bg-white hover:text-black px-3 gap-2"
+                className="rounded-full text-white hover:bg-white hover:text-black px-3 gap-2"
                 asChild
               >
                 <Link to="/wallet" className="flex items-center">
@@ -298,7 +298,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="rounded-full border border-white/30 text-white hover:bg-white hover:text-black px-4"
+                className="rounded-full text-white hover:bg-white hover:text-black px-4"
                 asChild
               >
                 <Link to="/favorites" className="relative">
@@ -315,7 +315,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative rounded-full border border-white/30 text-white hover:bg-white hover:text-black"
+                    className="relative rounded-full text-white hover:bg-white hover:text-black"
                   >
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
@@ -366,7 +366,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-full border border-white/30 text-white hover:bg-white hover:text-black"
+                    className="rounded-full text-white hover:bg-white hover:text-black"
                   >
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={normalizeImageUrl(user?.profile_picture)} alt={user?.full_name} />
@@ -412,13 +412,13 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
             <>
               <Link
                 to="/login"
-                className="rounded-full border border-white/40 px-5 py-2 text-[11px] font-semibold tracking-[0.3em] uppercase text-white transition-all hover:bg-white hover:text-black whitespace-nowrap"
+                className="rounded-full px-5 py-2 text-[11px] font-semibold tracking-[0.3em] uppercase text-white transition-all hover:bg-white hover:text-black whitespace-nowrap"
               >
                 {t('common.login')}
               </Link>
               <Link
                 to="/signup"
-                className="rounded-full border border-white px-5 py-2 text-[11px] font-semibold tracking-[0.3em] uppercase text-white transition-all hover:bg-white hover:text-black whitespace-nowrap"
+                className="rounded-full px-5 py-2 text-[11px] font-semibold tracking-[0.3em] uppercase text-white transition-all hover:bg-white hover:text-black whitespace-nowrap"
               >
                 {t('common.signup')}
               </Link>
@@ -439,7 +439,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-border bg-card animate-fade-in">
+        <div className="lg:hidden bg-card animate-fade-in">
           <div className="container py-4 space-y-4">
             <nav className="grid gap-1">
               {primaryNavItems.map((item) => (
@@ -492,7 +492,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                   </div>
                   <Link 
                     to="/wallet" 
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background hover:bg-muted transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background hover:bg-muted transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <Wallet className="w-4 h-4 text-primary" />
@@ -586,7 +586,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
                   </Link>
                 </nav>
 
-                <div className="pt-2 border-t border-border space-y-2">
+                <div className="pt-2 space-y-2">
                   <Button
                     variant="default"
                     className="w-full"
