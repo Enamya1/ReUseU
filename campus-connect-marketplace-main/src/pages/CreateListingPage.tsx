@@ -146,27 +146,15 @@ const CreateListingPage: React.FC = () => {
     };
   }, [getDormitoriesByUniversity, isAuthenticated, t]);
 
-  useEffect(() => {
-    if (formData.listingType === 'exchange' && currentStep === 'media') {
-      setCurrentStep('details');
-    }
-  }, [formData.listingType, currentStep]);
-
   const steps = useMemo(() => {
-    const baseSteps: { id: Step; label: string }[] = [
+    return [
       { id: 'type', label: t('createListing.type') },
       { id: 'details', label: t('createListing.details') },
       { id: 'media', label: t('createListing.photos') },
       { id: 'tags', label: t('createListing.tags') },
       { id: 'review', label: t('createListing.review') },
-    ];
-
-    if (formData.listingType === 'exchange') {
-      return baseSteps.filter((step) => step.id !== 'media');
-    }
-
-    return baseSteps;
-  }, [formData.listingType, t]);
+    ] as { id: Step; label: string }[];
+  }, [t]);
 
   const currentStepIndex = steps.findIndex(s => s.id === currentStep);
 
@@ -328,7 +316,7 @@ const CreateListingPage: React.FC = () => {
     switch (currentStep) {
       case 'type':
         return !!formData.listingType;
-      case 'details':
+      case 'details': {
         const basicFields = !!(
           formData.title &&
           formData.price &&
@@ -341,6 +329,7 @@ const CreateListingPage: React.FC = () => {
           return basicFields && !!formData.exchange_type;
         }
         return basicFields;
+      }
       case 'media':
         return media.length > 0;
       case 'tags':
@@ -412,12 +401,6 @@ const CreateListingPage: React.FC = () => {
       const urls = media
         .filter((item): item is Extract<MediaItem, { kind: 'url' }> => item.kind === 'url')
         .map((item) => item.url);
-      const selectedThumbnail =
-        typeof thumbnailIndex === 'number' ? media[thumbnailIndex] : undefined;
-      const thumbnailFile =
-        selectedThumbnail && selectedThumbnail.kind === 'file'
-          ? selectedThumbnail.file
-          : null;
       const resolvedPrimaryIndex =
         typeof thumbnailIndex === 'number' ? thumbnailIndex : media.length ? primaryImageIndex : null;
 
@@ -434,7 +417,7 @@ const CreateListingPage: React.FC = () => {
           tag_ids: formData.tags.length ? formData.tags : null,
           primary_image_index: resolvedPrimaryIndex,
           images: files.length ? files : null,
-          thumbnail_images: thumbnailFile && files.length ? files : null,
+          thumbnail_images: files.length ? files : null,
           image_urls: urls.length ? urls : null,
           image_thumbnail_urls: urls.length ? urls : null,
           target_product_category_id: formData.target_product_category_id ? Number(formData.target_product_category_id) : undefined,
@@ -453,7 +436,7 @@ const CreateListingPage: React.FC = () => {
           tag_ids: formData.tags.length ? formData.tags : null,
           primary_image_index: resolvedPrimaryIndex,
           images: files.length ? files : null,
-          thumbnail_images: thumbnailFile && files.length ? files : null,
+          thumbnail_images: files.length ? files : null,
           image_urls: urls.length ? urls : null,
           image_thumbnail_urls: urls.length ? urls : null,
         });

@@ -1228,7 +1228,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       const hasFiles = (data.images?.length || 0) > 0 || (data.thumbnail_images?.length || 0) > 0;
-      const url = apiUrl("/api/user/exchange-products");
+      const url = apiUrl("/api/exchange-products");
 
       const response = await fetch(url, {
         method: "POST",
@@ -1311,13 +1311,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (response.status === 422 && responseBody.errors) throw responseBody;
         if (response.status === 401) throw responseBody;
         if (response.status === 403) throw responseBody;
-        if (!response.ok) return responseBody;
+        if (response.status === 404) throw responseBody;
+        if (response.status === 409) throw responseBody;
+        if (!response.ok) throw responseBody;
         return responseBody;
       }
 
       if (response.status === 401) throw { message: "Unauthenticated." } as CreateExchangeProductResponseBody;
       if (response.status === 403) {
         throw { message: "Unauthorized: Only users can access this endpoint." } as CreateExchangeProductResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Product not found or not owned by user." } as CreateExchangeProductResponseBody;
+      }
+      if (response.status === 409) {
+        throw { message: "Exchange listing already exists for this product." } as CreateExchangeProductResponseBody;
       }
       return { message: "Request failed" };
     },

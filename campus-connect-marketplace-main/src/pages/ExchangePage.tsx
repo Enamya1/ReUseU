@@ -25,6 +25,11 @@ const ExchangePage: React.FC = () => {
   type ApiCategory = { id: number; name: string; parent_id?: number | null };
   type ApiCondition = { id: number; name: string; level?: number | null };
   type ApiTag = { id: number; name: string };
+  type ApiProductImage = {
+    image_url?: string | null;
+    image_thumbnail_url?: string | null;
+    is_primary?: boolean;
+  };
   type ApiProduct = {
     id?: number;
     title?: string;
@@ -43,7 +48,9 @@ const ExchangePage: React.FC = () => {
     condition_level_id?: number;
     condition_level?: ApiCondition;
     tags?: ApiTag[];
+    image_url?: string | null;
     image_thumbnail_url?: string | null;
+    images?: ApiProductImage[];
   };
   type ApiExchange = {
     exchange_type?: 'exchange_only' | 'exchange_or_purchase';
@@ -73,16 +80,37 @@ const ExchangePage: React.FC = () => {
           const ex = (item.exchange_product || {}) as ApiExchange;
           const productId = typeof product.id === 'number' ? product.id : index + 1;
 
-          const images: Product['images'] = [];
-          if (product.image_thumbnail_url) {
-            const normalized = normalizeImageUrl(product.image_thumbnail_url) || product.image_thumbnail_url;
-            images.push({
-              id: 0,
-              product_id: productId,
-              image_url: normalized,
-              image_thumbnail_url: normalized,
-              is_primary: true,
-            });
+          const images: Product['images'] = Array.isArray(product.images)
+            ? product.images
+                .map((image, imageIndex) => {
+                  const rawImageUrl = image.image_url || image.image_thumbnail_url;
+                  const rawThumbnailUrl = image.image_thumbnail_url || image.image_url;
+                  if (!rawImageUrl && !rawThumbnailUrl) return null;
+                  const normalizedImage = normalizeImageUrl(rawImageUrl || '') || rawImageUrl || '';
+                  const normalizedThumbnail = normalizeImageUrl(rawThumbnailUrl || '') || rawThumbnailUrl || normalizedImage;
+                  return {
+                    id: imageIndex,
+                    product_id: productId,
+                    image_url: normalizedImage,
+                    image_thumbnail_url: normalizedThumbnail,
+                    is_primary: Boolean(image.is_primary),
+                  };
+                })
+                .filter((image): image is NonNullable<typeof image> => !!image)
+            : [];
+
+          if (!images.length) {
+            const fallbackImageUrl = product.image_thumbnail_url || product.image_url;
+            if (fallbackImageUrl) {
+              const normalized = normalizeImageUrl(fallbackImageUrl) || fallbackImageUrl;
+              images.push({
+                id: 0,
+                product_id: productId,
+                image_url: normalized,
+                image_thumbnail_url: normalized,
+                is_primary: true,
+              });
+            }
           }
 
           const conditionLevel = product.condition_level
@@ -203,7 +231,11 @@ const ExchangePage: React.FC = () => {
 
         {filteredExchangeProducts.length > 0 ? (
           <div className="flex flex-col gap-4">
-            {filteredExchangeProducts.map((product) => (
+            {filteredExchangeProducts.map((product) => {
+              const primaryImage = product.images?.find((image) => image.is_primary) || product.images?.[0];
+              const thumbnailUrl = primaryImage?.image_thumbnail_url || primaryImage?.image_url;
+
+              return (
               <Card key={product.id} className="overflow-hidden border-primary/10 hover:border-primary/30 transition-all hover:shadow-md group">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row items-stretch">
@@ -215,11 +247,26 @@ const ExchangePage: React.FC = () => {
                           {t('exchange.productInfo')}
                         </span>
                       </div>
-                      <Link to={`/product/${product.id}`} className="block">
-                        <h2 className="font-bold text-xl group-hover:text-primary transition-colors line-clamp-1">
-                          {product.title}
-                        </h2>
-                      </Link>
+                      <div className="flex items-center justify-between gap-3">
+                        <Link to={`/product/${product.id}`} className="block min-w-0">
+                          <h2 className="font-bold text-xl group-hover:text-primary transition-colors line-clamp-1">
+                            {product.title}
+                          </h2>
+                        </Link>
+                        <Link to={`/product/${product.id}`} className="shrink-0">
+                          {thumbnailUrl ? (
+                            <img
+                              src={normalizeImageUrl(thumbnailUrl)}
+                              alt={product.title}
+                              className="h-12 w-12 rounded-lg object-cover border border-border/70"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-lg bg-muted border border-border/70 flex items-center justify-center">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </Link>
+                      </div>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="text-sm font-semibold text-muted-foreground">
                           {formatWithSelectedCurrency(product.price, product.currency)}
@@ -292,7 +339,7 @@ const ExchangePage: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            )})}
           </div>
         ) : (
           <div className="text-center py-20 bg-muted/30 rounded-3xl border-2 border-dashed border-muted">

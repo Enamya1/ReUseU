@@ -783,7 +783,7 @@ const ProductDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Action Buttons */}
+            {/* Action Buttons: Contact Seller ( contact seller btn yawld l97ba ) */}
             <div className="flex gap-3 pt-4">
               <Button
                 variant="hero"
