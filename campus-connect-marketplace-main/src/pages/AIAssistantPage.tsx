@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,11 +6,14 @@ import { Card } from '@/components/ui/card';
 import { ArrowLeft, Mic, Send, PhoneOff, VolumeX, Clock, X, Sparkles, User, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
+import { normalizeImageUrl } from '@/lib/api';
 
 type ChatMessage = {
   id: string;
   role: 'ai' | 'user';
-  text?: string;
+  text: string;
   products?: Array<{
     id: number;
     title: string;
@@ -21,40 +24,23 @@ type ChatMessage = {
   }>;
 };
 
+const DEFAULT_CHAT_TITLE = '校物圈';
+
 const AIAssistantPage: React.FC = () => {
   const navigate = useNavigate();
+  const {
+    isAuthenticated,
+    createAiSession,
+    sendAiSessionMessage,
+    getAiSessionMessages,
+    getAiHistory,
+    deleteAiHistory,
+    renameAiHistory,
+  } = useAuth();
   const [showHistory, setShowHistory] = useState(false);
-  const [conversations, setConversations] = useState<Array<{ id: string; title: string; updatedAt: string }>>([
-    { id: 'c1', title: 'Cheap laptop', updatedAt: 'Today 10:24' },
-    { id: 'c2', title: 'Kitchen items', updatedAt: 'Yesterday 19:02' },
-    { id: 'c3', title: 'Bicycle under 300', updatedAt: 'Mon 11:45' },
-  ]);
+  const [conversations, setConversations] = useState<Array<{ id: string; title: string; updatedAt: string }>>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'm1', role: 'ai', text: 'What are you looking for?' },
-    { id: 'm2', role: 'user', text: 'Cheap laptop' },
-    {
-      id: 'm3',
-      role: 'ai',
-      text: 'Here are some budget-friendly options near you.',
-      products: [
-        {
-          id: 1,
-          title: 'MacBook Air 2017',
-          price: 2200,
-          currency: 'CNY',
-          location: 'Xinghai Residence',
-          image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&h=400&fit=crop',
-        },
-        {
-          id: 10,
-          title: 'Lenovo ThinkPad E14',
-          price: 1800,
-          currency: 'CNY',
-          location: 'Maple Hall',
-          image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&h=400&fit=crop',
-        },
-      ],
-    },
+    { id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' },
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
@@ -63,10 +49,12 @@ const AIAssistantPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [muted, setMuted] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const callAiBtnRef = useRef<HTMLButtonElement | null>(null);
   const endCallBtnRef = useRef<HTMLButtonElement | null>(null);
-  const [chatTitle, setChatTitle] = useState('校物圈');
+  const [chatTitle, setChatTitle] = useState(DEFAULT_CHAT_TITLE);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -106,25 +94,232 @@ const AIAssistantPage: React.FC = () => {
     }
   }, [voiceOpen]);
 
-  const handleSend = () => {
+  const mapProducts = useCallback((value: unknown): ChatMessage['products'] => {
+    if (!Array.isArray(value)) return undefined;
+    const mapped = value
+      .map((item, index) => {
+        if (!item || typeof item !== 'object') return null;
+        const record = item as Record<string, unknown>;
+        const maybeId = typeof record.id === 'number' ? record.id : Number(record.id);
+        const id = Number.isFinite(maybeId) ? maybeId : index + 1;
+        const title = typeof record.title === 'string' ? record.title : 'Untitled';
+        const maybePrice = typeof record.price === 'number' ? record.price : Number(record.price);
+        const price = Number.isFinite(maybePrice) ? maybePrice : 0;
+        const currency = typeof record.currency === 'string' ? record.currency : 'CNY';
+        const location = typeof record.location === 'string' ? record.location : undefined;
+        const rawImage =
+          (typeof record.image_thumbnail_url === 'string' && record.image_thumbnail_url) ||
+          (typeof record.image_url === 'string' && record.image_url) ||
+          (typeof record.image === 'string' && record.image) ||
+          '';
+        const image = rawImage ? normalizeImageUrl(rawImage) || rawImage : '';
+        return { id, title, price, currency, location, image };
+      })
+      .filter((item): item is NonNullable<typeof item> => !!item);
+    return mapped.length ? mapped : undefined;
+  }, []);
+
+  const mapStoredMessages = useCallback((value: unknown): ChatMessage[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const record = item as Record<string, unknown>;
+        const roleRaw =
+          typeof record.message_type === 'string'
+            ? record.message_type
+            : typeof record.role === 'string'
+              ? record.role
+              : 'assistant';
+        const role: ChatMessage['role'] = roleRaw === 'user' ? 'user' : 'ai';
+        const text =
+          typeof record.content === 'string'
+            ? record.content
+            : typeof record.message === 'string'
+              ? record.message
+              : typeof record.response === 'string'
+                ? record.response
+                : '';
+        return {
+          id: typeof record.id === 'string' ? record.id : crypto.randomUUID(),
+          role,
+          text,
+          products: mapProducts(record.products),
+        };
+      })
+      .filter((item): item is ChatMessage => !!item);
+  }, [mapProducts]);
+
+  const createSession = useCallback(async (title?: string) => {
+    if (!isAuthenticated) return null;
+    setIsSessionLoading(true);
+    try {
+      const result = await createAiSession({ title: title || undefined });
+      if (!result.session_id) throw new Error('Missing session id');
+      const now = new Date().toLocaleString();
+      setActiveSessionId(result.session_id);
+      setConversations((prev) => {
+        if (prev.some((item) => item.id === result.session_id)) return prev;
+        return [{ id: result.session_id, title: title || DEFAULT_CHAT_TITLE, updatedAt: now }, ...prev];
+      });
+      return result.session_id;
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      toast({
+        title: maybe?.message || 'Unable to start AI chat',
+        description: Object.values(maybe?.errors || {})[0]?.[0] || 'Please try again.',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setIsSessionLoading(false);
+    }
+  }, [isAuthenticated, createAiSession]);
+
+  const startNewChat = useCallback(async () => {
+    setMessages([{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
+    setActiveSessionId(null);
+    setChatTitle(DEFAULT_CHAT_TITLE);
+    await createSession();
+  }, [createSession]);
+
+  const loadHistory = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setIsSessionLoading(true);
+    try {
+      const result = await getAiHistory({ page: 1, page_size: 20, include_messages: false });
+      const history = Array.isArray(result.history) ? result.history : [];
+      const mappedConversations = history
+        .map((item) => {
+          const sessionId = typeof item.session_id === 'string' ? item.session_id : '';
+          if (!sessionId) return null;
+          const title = (item.title || '').trim() || 'Untitled chat';
+          const updatedAt = item.updated_at
+            ? new Date(item.updated_at).toLocaleString()
+            : item.created_at
+              ? new Date(item.created_at).toLocaleString()
+              : new Date().toLocaleString();
+          return { id: sessionId, title, updatedAt };
+        })
+        .filter((item): item is NonNullable<typeof item> => !!item);
+      setConversations(mappedConversations);
+
+      if (history.length > 0) {
+        const first = history[0];
+        const firstSessionId = typeof first.session_id === 'string' ? first.session_id : null;
+        const firstTitle = (first.title || '').trim() || DEFAULT_CHAT_TITLE;
+        setActiveSessionId(firstSessionId);
+        setChatTitle(firstTitle);
+        if (firstSessionId) {
+          try {
+            const details = await getAiSessionMessages(firstSessionId);
+            const mappedMessages = mapStoredMessages(details.messages);
+            setMessages(mappedMessages.length ? mappedMessages : [{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
+          } catch {
+            setMessages([{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
+          }
+        } else {
+          setMessages([{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
+        }
+        return;
+      }
+
+      await startNewChat();
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      toast({
+        title: maybe?.message || 'Unable to load chat history',
+        description: Object.values(maybe?.errors || {})[0]?.[0] || 'Please try again.',
+        variant: 'destructive',
+      });
+      await startNewChat();
+    } finally {
+      setIsSessionLoading(false);
+    }
+  }, [getAiHistory, getAiSessionMessages, isAuthenticated, mapStoredMessages, startNewChat]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void loadHistory();
+  }, [isAuthenticated, loadHistory]);
+
+  const handleOpenConversation = async (sessionId: string, title: string) => {
+    if (!isAuthenticated) return;
+    setActiveSessionId(sessionId);
+    setChatTitle(title);
+    setTyping(true);
+    try {
+      const result = await getAiSessionMessages(sessionId);
+      const mapped = mapStoredMessages(result.messages);
+      setMessages(mapped.length ? mapped : [{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
+      setConversations((prev) =>
+        prev.map((item) => (item.id === sessionId ? { ...item, updatedAt: new Date().toLocaleString() } : item)),
+      );
+    } catch (error) {
+      const maybe = error as { message?: string } | undefined;
+      toast({
+        title: maybe?.message || 'Unable to load messages',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setTyping(false);
+      setShowHistory(false);
+    }
+  };
+
+  const handleSend = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isSending || isSessionLoading || !isAuthenticated) return;
     setIsSending(true);
+    setTyping(true);
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', text }]);
     setInput('');
-    setTyping(true);
-    setTimeout(() => {
-      setTyping(false);
-      setIsSending(false);
+
+    try {
+      const sessionId = activeSessionId || (await createSession());
+      if (!sessionId) throw new Error('Unable to create session');
+
+      const result = await sendAiSessionMessage({
+        session_id: sessionId,
+        message: text,
+        message_type: 'text',
+      });
+      const responseText = result.response || 'I could not generate a response.';
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           role: 'ai',
-          text: 'Got it. I will look for the best matches.',
+          text: responseText,
+          products: mapProducts(result.products),
         },
       ]);
-    }, 900);
+      setConversations((prev) => {
+        const current = prev.find((item) => item.id === sessionId);
+        const updatedAt = new Date().toLocaleString();
+        if (!current) return [{ id: sessionId, title: DEFAULT_CHAT_TITLE, updatedAt }, ...prev];
+        return prev.map((item) => (item.id === sessionId ? { ...item, updatedAt } : item));
+      });
+    } catch (error) {
+      const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'ai',
+          text: maybe?.message || Object.values(maybe?.errors || {})[0]?.[0] || 'AI service unavailable.',
+        },
+      ]);
+      toast({
+        title: maybe?.message || 'Unable to send message',
+        description: Object.values(maybe?.errors || {})[0]?.[0] || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setTyping(false);
+      setIsSending(false);
+    }
   };
 
   const bubbleBase =
@@ -136,14 +331,50 @@ const AIAssistantPage: React.FC = () => {
   const statusText = muted ? 'Muted' : (voiceStatus === 'listening' ? 'Listening...' : 'Speaking...');
 
   const handleRenameChat = () => {
+    if (!activeSessionId) {
+      toast({
+        title: 'No active chat',
+        description: 'Please open a chat session first.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const next = window.prompt('Rename chat', chatTitle);
     if (next && next.trim()) {
-      setChatTitle(next.trim());
+      const title = next.trim();
+      setIsSessionLoading(true);
+      void (async () => {
+        try {
+          const result = await renameAiHistory({ session_id: activeSessionId, title });
+          const resolvedTitle = (result.title || title).trim() || title;
+          setChatTitle(resolvedTitle);
+          setConversations((prev) =>
+            prev.map((item) =>
+              item.id === activeSessionId
+                ? { ...item, title: resolvedTitle, updatedAt: new Date().toLocaleString() }
+                : item,
+            ),
+          );
+          toast({
+            title: 'Chat renamed',
+            description: result.message || 'Chat title updated successfully.',
+          });
+        } catch (error) {
+          const maybe = error as { message?: string; errors?: Record<string, string[]> } | undefined;
+          toast({
+            title: maybe?.message || 'Unable to rename chat',
+            description: Object.values(maybe?.errors || {})[0]?.[0] || 'Please try again.',
+            variant: 'destructive',
+          });
+        } finally {
+          setIsSessionLoading(false);
+        }
+      })();
     }
   };
 
   const handleClearConversation = () => {
-    setMessages([{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
+    void startNewChat();
   };
 
   const handleExportConversation = () => {
@@ -165,6 +396,45 @@ const AIAssistantPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleDeleteChat = async () => {
+    if (!activeSessionId) {
+      toast({
+        title: 'No active chat',
+        description: 'Please open a chat session first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const sessionId = activeSessionId;
+    setIsSessionLoading(true);
+    try {
+      const result = await deleteAiHistory(sessionId);
+      const remaining = conversations.filter((item) => item.id !== sessionId);
+      setConversations(remaining);
+      toast({
+        title: 'Chat deleted',
+        description: result.message || 'Chat history deleted successfully.',
+      });
+
+      if (remaining.length > 0) {
+        await handleOpenConversation(remaining[0].id, remaining[0].title);
+        return;
+      }
+
+      await startNewChat();
+    } catch (error) {
+      const maybe = error as { message?: string } | undefined;
+      toast({
+        title: maybe?.message || 'Unable to delete chat',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSessionLoading(false);
+    }
+  };
+
   return (
     <MainLayout showFooter={false}>
       <a href="#chat-main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 z-50 rounded-md bg-primary px-3 py-2 text-primary-foreground">
@@ -175,7 +445,17 @@ const AIAssistantPage: React.FC = () => {
           <aside className="hidden w-[300px] bg-card/70 p-4 backdrop-blur md:flex md:flex-col" aria-label="Chat history">
             <div className="mb-3 flex items-center justify-between">
               <div className="text-sm font-semibold tracking-wide">Chat History</div>
-              <Button size="sm" variant="outline" className="rounded-full px-3 py-1 text-xs">New</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full px-3 py-1 text-xs"
+                disabled={isSessionLoading}
+                onClick={() => {
+                  void startNewChat();
+                }}
+              >
+                New
+              </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
               {conversations.map((c) => (
@@ -184,9 +464,7 @@ const AIAssistantPage: React.FC = () => {
                   type="button"
                   className="w-full rounded-xl bg-background p-3 text-left shadow-sm transition hover:bg-primary/5 flex items-start gap-3"
                   onClick={() => {
-                    setMessages([
-                      { id: crypto.randomUUID(), role: 'ai', text: `Continuing: ${c.title}` },
-                    ]);
+                    void handleOpenConversation(c.id, c.title);
                   }}
                   aria-label={`Open conversation: ${c.title}`}
                 >
@@ -236,7 +514,7 @@ const AIAssistantPage: React.FC = () => {
                   type="button"
                   variant="default"
                   className="rounded-full"
-                  onClick={() => setVoiceOpen(true)}
+                  disabled
                   ref={callAiBtnRef}
                 >
                   <Mic className="mr-2 h-4 w-4" />
@@ -249,7 +527,7 @@ const AIAssistantPage: React.FC = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onSelect={handleRenameChat}>
+                    <DropdownMenuItem onSelect={handleRenameChat} disabled={!activeSessionId || isSessionLoading}>
                       Rename chat
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setShowHistory(true)}>
@@ -261,6 +539,14 @@ const AIAssistantPage: React.FC = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={handleClearConversation}>
                       Clear conversation
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={handleDeleteChat}
+                      disabled={!activeSessionId || isSessionLoading}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      Delete chat
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -289,11 +575,7 @@ const AIAssistantPage: React.FC = () => {
                   <div className={[bubbleBase, m.role === 'ai' ? aiBubble : userBubble, m.role === 'ai' ? '' : 'order-1'].join(' ')}>
                     {m.text != null ? (
                       <div className="whitespace-pre-line leading-relaxed">
-                        {typeof m.text === 'string'
-                          ? m.text
-                          : (m.text as any)?.message
-                          ? String((m.text as any).message)
-                          : String(m.text)}
+                        {m.text}
                       </div>
                     ) : null}
                     {m.products && m.products.length > 0 ? (
@@ -373,7 +655,7 @@ const AIAssistantPage: React.FC = () => {
                   size="icon"
                   variant="outline"
                   className="h-11 w-11 rounded-full"
-                  onClick={() => setVoiceOpen(true)}
+                  disabled
                   aria-label="Call AI"
                 >
                   <Mic className="h-4 w-4" />
@@ -384,7 +666,7 @@ const AIAssistantPage: React.FC = () => {
                   className="h-11 w-11 rounded-full"
                   onClick={handleSend}
                   aria-label="Send"
-                  disabled={isSending}
+                  disabled={isSending || isSessionLoading || !isAuthenticated}
                 >
                   {isSending ? (
                     <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -415,8 +697,7 @@ const AIAssistantPage: React.FC = () => {
                     type="button"
                     className="w-full rounded-xl bg-background p-3 text-left shadow-sm transition hover:bg-primary/5 flex items-start gap-3"
                     onClick={() => {
-                      setMessages([{ id: crypto.randomUUID(), role: 'ai', text: `Continuing: ${c.title}` }]);
-                      setShowHistory(false);
+                      void handleOpenConversation(c.id, c.title);
                     }}
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">

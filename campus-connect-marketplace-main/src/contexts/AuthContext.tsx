@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo, useRef } from 'react';
 import { User } from '@/lib/mockData';
 import { apiUrl, apiPyUrl } from '@/lib/api';
 import i18n from '@/i18n';
@@ -45,6 +45,21 @@ interface AuthContextType {
   createExchangeProduct: (data: CreateExchangeProductInput) => Promise<CreateExchangeProductResponseBody>;
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   sendMessage: (data: SendMessageInput) => Promise<SendMessageResponseBody>;
+  createAiSession: (data?: { title?: string | null }) => Promise<CreateAiSessionResponseBody>;
+  sendAiSessionMessage: (data: {
+    session_id: string;
+    message: string;
+    message_type?: "text" | "voice";
+    audio_duration_seconds?: number;
+  }) => Promise<AiSessionMessageResponseBody>;
+  getAiHistory: (params?: {
+    page?: number;
+    page_size?: number;
+    include_messages?: boolean;
+  }) => Promise<AiHistoryResponseBody>;
+  deleteAiHistory: (sessionId: string) => Promise<DeleteAiHistoryResponseBody>;
+  renameAiHistory: (data: { session_id: string; title: string }) => Promise<RenameAiHistoryResponseBody>;
+  getAiSessionMessages: (sessionId: string) => Promise<AiSessionMessagesResponseBody>;
   getRecommendedExchangeProducts: (params?: {
     page?: number;
     page_size?: number;
@@ -56,7 +71,7 @@ interface AuthContextType {
   getMessageContacts: (params?: { limit?: number }) => Promise<MessageContactsResponseBody>;
   getMessages: (params: { conversation_id: number; limit?: number; before_id?: number }) => Promise<MessageThreadResponseBody>;
   getMessageNotifications: (params?: { limit?: number }) => Promise<MessageNotificationsResponseBody>;
-  refreshBalance: () => Promise<number | null>;
+  refreshBalance: (nextBalance?: number | null) => Promise<number | null>;
   getProductSearchSuggestions: (params: {
     q: string;
     suggestions_limit?: number;
@@ -514,6 +529,80 @@ type SendMessageResponseBody = {
   errors?: Record<string, string[]>;
 };
 
+type CreateAiSessionResponseBody = {
+  session_id?: string;
+  expires_at?: string;
+  message?: string;
+  errors?: Record<string, string[]>;
+};
+
+type AiSessionFunctionCall = {
+  name?: string;
+  arguments?: Record<string, unknown>;
+  result_count?: number;
+};
+
+type AiSessionMessageResponseBody = {
+  response?: string;
+  function_calls?: AiSessionFunctionCall[];
+  products?: Array<Record<string, unknown>>;
+  message?: string;
+  errors?: Record<string, string[]>;
+};
+
+type AiSessionStoredMessage = {
+  id?: number | string;
+  message_type?: string;
+  content_type?: string;
+  message?: string;
+  content?: string;
+  response?: string;
+  products?: Array<Record<string, unknown>>;
+  created_at?: string;
+};
+
+type AiSessionMessagesResponseBody = {
+  message?: string;
+  session_id?: string;
+  messages?: AiSessionStoredMessage[];
+  errors?: Record<string, string[]>;
+};
+
+type AiHistorySession = {
+  session_id?: string;
+  title?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  total_messages?: number;
+  latest_message?: AiSessionStoredMessage;
+  messages?: AiSessionStoredMessage[];
+};
+
+type AiHistoryResponseBody = {
+  message?: string;
+  page?: number;
+  page_size?: number;
+  total?: number;
+  total_pages?: number;
+  history?: AiHistorySession[];
+  errors?: Record<string, string[]>;
+};
+
+type DeleteAiHistoryResponseBody = {
+  message?: string;
+  session_id?: string;
+  errors?: Record<string, string[]>;
+};
+
+type RenameAiHistoryResponseBody = {
+  message?: string;
+  session_id?: string;
+  title?: string;
+  errors?: Record<string, string[]>;
+};
+
 type MessageContactItem = {
   conversation_id?: number;
   user?: { id?: number; username?: string; profile_picture?: string };
@@ -805,6 +894,10 @@ const STORAGE_KEYS = {
   tokenType: "auth.token_type",
   user: "auth.user",
 } as const;
+const SESSION_KEYS = {
+  metaOptions: "auth.meta_options",
+} as const;
+const META_OPTIONS_TTL_MS = 5 * 60 * 1000;
 
 const readStorage = (key: string): string | null => {
   try {
@@ -825,6 +918,30 @@ const writeStorage = (key: string, value: string) => {
 const removeStorage = (key: string) => {
   try {
     localStorage.removeItem(key);
+  } catch {
+    return;
+  }
+};
+
+const readSessionStorage = (key: string): string | null => {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeSessionStorage = (key: string, value: string) => {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    return;
+  }
+};
+
+const removeSessionStorage = (key: string) => {
+  try {
+    sessionStorage.removeItem(key);
   } catch {
     return;
   }
@@ -861,6 +978,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [accessToken, setAccessToken] = useState<string | null>(() => readStorage(STORAGE_KEYS.accessToken));
   const [tokenType, setTokenType] = useState<string | null>(() => readStorage(STORAGE_KEYS.tokenType));
   const [user, setUser] = useState<User | null>(() => parseJson<User>(readStorage(STORAGE_KEYS.user)));
+  const metaOptionsCacheRef = useRef<{ scope: string; expiresAt: number; value: MetaOptionsResponseBody } | null>(null);
+  const metaOptionsPendingRef = useRef<Promise<MetaOptionsResponseBody> | null>(null);
 
   useEffect(() => {
     if (user?.language) {
@@ -946,6 +1065,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(nextUser);
     setAccessToken(nextToken);
     setTokenType(nextTokenType);
+    metaOptionsCacheRef.current = null;
+    metaOptionsPendingRef.current = null;
+    removeSessionStorage(SESSION_KEYS.metaOptions);
     writeStorage(STORAGE_KEYS.accessToken, nextToken);
     writeStorage(STORAGE_KEYS.tokenType, nextTokenType);
     writeStorage(STORAGE_KEYS.user, JSON.stringify(nextUser));
@@ -1037,6 +1159,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     removeStorage(STORAGE_KEYS.accessToken);
     removeStorage(STORAGE_KEYS.tokenType);
     removeStorage(STORAGE_KEYS.user);
+    metaOptionsCacheRef.current = null;
+    metaOptionsPendingRef.current = null;
+    removeSessionStorage(SESSION_KEYS.metaOptions);
     if (currentToken && currentRole === "user") {
       void fetch(apiUrl("/api/user/logout"), {
         method: "POST",
@@ -1505,6 +1630,320 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user?.role],
   );
 
+  const createAiSession = useCallback(
+    async (data?: { title?: string | null }): Promise<CreateAiSessionResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as CreateAiSessionResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreateAiSessionResponseBody;
+      }
+
+      const response = await fetch(apiUrl("/api/ai/sessions"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify(removeUndefined({ title: data?.title ?? undefined })),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as CreateAiSessionResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) throw responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as CreateAiSessionResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreateAiSessionResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const sendAiSessionMessage = useCallback(
+    async (data: {
+      session_id: string;
+      message: string;
+      message_type?: "text" | "voice";
+      audio_duration_seconds?: number;
+    }): Promise<AiSessionMessageResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as AiSessionMessageResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as AiSessionMessageResponseBody;
+      }
+      if (!data.session_id) {
+        throw {
+          message: "Validation Error",
+          errors: { session_id: ["session_id is required."] },
+        } as AiSessionMessageResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/ai/sessions/${data.session_id}/messages`), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify(
+          removeUndefined({
+            message: data.message,
+            message_type: data.message_type,
+            audio_duration_seconds: data.audio_duration_seconds,
+          }),
+        ),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as AiSessionMessageResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (response.status === 502) throw responseBody;
+        if (!response.ok) throw responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as AiSessionMessageResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as AiSessionMessageResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Session not found." } as AiSessionMessageResponseBody;
+      }
+      if (response.status === 502) {
+        throw { message: "AI service unavailable." } as AiSessionMessageResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const getAiSessionMessages = useCallback(
+    async (sessionId: string): Promise<AiSessionMessagesResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as AiSessionMessagesResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as AiSessionMessagesResponseBody;
+      }
+      if (!sessionId) {
+        throw {
+          message: "Validation Error",
+          errors: { session_id: ["session_id is required."] },
+        } as AiSessionMessagesResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/ai/sessions/${sessionId}/messages`), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as AiSessionMessagesResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) throw responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as AiSessionMessagesResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as AiSessionMessagesResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Session not found." } as AiSessionMessagesResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const getAiHistory = useCallback(
+    async (params?: {
+      page?: number;
+      page_size?: number;
+      include_messages?: boolean;
+    }): Promise<AiHistoryResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as AiHistoryResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as AiHistoryResponseBody;
+      }
+
+      const url = new URL(apiUrl("/api/ai/history"));
+      if (typeof params?.page === "number" && Number.isFinite(params.page)) {
+        url.searchParams.set("page", String(params.page));
+      }
+      if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
+        url.searchParams.set("page_size", String(params.page_size));
+      }
+      if (typeof params?.include_messages === "boolean") {
+        url.searchParams.set("include_messages", params.include_messages ? "1" : "0");
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as AiHistoryResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (!response.ok) throw responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as AiHistoryResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as AiHistoryResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const deleteAiHistory = useCallback(
+    async (sessionId: string): Promise<DeleteAiHistoryResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as DeleteAiHistoryResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as DeleteAiHistoryResponseBody;
+      }
+      if (!sessionId) {
+        throw {
+          message: "Validation Error",
+          errors: { session_id: ["session_id is required."] },
+        } as DeleteAiHistoryResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/ai/history/${sessionId}`), {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as DeleteAiHistoryResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (!response.ok) throw responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as DeleteAiHistoryResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as DeleteAiHistoryResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Session not found." } as DeleteAiHistoryResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const renameAiHistory = useCallback(
+    async (data: { session_id: string; title: string }): Promise<RenameAiHistoryResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as RenameAiHistoryResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as RenameAiHistoryResponseBody;
+      }
+      if (!data.session_id) {
+        throw {
+          message: "Validation Error",
+          errors: { session_id: ["session_id is required."] },
+        } as RenameAiHistoryResponseBody;
+      }
+      if (!data.title.trim()) {
+        throw {
+          message: "Validation Error",
+          errors: { title: ["title is required."] },
+        } as RenameAiHistoryResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/ai/history/${data.session_id}/rename`), {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify({ title: data.title }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as RenameAiHistoryResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (!response.ok) throw responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as RenameAiHistoryResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as RenameAiHistoryResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Session not found." } as RenameAiHistoryResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
   const getMessageContacts = useCallback(
     async (params?: { limit?: number }): Promise<MessageContactsResponseBody> => {
       if (!accessToken) {
@@ -1644,7 +2083,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [accessToken, tokenType, user?.role],
   );
 
-  const refreshBalance = useCallback(async (): Promise<number | null> => {
+  const refreshBalance = useCallback(async (nextBalance?: number | null): Promise<number | null> => {
+    if (typeof nextBalance === "number" && Number.isFinite(nextBalance)) {
+      setUser((prev) => {
+        if (prev && prev.balance !== nextBalance) {
+          return { ...prev, balance: nextBalance };
+        }
+        return prev;
+      });
+      return nextBalance;
+    }
+
     if (!accessToken || user?.role !== "user") return null;
 
     try {
@@ -1898,32 +2347,83 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw { message: "Unauthorized: Only users can access this endpoint." } as MetaOptionsResponseBody;
     }
 
-    const response = await fetch(apiUrl("/api/user/meta/options"), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        Authorization: `${tokenType || "Bearer"} ${accessToken}`,
-      },
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    const responseBody = contentType.includes("application/json")
-      ? ((await response.json()) as MetaOptionsResponseBody)
-      : null;
-
-    if (responseBody) {
-      if (response.status === 401) throw responseBody;
-      if (response.status === 403) throw responseBody;
-      if (!response.ok) return responseBody;
-      return responseBody;
+    const cacheScope = `${user?.id ?? "guest"}:${user?.role ?? "guest"}`;
+    const now = Date.now();
+    const memoryCached = metaOptionsCacheRef.current;
+    if (memoryCached && memoryCached.scope === cacheScope && memoryCached.expiresAt > now) {
+      return memoryCached.value;
     }
 
-    if (response.status === 401) throw { message: "Unauthenticated." } as MetaOptionsResponseBody;
-    if (response.status === 403) {
-      throw { message: "Unauthorized: Only users can access this endpoint." } as MetaOptionsResponseBody;
+    const rawSessionCached = readSessionStorage(SESSION_KEYS.metaOptions);
+    const sessionCached = parseJson<{ scope?: string; expiresAt?: number; value?: MetaOptionsResponseBody }>(rawSessionCached);
+    if (
+      sessionCached?.scope === cacheScope &&
+      typeof sessionCached.expiresAt === "number" &&
+      sessionCached.expiresAt > now &&
+      sessionCached.value
+    ) {
+      metaOptionsCacheRef.current = {
+        scope: cacheScope,
+        expiresAt: sessionCached.expiresAt,
+        value: sessionCached.value,
+      };
+      return sessionCached.value;
     }
-    return { message: "Request failed" };
-  }, [accessToken, tokenType, user?.role]);
+
+    if (metaOptionsPendingRef.current) {
+      return await metaOptionsPendingRef.current;
+    }
+
+    const request = (async (): Promise<MetaOptionsResponseBody> => {
+      const response = await fetch(apiUrl("/api/user/meta/options"), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as MetaOptionsResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (!response.ok) return responseBody;
+
+        const expiresAt = Date.now() + META_OPTIONS_TTL_MS;
+        metaOptionsCacheRef.current = {
+          scope: cacheScope,
+          expiresAt,
+          value: responseBody,
+        };
+        writeSessionStorage(
+          SESSION_KEYS.metaOptions,
+          JSON.stringify({
+            scope: cacheScope,
+            expiresAt,
+            value: responseBody,
+          }),
+        );
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as MetaOptionsResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as MetaOptionsResponseBody;
+      }
+      return { message: "Request failed" };
+    })();
+
+    metaOptionsPendingRef.current = request;
+    try {
+      return await request;
+    } finally {
+      metaOptionsPendingRef.current = null;
+    }
+  }, [accessToken, tokenType, user?.id, user?.role]);
 
   const getMyProductCards = useCallback(
     async (params?: { page?: number; page_size?: number }): Promise<MyProductCardsResponseBody> => {
@@ -2649,9 +3149,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getSimilarProducts,
     getProductDetail,
     createProduct,
-      createExchangeProduct,
-      createTag,
+    createExchangeProduct,
+    createTag,
     sendMessage,
+    createAiSession,
+    sendAiSessionMessage,
+    getAiHistory,
+    deleteAiHistory,
+    renameAiHistory,
+    getAiSessionMessages,
     getMessageContacts,
     getMessages,
     getMessageNotifications,
@@ -2685,8 +3191,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getSimilarProducts,
     getProductDetail,
     createProduct,
+    createExchangeProduct,
     createTag,
     sendMessage,
+    createAiSession,
+    sendAiSessionMessage,
+    getAiHistory,
+    deleteAiHistory,
+    renameAiHistory,
+    getAiSessionMessages,
     getMessageContacts,
     getMessages,
     getMessageNotifications,

@@ -30,6 +30,7 @@ const ProductDetailPage: React.FC = () => {
   const [similarLoading, setSimilarLoading] = useState(true);
   const [categories, setCategories] = useState<MetaCategoryOption[]>([]);
   const [conditions, setConditions] = useState<MetaConditionLevelOption[]>([]);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
 
   useEffect(() => {
     const fetchMeta = async () => {
@@ -93,7 +94,7 @@ const ProductDetailPage: React.FC = () => {
       id?: number;
       title?: string;
       description?: string | null;
-      price?: number;
+      price?: number | string;
       currency?: string;
       status?: 'available' | 'sold' | 'reserved';
       created_at?: string;
@@ -216,7 +217,7 @@ const ProductDetailPage: React.FC = () => {
         condition_level: conditionLevel,
         title: data.title || 'Untitled',
         description: data.description ?? undefined,
-        price: typeof data.price === 'number' ? data.price : 0,
+        price: typeof data.price === 'number' ? data.price : typeof data.price === 'string' ? parseFloat(data.price) || 0 : 0,
         currency: typeof data.currency === 'string' ? data.currency : undefined,
         status: data.status ?? 'available',
         is_promoted: Boolean(data.is_promoted),
@@ -446,10 +447,12 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
-  const favorite = isFavorite(product.id);
-  const displayPrice = formatSelectedCurrencyParts(product.price, product.currency);
+  const favorite = product ? isFavorite(product.id) : false;
+  const displayPrice = product ? formatSelectedCurrencyParts(product.price, product.currency) : { amount: '0', currency: '' };
 
-  const handleFavorite = () => {
+  const handleFavorite = async () => {
+    if (!product) return;
+    
     if (!isAuthenticated) {
       toast({
         title: t('product.loginRequired'),
@@ -458,11 +461,26 @@ const ProductDetailPage: React.FC = () => {
       navigate('/login');
       return;
     }
-    toggleFavorite(product.id);
-    toast({
-      title: favorite ? t('product.favoriteRemoved') : t('product.favoriteAdded'),
-      description: favorite ? t('product.favoriteRemovedDesc') : t('product.favoriteAddedDesc'),
-    });
+    
+    if (isTogglingFavorite) return;
+    
+    setIsTogglingFavorite(true);
+    try {
+      await toggleFavorite(product.id);
+      toast({
+        title: favorite ? t('product.favoriteRemoved') : t('product.favoriteAdded'),
+        description: favorite ? t('product.favoriteRemovedDesc') : t('product.favoriteAddedDesc'),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update favorite';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTogglingFavorite(false);
+    }
   };
 
   const handleShare = async () => {
@@ -593,10 +611,10 @@ const ProductDetailPage: React.FC = () => {
                     key={image.id}
                     onClick={() => setCurrentImageIndex(index)}
                     className={cn(
-                      "w-20 h-20 rounded-lg overflow-hidden shrink-0 border-2 transition-colors",
+                      "w-20 h-20 rounded-lg overflow-hidden shrink-0 transition-colors",
                       currentImageIndex === index
-                        ? "border-primary"
-                        : "border-transparent hover:border-muted-foreground/50"
+                        ? "ring-2 ring-primary"
+                        : "hover:ring-2 hover:ring-muted-foreground/50"
                     )}
                   >
                     <img
@@ -637,6 +655,7 @@ const ProductDetailPage: React.FC = () => {
                   variant={favorite ? "default" : "outline"}
                   size="icon"
                   onClick={handleFavorite}
+                  disabled={isTogglingFavorite}
                   aria-label={favorite ? t('productCard.favoriteRemove') : t('productCard.favoriteAdd')}
                 >
                   <Heart className={cn("w-5 h-5", favorite && "fill-current")} />
@@ -666,7 +685,7 @@ const ProductDetailPage: React.FC = () => {
                 </div>
               )}
               {product.distance_km !== undefined && (
-                <Badge variant="outline" className="numeric-text text-tertiary border-tertiary">
+                <Badge variant="outline" className="numeric-text text-tertiary">
                   {t('product.distanceKm', { count: product.distance_km })}
                 </Badge>
               )}
@@ -717,7 +736,7 @@ const ProductDetailPage: React.FC = () => {
 
             {/* Exchange Settings */}
             {(product.exchange_type || product.target_product_title) && (
-              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-4">
+              <div className="p-4 rounded-xl bg-primary/5 space-y-4">
                 <h3 className="font-semibold text-primary flex items-center gap-2">
                   <ArrowLeftRight className="w-4 h-4" />
                   {t('createListing.exchangeSettingsTitle')}
@@ -726,7 +745,7 @@ const ProductDetailPage: React.FC = () => {
                   {product.exchange_type && (
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">{t('createListing.exchangeTypeLabel')}</span>
-                      <Badge variant="hero" className="text-[10px] uppercase font-bold tracking-tighter">
+                      <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-tighter">
                         {product.exchange_type === 'exchange_only' ? t('createListing.exchangeOnly') : t('createListing.exchangeOrPurchase')}
                       </Badge>
                     </div>
@@ -761,7 +780,7 @@ const ProductDetailPage: React.FC = () => {
 
             {/* Seller Info */}
             {product.seller && (
-              <div className="p-4 rounded-xl bg-muted/50 border border-border">
+              <div className="p-4 rounded-xl bg-muted/50">
                 <div className="flex items-center gap-4">
                   <Avatar className="w-14 h-14">
                     <AvatarImage src={normalizeImageUrl(product.seller.profile_picture)} alt={product.seller.full_name} />

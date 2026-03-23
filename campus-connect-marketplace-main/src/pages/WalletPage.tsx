@@ -128,8 +128,8 @@ const WalletPage = () => {
         if (transformedWallets.length > 0 && !selectedWalletId) {
           setSelectedWalletId(transformedWallets[0].id);
         }
-        // Sync global balance
-        refreshBalance();
+        const primaryBalance = transformedWallets.length > 0 ? transformedWallets[0].balance : 0;
+        void refreshBalance(primaryBalance);
       } else {
         toast.error(data.message || 'Failed to fetch wallets');
       }

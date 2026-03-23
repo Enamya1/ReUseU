@@ -236,11 +236,11 @@ const ExchangePage: React.FC = () => {
               const thumbnailUrl = primaryImage?.image_thumbnail_url || primaryImage?.image_url;
 
               return (
-              <Card key={product.id} className="overflow-hidden border-primary/10 hover:border-primary/30 transition-all hover:shadow-md group">
+              <Card key={product.id} className="overflow-hidden transition-all hover:shadow-md group">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row items-stretch">
                     {/* Product Info - List Style */}
-                    <div className="flex-1 p-6 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border/50">
+                    <div className="flex-1 p-6 flex flex-col justify-center">
                       <div className="flex items-center gap-2 mb-2 text-primary/60">
                         <Package className="h-3.5 w-3.5" />
                         <span className="text-[10px] font-bold uppercase tracking-widest">
@@ -258,10 +258,10 @@ const ExchangePage: React.FC = () => {
                             <img
                               src={normalizeImageUrl(thumbnailUrl)}
                               alt={product.title}
-                              className="h-12 w-12 rounded-lg object-cover border border-border/70"
+                              className="h-12 w-12 rounded-lg object-cover"
                             />
                           ) : (
-                            <div className="h-12 w-12 rounded-lg bg-muted border border-border/70 flex items-center justify-center">
+                            <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center">
                               <Package className="h-4 w-4 text-muted-foreground" />
                             </div>
                           )}
@@ -271,7 +271,7 @@ const ExchangePage: React.FC = () => {
                         <span className="text-sm font-semibold text-muted-foreground">
                           {formatWithSelectedCurrency(product.price, product.currency)}
                         </span>
-                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-primary/20 text-primary uppercase font-bold tracking-tighter">
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-primary uppercase font-bold tracking-tighter">
                           {product.status}
                         </Badge>
                       </div>
@@ -279,7 +279,7 @@ const ExchangePage: React.FC = () => {
 
                     {/* Exchange Logic - Visual Connector */}
                     <div className="hidden md:flex items-center justify-center px-4 bg-muted/30">
-                      <div className="h-8 w-8 rounded-full bg-background border border-primary/20 flex items-center justify-center shadow-sm">
+                      <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shadow-sm">
                         <ArrowRightLeft className="h-4 w-4 text-primary" />
                       </div>
                     </div>
@@ -299,7 +299,7 @@ const ExchangePage: React.FC = () => {
                           </Badge>
                         )}
                       </div>
-                      <div className="p-3 rounded-lg bg-background border border-primary/10 shadow-sm">
+                      <div className="p-3 rounded-lg bg-background shadow-sm">
                         <p className="font-semibold text-primary text-sm md:text-base line-clamp-2">
                           {product.target_product_title || product.exchange_target}
                         </p>
@@ -312,7 +312,7 @@ const ExchangePage: React.FC = () => {
                     </div>
 
                     {/* Seller Info */}
-                    <div className="w-full md:w-64 p-6 flex flex-col justify-center border-t md:border-t-0 md:border-l border-border/50 bg-muted/10">
+                    <div className="w-full md:w-64 p-6 flex flex-col justify-center bg-muted/10">
                       <div className="flex items-center gap-2 mb-3 text-primary/60">
                         <User className="h-3.5 w-3.5" />
                         <span className="text-[10px] font-bold uppercase tracking-widest">
@@ -320,7 +320,7 @@ const ExchangePage: React.FC = () => {
                         </span>
                       </div>
                       <Link to={`/seller/${product.seller?.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                        <Avatar className="h-10 w-10 border-2 border-background ring-1 ring-primary/10">
+                        <Avatar className="h-10 w-10">
                           <AvatarImage src={product.seller?.profile_picture} />
                           <AvatarFallback className="bg-primary/5 text-primary">
                             {product.seller?.full_name.charAt(0)}
@@ -342,7 +342,7 @@ const ExchangePage: React.FC = () => {
             )})}
           </div>
         ) : (
-          <div className="text-center py-20 bg-muted/30 rounded-3xl border-2 border-dashed border-muted">
+          <div className="text-center py-20 bg-muted/30 rounded-3xl">
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
             <p className="text-xl font-medium text-muted-foreground">
               {t('exchange.noResults')}

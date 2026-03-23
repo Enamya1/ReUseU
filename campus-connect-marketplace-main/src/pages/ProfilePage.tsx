@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Camera, ArrowLeft, Save } from 'lucide-react';
+import { User, Camera, ArrowLeft, Save, Shield, Settings, Bell, Lock } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -574,22 +574,22 @@ const ProfilePage: React.FC = () => {
 
   const selectedTimezone = typeof timezoneDraft === "string" ? timezoneDraft : timezoneDraft?.value;
   const headerClassName =
-    "bg-white/90 backdrop-blur border-b border-slate-200 mix-blend-normal text-slate-900 shadow-sm [&_a]:text-slate-900 [&_a]:border-slate-300 [&_a:hover]:text-slate-950 [&_a:hover]:bg-slate-900/5 [&_button]:text-slate-900 [&_button]:border-slate-200 [&_button:hover]:bg-slate-900/5 [&_svg]:text-slate-900 [&_input]:bg-white [&_input]:border-slate-200 [&_input]:text-slate-900 [&_input]:placeholder:text-slate-400 [&_input:focus-visible]:ring-slate-300";
-  const inputClassName = "h-11 bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 focus-visible:ring-slate-300";
-  const textAreaClassName = "bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 focus-visible:ring-slate-300";
+    "bg-background/90 backdrop-blur mix-blend-normal text-foreground shadow-sm";
+  const inputClassName = "h-11 bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/30";
+  const textAreaClassName = "bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/30";
 
   if (!isAuthenticated || !user) {
     return (
       <MainLayout headerClassName={headerClassName} floatingButtonClassName="floating-button-light">
-        <div className="bg-white text-slate-900">
+        <div className="bg-background text-foreground">
           <div className="container py-16">
             <div className="max-w-md mx-auto text-center">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-slate-100 flex items-center justify-center">
-                <User className="w-12 h-12 text-slate-400" />
+              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center ring-2 ring-border">
+                <User className="w-12 h-12 text-muted-foreground" />
               </div>
-              <h1 className="text-2xl font-display font-bold text-slate-900 mb-2">Profile Settings</h1>
-              <p className="text-slate-500 mb-6">Log in to manage your profile.</p>
-              <Button asChild>
+              <h1 className="text-2xl font-display font-bold text-foreground mb-2">Profile Settings</h1>
+              <p className="text-muted-foreground mb-6">Log in to manage your profile.</p>
+              <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
                 <Link to="/login">Log in</Link>
               </Button>
             </div>
@@ -601,53 +601,64 @@ const ProfilePage: React.FC = () => {
 
   return (
     <MainLayout headerClassName={headerClassName} floatingButtonClassName="floating-button-light">
-      <div className="bg-white text-slate-900">
-        <div className="border-b border-slate-200">
-          <div className="container py-10 md:py-14">
+      <div className="bg-background text-foreground">
+        {/* Hero Section with Gradient */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-muted/50 via-background to-background" />
+          <div className="container relative py-10 md:py-14">
             <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
               <div className="flex flex-col gap-6">
-                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   <span>Profile Settings</span>
-                  <span className="h-1 w-1 rounded-full bg-slate-300" />
+                  <span className="h-1 w-1 rounded-full bg-border" />
                   <span>Account management</span>
                 </div>
                 <div className="flex flex-col gap-6 md:flex-row md:items-center">
                   <div className="relative">
-                    <Avatar className="h-28 w-28 border-4 border-white shadow-md">
+                    <Avatar className="h-28 w-28 shadow-lg">
                       <AvatarImage src={avatarSrc} alt={user.full_name} />
-                      <AvatarFallback className="bg-slate-100 text-slate-700 text-3xl">
+                      <AvatarFallback className="bg-muted text-muted-foreground text-3xl font-display">
                         {user.full_name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
                     <button
                       type="button"
-                      className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground shadow-lg"
+                      className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground shadow-lg ring-2 ring-background hover:bg-primary/90 transition-colors"
                       onClick={handleAvatarClick}
                     >
                       <Camera className="w-4 h-4" />
                     </button>
                   </div>
                   <div>
-                    <h1 className="text-3xl font-display font-bold text-slate-900">{user.full_name}</h1>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                      <span>@{user.username}</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <h1 className="text-3xl font-display font-bold text-foreground">{user.full_name}</h1>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                      <span className="text-foreground/80">@{user.username}</span>
+                      <span className="h-1 w-1 rounded-full bg-border" />
                       <span>{user.role === 'admin' ? 'Staff' : 'Student'}</span>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <Badge className="bg-emerald-100 text-emerald-700 border-0">Verified</Badge>
-                      <Badge className="bg-slate-100 text-slate-700 border-0">Profile owner</Badge>
-                      <Badge className="bg-slate-100 text-slate-700 border-0">Secure account</Badge>
+                      <Badge className="bg-primary text-primary-foreground border-0 hover:bg-primary/90">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Verified
+                      </Badge>
+                      <Badge variant="secondary" className="border-0">
+                        <Settings className="w-3 h-3 mr-1" />
+                        Profile owner
+                      </Badge>
+                      <Badge variant="outline" className="text-foreground">
+                        <Lock className="w-3 h-3 mr-1" />
+                        Secure account
+                      </Badge>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
-                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-muted">
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <span>Last updated</span>
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span className="h-1 w-1 rounded-full bg-border" />
                 <span>Today</span>
               </div>
             </div>
@@ -656,49 +667,67 @@ const ProfilePage: React.FC = () => {
 
         <div className="container py-10 md:py-12 space-y-10">
           <div className="grid gap-6 lg:grid-cols-[1.1fr_1.4fr]">
+            {/* Left Sidebar */}
             <div className="space-y-6">
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-900">Account overview</h2>
-                <p className="text-sm text-slate-500">Public profile details and contact preferences.</p>
+              {/* Account Overview Card */}
+              <div className="rounded-2xl bg-card p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-muted-foreground" />
+                  Account overview
+                </h2>
+                <p className="text-sm text-muted-foreground">Public profile details and contact preferences.</p>
                 <div className="mt-6 grid gap-3 text-sm">
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <span className="text-slate-500">Email</span>
-                    <span className="font-medium text-slate-900">{user.email}</span>
+                  <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2.5">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Bell className="w-4 h-4" />
+                      Email
+                    </span>
+                    <span className="font-medium text-foreground">{user.email}</span>
                   </div>
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <span className="text-slate-500">Timezone</span>
-                    <span className="font-medium text-slate-900">{formData.timezone || "Not set"}</span>
+                  <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2.5">
+                    <span className="text-muted-foreground">Timezone</span>
+                    <span className="font-medium text-foreground">{formData.timezone || "Not set"}</span>
                   </div>
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <span className="text-slate-500">Language</span>
-                    <span className="font-medium text-slate-900">{accountLanguageLabel}</span>
+                  <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2.5">
+                    <span className="text-muted-foreground">Language</span>
+                    <span className="font-medium text-foreground">{accountLanguageLabel}</span>
                   </div>
                 </div>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Quick actions</h3>
-                <div className="mt-4 space-y-3 text-sm text-slate-600">
+              
+              {/* Quick Actions Card */}
+              <div className="rounded-2xl bg-card p-6 shadow-sm">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">Quick actions</h3>
+                <div className="mt-4 space-y-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span>Profile completion</span>
-                    <span className="font-medium text-slate-900">92%</span>
+                    <span className="text-muted-foreground">Profile completion</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="w-[92%] h-full bg-primary rounded-full" />
+                      </div>
+                      <span className="font-medium text-foreground">92%</span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Security status</span>
-                    <span className="font-medium text-slate-900">Protected</span>
+                    <span className="text-muted-foreground">Security status</span>
+                    <span className="font-medium text-foreground flex items-center gap-1">
+                      <Shield className="w-4 h-4 text-primary" />
+                      Protected
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Last login</span>
-                    <span className="font-medium text-slate-900">Today</span>
+                    <span className="text-muted-foreground">Last login</span>
+                    <span className="font-medium text-foreground">Today</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+              <div className="rounded-2xl bg-card p-6 shadow-sm space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Personal Information</h3>
-                  <p className="text-sm text-slate-500">Keep your contact details up to date.</p>
+                  <h3 className="text-lg font-semibold text-foreground">Personal Information</h3>
+                  <p className="text-sm text-muted-foreground">Keep your contact details up to date.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -774,13 +803,13 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+              <div className="rounded-2xl bg-card p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Campus Details</h3>
-                    <p className="text-sm text-slate-500">Used for campus matching and listings.</p>
+                    <h3 className="text-lg font-semibold text-foreground">Campus Details</h3>
+                    <p className="text-sm text-muted-foreground">Used for campus matching and listings.</p>
                   </div>
-                  <Button type="button" onClick={handleUniversitySubmit} disabled={isUniversitySaving || isUniversityLoading}>
+                  <Button type="button" onClick={handleUniversitySubmit} disabled={isUniversitySaving || isUniversityLoading} className="bg-primary text-primary-foreground hover:bg-primary/90">
                     {isUniversitySaving ? "Saving..." : "Update"}
                   </Button>
                 </div>
@@ -830,10 +859,10 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+              <div className="rounded-2xl bg-card p-6 shadow-sm space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Preferences</h3>
-                  <p className="text-sm text-slate-500">Set your profile and locale preferences.</p>
+                  <h3 className="text-lg font-semibold text-foreground">Preferences</h3>
+                  <p className="text-sm text-muted-foreground">Set your profile and locale preferences.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -890,7 +919,7 @@ const ProfilePage: React.FC = () => {
 
                   <div className="space-y-2">
                     <Label>Timezone</Label>
-                    <Button type="button" variant="outline" className="w-full h-11 justify-between bg-white text-slate-900 border-slate-200" onClick={handleTimezoneOpen}>
+                    <Button type="button" variant="outline" className="w-full h-11 justify-between bg-white text-slate-900" onClick={handleTimezoneOpen}>
                       <span>{formData.timezone || "Select time-zone"}</span>
                       <span className="text-slate-400">Select time-zone</span>
                     </Button>
@@ -899,10 +928,10 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+              <div className="rounded-2xl bg-card p-6 shadow-sm space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Bio</h3>
-                  <p className="text-sm text-slate-500">Share a short introduction with other students.</p>
+                  <h3 className="text-lg font-semibold text-foreground">Bio</h3>
+                  <p className="text-sm text-muted-foreground">Share a short introduction with other students.</p>
                 </div>
                 <div className="space-y-2">
                   {/* <Label htmlFor="bio">Bio</Label> */}
@@ -919,11 +948,11 @@ const ProfilePage: React.FC = () => {
               </div>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
-                <Button type="button" variant="outline" className="text-white hover:shadow-lg" onClick={() => navigate(-1)}>
+                <Button type="button" variant="outline" onClick={() => navigate(-1)} className="hover:bg-muted">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSaving}>
-                  <Save className="w-4 h-4" />
+                <Button type="submit" disabled={isSaving} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Save className="w-4 h-4 mr-2" />
                   {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
@@ -947,7 +976,7 @@ const ProfilePage: React.FC = () => {
           <div className="grid gap-8 md:grid-cols-[1.4fr_1fr]">
             <div className="flex items-center justify-center">
               <div
-                className="relative w-80 h-80 rounded-full overflow-hidden bg-muted border border-border touch-none"
+                className="relative w-80 h-80 rounded-full overflow-hidden bg-muted touch-none"
                 onPointerDown={handleCropPointerDown}
                 onPointerMove={handleCropPointerMove}
                 onPointerUp={handleCropPointerUp}
@@ -963,7 +992,7 @@ const ProfilePage: React.FC = () => {
                     style={cropImageStyle}
                   />
                 ) : null}
-                <div className="absolute inset-0 rounded-full border-2 border-white/80 pointer-events-none" />
+                <div className="absolute inset-0 rounded-full pointer-events-none" />
               </div>
             </div>
             <div className="space-y-4">

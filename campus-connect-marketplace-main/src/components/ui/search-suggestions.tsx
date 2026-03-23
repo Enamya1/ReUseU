@@ -47,13 +47,13 @@ const SearchSuggestions = React.forwardRef<HTMLDivElement, SearchSuggestionsProp
       <div 
         ref={ref}
         className={cn(
-          "absolute top-full left-0 right-0 mt-2 bg-background/95 backdrop-blur-sm rounded-xl border border-border/60 shadow-lg z-50",
+          "absolute top-full left-0 right-0 mt-2 bg-background/95 backdrop-blur-sm rounded-xl shadow-lg z-50",
           "max-h-[400px] overflow-y-auto",
           className
         )}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border/40">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-foreground">
               {type === 'image' ? t('search.suggestions.imageTitle') : t('search.suggestions.textTitle')}
@@ -75,7 +75,7 @@ const SearchSuggestions = React.forwardRef<HTMLDivElement, SearchSuggestionsProp
               onClick={() => onSuggestionClick?.(suggestion)}
               className={cn(
                 "w-full px-4 py-3 text-left hover:bg-accent/50 transition-colors duration-150",
-                "border-b border-border/20 last:border-b-0"
+                ""
               )}
             >
               <div className="flex items-center gap-3">
@@ -146,7 +146,7 @@ const SearchSuggestions = React.forwardRef<HTMLDivElement, SearchSuggestionsProp
 
         {/* Footer */}
         {suggestions.length > maxItems && (
-          <div className="px-4 py-3 border-t border-border/40 text-center">
+          <div className="px-4 py-3 text-center">
             <p className="text-xs text-muted-foreground">
               {t('search.suggestions.more', { count: suggestions.length - maxItems })}
             </p>

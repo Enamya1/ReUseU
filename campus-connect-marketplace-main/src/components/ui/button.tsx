@@ -13,7 +13,7 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80 shadow-sm",
         outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
+          "bg-background hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/70 shadow-sm",
         tertiary:
@@ -21,8 +21,8 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
         link: "text-primary underline-offset-4 hover:underline",
         hero: "bg-gradient-primary text-primary-foreground hover:opacity-90 active:opacity-80 shadow-lg hover:shadow-xl",
-        "outline-primary": "border-2 border-primary text-primary bg-transparent hover:bg-primary/10 active:bg-primary/20",
-        "outline-white": "border-2 border-white text-white bg-transparent hover:bg-white/10 active:bg-white/20",
+        "outline-primary": "text-primary bg-transparent hover:bg-primary/10 active:bg-primary/20",
+        "outline-white": "text-white bg-transparent hover:bg-white/10 active:bg-white/20",
         success: "bg-success text-success-foreground hover:bg-success/90 active:bg-success/80 shadow-sm",
       },
       size: {

@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ArrowRight, Package } from 'lucide-react';
+import { Plus, ArrowRight, Package, LayoutGrid, List } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import ProductGrid from '@/components/products/ProductGrid';
+import ProductList from '@/components/products/ProductList';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Pagination,
   PaginationContent,
@@ -28,6 +30,7 @@ const MyListingsPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<'sell' | 'exchange'>('sell');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const skeletonItems = useMemo(() => Array.from({ length: pageSize }, (_, i) => i), [pageSize]);
 
   const filteredProducts = useMemo(() => {
@@ -187,7 +190,7 @@ const MyListingsPage: React.FC = () => {
   return (
     <MainLayout>
       <div className="container py-8 md:py-12">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
               {t('listings.title')}
@@ -196,12 +199,35 @@ const MyListingsPage: React.FC = () => {
               {t('listings.itemsCount', { count: total })}
             </p>
           </div>
-          <Button asChild>
-            <Link to="/create-listing">
-              <Plus className="w-4 h-4" />
-              {t('listings.newListing')}
-            </Link>
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Showing</span>
+              <Badge variant="secondary">{filteredProducts.length}</Badge>
+              <span>items</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant={viewMode === 'card' ? 'default' : 'outline'} 
+                size="icon"
+                onClick={() => setViewMode('card')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant={viewMode === 'list' ? 'default' : 'outline'} 
+                size="icon"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button asChild>
+              <Link to="/create-listing">
+                <Plus className="w-4 h-4" />
+                {t('listings.newListing')}
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 mb-8 bg-muted/50 p-1 rounded-lg w-fit">
@@ -264,10 +290,17 @@ const MyListingsPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            <ProductGrid
-              products={filteredProducts}
-              getProductLink={(product) => `/my-listings/${product.id}`}
-            />
+            {viewMode === 'card' ? (
+              <ProductGrid
+                products={filteredProducts}
+                getProductLink={(product) => `/my-listings/${product.id}`}
+              />
+            ) : (
+              <ProductList
+                products={filteredProducts}
+                getProductLink={(product) => `/my-listings/${product.id}`}
+              />
+            )}
 
             {totalPages > 1 ? (
               <Pagination>

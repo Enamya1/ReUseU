@@ -694,7 +694,7 @@ const MessagesPage: React.FC = () => {
   };
 
   const headerClassName =
-    "bg-black/25 border-b border-white/10 mix-blend-normal [&_a]:text-white [&_a:hover]:text-white [&_button]:text-white [&_button:hover]:text-white [&_svg]:text-white/80 [&_input]:bg-white/5 [&_input]:border-white/20 [&_input]:text-white [&_input]:placeholder:text-white/60";
+    "bg-black/25 mix-blend-normal [&_a]:text-white [&_a:hover]:text-white [&_button]:text-white [&_button:hover]:text-white [&_svg]:text-white/80 [&_input]:bg-white/5 [&_input]:text-white [&_input]:placeholder:text-white/60";
 
   return (
     <MainLayout showFooter={false} showFloatingButton={false} headerClassName={headerClassName}>
@@ -702,7 +702,7 @@ const MessagesPage: React.FC = () => {
         <div ref={canvasRef} className="absolute inset-0" />
         <div className="absolute inset-0 bg-black/30" />
         <div className="relative z-10 flex h-[calc(100vh-80px)] w-full overflow-hidden text-white">
-          <aside className="flex w-[320px] flex-col border-r border-white/10 bg-black/60">
+          <aside className="flex w-[320px] flex-col bg-black/60">
             <div className="px-5 pt-4">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
@@ -710,7 +710,7 @@ const MessagesPage: React.FC = () => {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search users..."
-                  className="h-11 rounded-full border-white/20 bg-white/5 pl-11 text-sm text-white placeholder:text-white/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="h-11 rounded-full bg-white/5 pl-11 text-sm text-white placeholder:text-white/50 focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
             </div>

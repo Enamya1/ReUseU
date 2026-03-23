@@ -193,10 +193,10 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
         <div
           className={cn(
             "flex items-center gap-2 transition-all duration-300 ease-in-out",
-            "bg-background/80 backdrop-blur-sm rounded-full border border-border/60",
-            "hover:bg-background hover:border-border/80 focus-within:bg-background focus-within:border-border",
+            "bg-background/80 backdrop-blur-sm rounded-full",
+            "hover:bg-background focus-within:bg-background",
             expanded ? "w-[400px] shadow-lg" : "w-[200px]",
-            isDragging && "border-primary/50 bg-primary/5",
+            isDragging && "bg-primary/5",
             className
           )}
         >
@@ -233,7 +233,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
               <img
                 src={imagePreview}
                 alt="Uploaded image"
-                className="w-6 h-6 rounded-full object-cover border border-border transition-all duration-200"
+                className="w-6 h-6 rounded-full object-cover transition-all duration-200"
               />
               <button
                 type="button"
@@ -308,7 +308,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
               </div>
               
               {isDragging && (
-                <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
+                <div className="rounded-lg p-4 text-center bg-primary/5">
                   <ImageIcon className="w-8 h-8 mx-auto mb-2 text-primary" />
                   <p className="text-sm text-primary font-medium">Drop image here to upload</p>
                 </div>

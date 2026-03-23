@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MapPin, ShieldCheck, Star, MessageCircle, CalendarClock, BadgeCheck } from 'lucide-react';
+import { MapPin, ShieldCheck, Star, MessageCircle, CalendarClock, BadgeCheck, TrendingUp, Package, Award } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -265,45 +265,47 @@ const SellerProfilePage: React.FC = () => {
   }, [getSellerProfile, isAuthenticated, navigate, sellerId]);
 
   const highlights = [
-    { icon: ShieldCheck, title: 'Verified student', subtitle: 'Campus email verified' },
-    { icon: Star, title: 'Top seller', subtitle: 'Consistent 5★ reviews' },
-    { icon: BadgeCheck, title: 'Safe trading', subtitle: 'No reports in last 12 months' },
+    { icon: ShieldCheck, title: 'Verified student', subtitle: 'Campus email verified', color: 'bg-primary text-primary-foreground' },
+    { icon: Award, title: 'Top seller', subtitle: 'Consistent 5★ reviews', color: 'bg-secondary text-secondary-foreground' },
+    { icon: BadgeCheck, title: 'Safe trading', subtitle: 'No reports in last 12 months', color: 'bg-muted text-muted-foreground' },
   ];
 
   return (
     <MainLayout
-      headerClassName="bg-white/90 backdrop-blur border-b border-slate-200 mix-blend-normal text-slate-900 shadow-sm [&_a]:text-slate-900 [&_a]:border-slate-300 [&_a:hover]:text-slate-950 [&_a:hover]:bg-slate-900/5 [&_button]:text-slate-900 [&_button]:border-slate-200 [&_button:hover]:bg-slate-900/5 [&_svg]:text-slate-900 [&_input]:bg-white [&_input]:border-slate-200 [&_input]:text-slate-900 [&_input]:placeholder:text-slate-400 [&_input:focus-visible]:ring-slate-300"
+      headerClassName="bg-background/90 backdrop-blur mix-blend-normal text-foreground shadow-sm"
       floatingButtonClassName="floating-button-light"
     >
-      <div className="bg-white text-slate-900">
-        <div className="border-b border-slate-200">
-          <div className="container py-10 md:py-14">
+      <div className="bg-background text-foreground">
+        {/* Hero Section with Gradient */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-muted/50 via-background to-background" />
+          <div className="container relative py-10 md:py-14">
             <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
               <div className="flex flex-col gap-6">
-                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   <span>Public profile</span>
-                  <span className="h-1 w-1 rounded-full bg-slate-300" />
+                  <span className="h-1 w-1 rounded-full bg-border" />
                   <span>Marketplace seller</span>
                 </div>
                 <div className="flex flex-col gap-6 md:flex-row md:items-center">
                   <div className="relative">
-                    <Avatar className="h-28 w-28 border-4 border-white shadow-md">
+                    <Avatar className="h-28 w-28 shadow-lg">
                       <AvatarImage src={normalizeImageUrl(displaySeller.profile_picture)} alt={displaySeller.full_name} />
-                      <AvatarFallback className="bg-slate-100 text-slate-700 text-3xl">
+                      <AvatarFallback className="bg-muted text-muted-foreground text-3xl font-display">
                         {displaySeller.full_name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg">
+                    <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                   </div>
                   <div>
-                    <h1 className="text-3xl font-display font-bold">{displaySeller.full_name}</h1>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                      <span>@{displaySeller.username}</span>
+                    <h1 className="text-3xl font-display font-bold text-foreground">{displaySeller.full_name}</h1>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                      <span className="text-foreground/80">@{displaySeller.username}</span>
                       {dormitory ? (
                         <>
-                          <span className="h-1 w-1 rounded-full bg-slate-300" />
+                          <span className="h-1 w-1 rounded-full bg-border" />
                           <span className="flex items-center gap-1">
                             <MapPin className="h-4 w-4" />
                             {dormitory.location || dormitory.dormitory_name}
@@ -313,19 +315,19 @@ const SellerProfilePage: React.FC = () => {
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       {sellerProfile?.email_verified === true ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 border-0">Verified</Badge>
+                        <Badge className="bg-primary text-primary-foreground border-0 hover:bg-primary/90">Verified</Badge>
                       ) : null}
                       {sellerProfile?.email_verified === false ? (
-                        <Badge className="bg-rose-100 text-rose-700 border-0">Unverified</Badge>
+                        <Badge variant="secondary" className="border-0">Unverified</Badge>
                       ) : null}
-                      <Badge className="bg-slate-100 text-slate-700 border-0">Fast responder</Badge>
-                      <Badge className="bg-slate-100 text-slate-700 border-0">Trusted seller</Badge>
+                      <Badge variant="secondary" className="border-0">Fast responder</Badge>
+                      <Badge variant="outline" className="text-foreground">Trusted seller</Badge>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Button className="gap-2">
+                <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
                   <MessageCircle className="h-4 w-4" />
                   Message seller
                 </Button>
@@ -336,116 +338,128 @@ const SellerProfilePage: React.FC = () => {
 
         <div className="container py-10 md:py-12 space-y-10">
           {profileStatusMessage ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            <div className="rounded-2xl bg-card p-4 text-sm text-muted-foreground">
               {profileStatusMessage}
             </div>
           ) : null}
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
             <div className="space-y-6">
+              {/* Highlights Grid */}
               <div className="grid gap-4 md:grid-cols-2">
                 {highlights.map((item) => (
-                  <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div key={item.title} className="group rounded-2xl bg-card p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                     <div className="flex items-start gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${item.color} transition-transform group-hover:scale-110`}>
                         <item.icon className="h-5 w-5" />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                        <p className="text-sm text-slate-500">{item.subtitle}</p>
+                        <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                        <p className="text-sm text-muted-foreground">{item.subtitle}</p>
                       </div>
                     </div>
                   </div>
                 ))}
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="group rounded-2xl bg-card p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                   <div className="flex items-start gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground transition-transform group-hover:scale-110">
                       <CalendarClock className="h-5 w-5" />
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">Member since</p>
-                      <p className="text-sm text-slate-500">{sellerProfile?.member_since || 'September 2023'}</p>
+                      <p className="text-sm font-semibold text-foreground">Member since</p>
+                      <p className="text-sm text-muted-foreground">{sellerProfile?.member_since || 'September 2023'}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+              {/* About Card */}
+              <div className="rounded-2xl bg-card p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900">About</h2>
-                    <p className="text-sm text-slate-500">Public profile details visible to other users.</p>
+                    <h2 className="text-lg font-semibold text-foreground">About</h2>
+                    <p className="text-sm text-muted-foreground">Public profile details visible to other users.</p>
                   </div>
-                  <Link to="/messages" className="text-sm font-semibold text-primary hover:text-primary/80">
+                  <Link to="/messages" className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors">
                     Contact
                   </Link>
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {sellerProfile?.bio ||
                     displaySeller.bio ||
                     'I focus on clean, well-maintained items and quick campus meetups. Happy to answer questions and share more photos.'}
                 </p>
-                <div className="grid gap-4 md:grid-cols-2 text-sm text-slate-600">
+                <div className="grid gap-4 md:grid-cols-2 text-sm">
                   <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Campus</p>
-                    <p className="font-medium text-slate-900">{dormitory?.domain ?? 'State University'}</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground/70">Campus</p>
+                    <p className="font-medium text-foreground">{dormitory?.domain ?? 'State University'}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Dorm</p>
-                    <p className="font-medium text-slate-900">{dormitory?.dormitory_name ?? 'Maple Hall'}</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground/70">Dorm</p>
+                    <p className="font-medium text-foreground">{dormitory?.dormitory_name ?? 'Maple Hall'}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Timezone</p>
-                    <p className="font-medium text-slate-900">{displaySeller.timezone ?? 'UTC+8 (Asia/Shanghai)'}</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground/70">Timezone</p>
+                    <p className="font-medium text-foreground">{displaySeller.timezone ?? 'UTC+8 (Asia/Shanghai)'}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Language</p>
-                    <p className="font-medium text-slate-900">{languageLabel}</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground/70">Language</p>
+                    <p className="font-medium text-foreground">{languageLabel}</p>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Sidebar */}
             <div className="space-y-6">
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Performance</h3>
+              {/* Performance Card */}
+              <div className="rounded-2xl bg-card p-6 shadow-sm">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Performance
+                </h3>
                 <div className="mt-5 grid gap-4">
-                  {stats.map((stat) => (
+                  {stats.map((stat, index) => (
                     <div key={stat.label} className="flex items-center justify-between">
-                      <span className="text-sm text-slate-500">{stat.label}</span>
-                      <span className="numeric-text text-lg font-semibold text-slate-900">{stat.value}</span>
+                      <span className="text-sm text-muted-foreground">{stat.label}</span>
+                      <span className="numeric-text text-lg font-semibold text-foreground">{stat.value}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Public info</h3>
-                <div className="mt-4 space-y-3 text-sm text-slate-600">
+              {/* Public Info Card */}
+              <div className="rounded-2xl bg-card p-6 shadow-sm">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Public info
+                </h3>
+                <div className="mt-4 space-y-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span>Average response</span>
-                    <span className="numeric-text font-medium text-slate-900">32 min</span>
+                    <span className="text-muted-foreground">Average response</span>
+                    <span className="numeric-text font-medium text-foreground">32 min</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Meetup preference</span>
-                    <span className="font-medium text-slate-900">Campus lobby</span>
+                    <span className="text-muted-foreground">Meetup preference</span>
+                    <span className="font-medium text-foreground">Campus lobby</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Negotiation</span>
-                    <span className="font-medium text-slate-900">Open to offers</span>
+                    <span className="text-muted-foreground">Negotiation</span>
+                    <span className="font-medium text-foreground">Open to offers</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Last active</span>
-                    <span className="font-medium text-slate-900">{sellerProfile?.last_login || 'Today'}</span>
+                    <span className="text-muted-foreground">Last active</span>
+                    <span className="font-medium text-foreground">{sellerProfile?.last_login || 'Today'}</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Listings Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-display font-bold text-slate-900">Listings by {displaySeller.full_name}</h2>
-              <span className="numeric-text text-sm text-slate-500">
+              <h2 className="text-2xl font-display font-bold text-foreground">Listings by {displaySeller.full_name}</h2>
+              <span className="numeric-text text-sm text-muted-foreground">
                 {typeof totalProducts === 'number' ? totalProducts : sellerProducts.length} items
               </span>
             </div>

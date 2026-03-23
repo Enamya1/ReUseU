@@ -397,7 +397,7 @@ const ProductsPage: React.FC = () => {
       <div className="container py-8 md:py-12 products-no-borders">
         <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
           <aside className="space-y-8">
-            <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+            <div className="rounded-2xl bg-card p-5 space-y-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters
@@ -482,9 +482,9 @@ const ProductsPage: React.FC = () => {
                       type="button"
                       onClick={() => toggleValue(tag.id, setSelectedTags)}
                       className={cn(
-                        "rounded-full border border-border px-3 py-1 text-xs transition-colors",
+                        "rounded-full px-3 py-1 text-xs transition-colors",
                         selectedTags.includes(tag.id)
-                          ? "bg-primary text-primary-foreground border-primary"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-background text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -512,7 +512,7 @@ const ProductsPage: React.FC = () => {
           </aside>
 
           <div className="space-y-8">
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-2xl bg-card p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Category</h2>
@@ -523,7 +523,7 @@ const ProductsPage: React.FC = () => {
                     <button
                       key={category.id}
                       type="button"
-                      className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm"
+                      className="flex items-center gap-2 rounded-xl bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm"
                     >
                       {isImageLike(category.logo) ? (
                         <img
@@ -542,7 +542,7 @@ const ProductsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border bg-card px-5 py-4">
+            <div className="rounded-2xl bg-card px-5 py-4">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span>Showing</span>

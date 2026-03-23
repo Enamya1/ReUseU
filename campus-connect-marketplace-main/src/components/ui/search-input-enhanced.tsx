@@ -222,10 +222,10 @@ const SearchInputEnhanced = React.forwardRef<HTMLInputElement, SearchInputEnhanc
         <div
           className={cn(
             "flex items-center gap-2 transition-all duration-300 ease-in-out",
-            "bg-background/80 backdrop-blur-sm rounded-full border border-border/60",
-            "hover:bg-background hover:border-border/80 focus-within:bg-background focus-within:border-border",
+            "bg-background/80 backdrop-blur-sm rounded-full",
+            "hover:bg-background focus-within:bg-background",
             expanded ? "w-[400px] shadow-lg" : "w-[200px]",
-            isDragging && "border-primary/50 bg-primary/5",
+            isDragging && "bg-primary/5",
             className
           )}
         >
@@ -262,7 +262,7 @@ const SearchInputEnhanced = React.forwardRef<HTMLInputElement, SearchInputEnhanc
               <img
                 src={imagePreview}
                 alt="Uploaded image"
-                className="w-6 h-6 rounded-full object-cover border border-border transition-all duration-200"
+                className="w-6 h-6 rounded-full object-cover transition-all duration-200"
               />
               <button
                 type="button"
@@ -284,7 +284,7 @@ const SearchInputEnhanced = React.forwardRef<HTMLInputElement, SearchInputEnhanc
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "h-8 w-8 rounded-md p-0 border-border/70 bg-background/80 text-muted-foreground transition-all duration-300 ease-in-out",
+                  "h-8 w-8 rounded-md p-0 bg-background/80 text-muted-foreground transition-all duration-300 ease-in-out",
                   "hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
                   expanded ? "opacity-100 scale-100" : "opacity-0 scale-0"
                 )}
@@ -309,11 +309,11 @@ const SearchInputEnhanced = React.forwardRef<HTMLInputElement, SearchInputEnhanc
         {showImageDropdown && (
           <div
             ref={imageDropdownRef}
-            className="absolute top-full left-0 right-0 z-50 mt-3 rounded-xl border border-border/70 bg-background/95 p-4 shadow-xl backdrop-blur"
+            className="absolute top-full left-0 right-0 z-50 mt-3 rounded-xl bg-background/95 p-4 shadow-xl backdrop-blur"
             data-image-dropdown
           >
             <h3 className="text-center text-xl font-semibold text-foreground">Upload the image in the following way</h3>
-            <div className="mt-4 rounded-xl border border-dashed border-border/80 p-6">
+            <div className="mt-4 rounded-xl p-6">
               <div className="mx-auto flex max-w-xs flex-col items-center gap-4 text-center">
                 <Button
                   type="button"
