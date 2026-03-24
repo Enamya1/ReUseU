@@ -593,11 +593,11 @@ const WalletPage = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge variant="default" className="bg-green-500/10 text-green-500 border-green-500/20">Active</Badge>;
+        return <Badge variant="default" className="bg-green-500/10 text-green-500">Active</Badge>;
       case 'frozen':
-        return <Badge variant="destructive" className="bg-red-500/10 text-red-500 border-red-500/20">Frozen</Badge>;
+        return <Badge variant="destructive" className="bg-red-500/10 text-red-500">Frozen</Badge>;
       case 'closed':
-        return <Badge variant="secondary" className="bg-gray-500/10 text-gray-500 border-gray-500/20">Closed</Badge>;
+        return <Badge variant="secondary" className="bg-gray-500/10 text-gray-500">Closed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -772,8 +772,8 @@ const WalletPage = () => {
                       <button
                         key={wallet.id}
                         onClick={() => setSelectedWalletId(wallet.id)}
-                        className={`flex items-center justify-between p-4 text-left transition-colors border-b last:border-0 hover:bg-accent/50 ${
-                          selectedWalletId === wallet.id ? 'bg-accent border-l-4 border-l-primary' : ''
+                        className={`flex items-center justify-between p-4 text-left transition-colors hover:bg-accent/50 ${
+                          selectedWalletId === wallet.id ? 'bg-accent' : ''
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -815,7 +815,7 @@ const WalletPage = () => {
             {selectedWallet ? (
               <>
                 {/* Wallet Overview Card */}
-                <Card className="bg-gradient-to-br from-primary/5 via-background to-background border-primary/20 overflow-hidden relative">
+                <Card className="bg-gradient-to-br from-primary/5 via-background to-background overflow-hidden relative">
                   <div className="absolute top-0 right-0 p-4">
                     {getStatusBadge(selectedWallet.status)}
                   </div>
@@ -869,11 +869,11 @@ const WalletPage = () => {
                       {/* Balance Breakdown */}
                       {(selectedWallet.metadata?.available_balance !== undefined || selectedWallet.metadata?.locked_balance !== undefined) && (
                         <div className="flex gap-4 mt-4 text-[10px] font-semibold uppercase tracking-tight">
-                          <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-green-500/5 border border-green-500/10 text-green-600">
+                          <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-green-500/5 text-green-600">
                             <span className="opacity-70 mb-0.5 text-[8px]">Available</span>
                             <span>{formatWithSelectedCurrency(selectedWallet.metadata.available_balance as number || 0, selectedWallet.currency)}</span>
                           </div>
-                          <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-orange-500/5 border border-orange-500/10 text-orange-600">
+                          <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-orange-500/5 text-orange-600">
                             <span className="opacity-70 mb-0.5 text-[8px]">Locked</span>
                             <span>{formatWithSelectedCurrency(selectedWallet.metadata.locked_balance as number || 0, selectedWallet.currency)}</span>
                           </div>
@@ -885,7 +885,7 @@ const WalletPage = () => {
                       {/* Top Up Dialog */}
                       <Dialog open={isTopUpDialogOpen} onOpenChange={setIsTopUpDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2" disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
                             <ArrowDownLeft className="w-5 h-5 text-green-500" />
                             <span>Top Up</span>
                           </Button>
@@ -916,7 +916,7 @@ const WalletPage = () => {
                       {/* Withdraw Dialog */}
                       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 " disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
                             <ArrowUpRight className="w-5 h-5 text-red-500" />
                             <span>Withdraw</span>
                           </Button>
@@ -948,7 +948,7 @@ const WalletPage = () => {
                       {/* Transfer Dialog */}
                       <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 " disabled={selectedWallet.status === 'frozen' || selectedWallet.status === 'closed'}>
                             <Send className="w-5 h-5 text-blue-500" />
                             <span>Transfer</span>
                           </Button>
@@ -987,7 +987,7 @@ const WalletPage = () => {
                       {/* Freeze/Unfreeze Dialog */}
                       <Dialog open={isFreezeDialogOpen} onOpenChange={setIsFreezeDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed" disabled={selectedWallet.status === 'closed'}>
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 " disabled={selectedWallet.status === 'closed'}>
                             {selectedWallet.status === 'frozen' ? (
                               <>
                                 <Unlock className="w-5 h-5 text-green-500" />
@@ -1036,7 +1036,7 @@ const WalletPage = () => {
                       {/* Open/Close Wallet Dialog */}
                       <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 border-dashed">
+                          <Button variant="outline" className="flex-col h-auto py-4 gap-2 ">
                             {selectedWallet.status === 'closed' ? (
                               <>
                                 <Power className="w-5 h-5 text-green-500" />
@@ -1169,7 +1169,7 @@ const WalletPage = () => {
                         <div className="space-y-4">
                           {walletStatusHistory.length > 0 ? (
                             walletStatusHistory.map((history) => (
-                              <div key={history.id} className="flex gap-4 p-4 border rounded-lg bg-muted/30">
+                              <div key={history.id} className="flex gap-4 p-4 rounded-lg bg-muted/30">
                                 <div className="mt-1">
                                   {history.new_status === 'frozen' ? (
                                     <Lock className="w-5 h-5 text-orange-500" />
@@ -1196,7 +1196,7 @@ const WalletPage = () => {
                               </div>
                             ))
                           ) : (
-                            <div className="p-8 text-center text-muted-foreground border border-dashed rounded-lg">
+                            <div className="p-8 text-center text-muted-foreground rounded-lg">
                               No status changes recorded.
                             </div>
                           )}
@@ -1207,7 +1207,7 @@ const WalletPage = () => {
                 </Tabs>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-[400px] border border-dashed rounded-xl bg-muted/20">
+              <div className="flex flex-col items-center justify-center h-[400px] rounded-xl bg-muted/20">
                 <Wallet className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
                 <p className="text-muted-foreground">Select a wallet to view details and perform actions.</p>
               </div>
