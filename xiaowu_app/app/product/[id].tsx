@@ -21,9 +21,12 @@ import { Avatar } from '../../src/components/ui/Avatar';
 import { Button } from '../../src/components/ui/Button';
 import { Badge } from '../../src/components/ui/Badge';
 import { Divider } from '../../src/components/ui/Divider';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { getProductDetail } from '../../src/services/productService';
+import { useToast } from '../../src/hooks/useToast';
 import { LoadingFullPage } from '../../src/components/ui/Loading';
 
-// Mock product data
+// Mock product data for fallback
 const mockProduct: Product = {
   id: 1,
   seller_id: 1,
@@ -41,9 +44,7 @@ const mockProduct: Product = {
     id: 1,
     full_name: 'John Doe',
     username: 'johndoe',
-    email: 'john@example.com',
-    role: 'user',
-    status: 'active',
+    profile_picture: undefined,
   },
   condition_level: {
     id: 1,
@@ -64,16 +65,52 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { toast } = useToast();
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setProduct(mockProduct);
-      setIsLoading(false);
-    }, 500);
+    const fetchProduct = async () => {
+      if (!id) {
+        toast({ title: 'Invalid product ID', type: 'error' });
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const productId = parseInt(id, 10);
+        if (isNaN(productId)) {
+          toast({ title: 'Invalid product ID format', type: 'error' });
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('Fetching product with ID:', productId);
+        const fetchedProduct = await getProductDetail(productId);
+        console.log('Received product data:', JSON.stringify(fetchedProduct, null, 2));
+        
+        setProduct(fetchedProduct);
+      } catch (error: any) {
+        console.error('Error fetching product:', error);
+        
+        let errorMessage = 'Failed to load product';
+        if (error.response?.status === 404) {
+          errorMessage = 'Product not found';
+        } else if (error.response?.status === 403) {
+          errorMessage = 'Access denied. User access required.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        toast({ title: errorMessage, type: 'error' });
+        setProduct(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProduct();
   }, [id]);
 
   const handleFavoritePress = () => {
@@ -124,7 +161,7 @@ export default function ProductDetailScreen() {
             {product.title}
           </Text>
           <Text style={[styles.price, { color: colors.primary }]}>
-            ¥{product.price.toFixed(2)}
+            ¥{typeof product.price === 'number' ? product.price.toFixed(2) : Number(product.price || 0).toFixed(2)}
           </Text>
 
           {/* Badges */}

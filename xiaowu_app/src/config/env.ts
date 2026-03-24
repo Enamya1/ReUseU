@@ -1,8 +1,11 @@
 /**
  * Environment Configuration
  * Centralized configuration for API endpoints and keys
- * Values sourced from campus-connect-marketplace-main/.env.local
+ * Values sourced from env.local.ts (gitignored)
  */
+
+// Import environment variables from local config
+import { ENV } from '../../env.local';
 
 /**
  * Normalize URL by removing trailing slashes
@@ -13,26 +16,26 @@ const normalizeUrl = (value: string): string => value.trim().replace(/\/+$/, '')
  * API Base URL (Main backend - Laravel)
  * Used for: Authentication, Products, Users, Messages, etc.
  */
-export const API_BASE_URL = normalizeUrl('http://10.29.14.209:8000');
+export const API_BASE_URL = normalizeUrl(ENV.API_BASE_URL);
 
 /**
  * API Base URL Python (Python backend)
  * Used for: AI features, Visual search, etc.
  */
-export const API_BASE_URL_PY = normalizeUrl('http://10.29.14.209:8001');
+export const API_BASE_URL_PY = normalizeUrl(ENV.API_BASE_URL_PY);
 
 /**
  * AMap JavaScript Key
  * Used for: Map rendering in web version
  * Note: For React Native, we use react-native-maps instead
  */
-export const AMAP_JS_KEY = 'e00b7655186023fba1274ba1d9528369';
+export const AMAP_JS_KEY = ENV.AMAP_JS_KEY;
 
 /**
  * AMap Security Code
  * Used for: AMap API authentication
  */
-export const AMAP_SECURITY_CODE = '1ecb3c08792aa9ec7b6732480b6a7a10';
+export const AMAP_SECURITY_CODE = ENV.AMAP_SECURITY_CODE;
 
 /**
  * Default map center coordinates (China center)

@@ -43,12 +43,15 @@ export const getRecommendedProducts = async (params?: {
 };
 
 /**
- * Get product by ID
+ * Get product by ID (with behavioral event tracking)
+ * Endpoint: GET /api/user/get_product/{product_id}
+ * Auth: auth:sanctum, role=user
+ * Side effect: creates behavioral_events record with event_type "click"
  */
-export const getProductById = async (productId: number): Promise<Product> => {
+export const getProductDetail = async (productId: number): Promise<Product> => {
   try {
-    const response = await apiClient.get(`/api/products/${productId}`);
-    return response.data;
+    const response = await apiClient.get(`/api/user/get_product/${productId}`);
+    return response.data.product;
   } catch (error) {
     throw handleApiError(error);
   }

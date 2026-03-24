@@ -1243,12 +1243,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { message: "Unauthenticated." };
       }
 
-      const url = new URL(apiUrl("/api/user/settings/university-options"));
+      const url = apiUrl("/api/user/settings/university-options");
+      const fullUrl = new URL(url, window.location.origin);
       if (typeof universityId === "number" && Number.isFinite(universityId)) {
-        url.searchParams.set("university_id", String(universityId));
+        fullUrl.searchParams.set("university_id", String(universityId));
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -1798,18 +1799,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw { message: "Unauthorized: Only users can access this endpoint." } as AiHistoryResponseBody;
       }
 
-      const url = new URL(apiUrl("/api/ai/history"));
+      const url = apiUrl("/api/ai/history");
+      const fullUrl = new URL(url, window.location.origin);
       if (typeof params?.page === "number" && Number.isFinite(params.page)) {
-        url.searchParams.set("page", String(params.page));
+        fullUrl.searchParams.set("page", String(params.page));
       }
       if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
-        url.searchParams.set("page_size", String(params.page_size));
+        fullUrl.searchParams.set("page_size", String(params.page_size));
       }
       if (typeof params?.include_messages === "boolean") {
-        url.searchParams.set("include_messages", params.include_messages ? "1" : "0");
+        fullUrl.searchParams.set("include_messages", params.include_messages ? "1" : "0");
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -1953,12 +1955,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw { message: "Unauthorized: Only users can access this endpoint." } as MessageContactsResponseBody;
       }
 
-      const url = new URL(apiUrl("/api/user/messages/contacts"));
+      const url = apiUrl("/api/user/messages/contacts");
+      const fullUrl = new URL(url, window.location.origin);
       if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
-        url.searchParams.set("limit", String(params.limit));
+        fullUrl.searchParams.set("limit", String(params.limit));
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -2000,16 +2003,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw { message: "Validation Error", errors: { conversation_id: ["Conversation is required."] } } as MessageThreadResponseBody;
       }
 
-      const url = new URL(apiUrl("/api/user/messages"));
-      url.searchParams.set("conversation_id", String(params.conversation_id));
+      const url = apiUrl("/api/user/messages");
+      const fullUrl = new URL(url, window.location.origin);
+      fullUrl.searchParams.set("conversation_id", String(params.conversation_id));
       if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
-        url.searchParams.set("limit", String(params.limit));
+        fullUrl.searchParams.set("limit", String(params.limit));
       }
       if (typeof params?.before_id === "number" && Number.isFinite(params.before_id)) {
-        url.searchParams.set("before_id", String(params.before_id));
+        fullUrl.searchParams.set("before_id", String(params.before_id));
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -2048,12 +2052,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw { message: "Unauthorized: Only users can access this endpoint." } as MessageNotificationsResponseBody;
       }
 
-      const url = new URL(apiUrl("/api/user/messages/notification"));
+      const url = apiUrl("/api/user/messages/notification");
+      const fullUrl = new URL(url, window.location.origin);
       if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
-        url.searchParams.set("limit", String(params.limit));
+        fullUrl.searchParams.set("limit", String(params.limit));
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -2150,13 +2155,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } as ProductSearchSuggestionsResponseBody;
       }
 
-      const url = new URL(apiUrl("/api/user/search/products/suggestions"));
-      url.searchParams.set("q", query);
+      const url = apiUrl("/api/user/search/products/suggestions");
+      const fullUrl = new URL(url, window.location.origin);
+      fullUrl.searchParams.set("q", query);
       if (typeof params?.suggestions_limit === "number" && Number.isFinite(params.suggestions_limit)) {
-        url.searchParams.set("suggestions_limit", String(params.suggestions_limit));
+        fullUrl.searchParams.set("suggestions_limit", String(params.suggestions_limit));
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -2212,16 +2218,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } as SearchProductsResponseBody;
       }
 
-      const url = new URL(apiUrl("/api/user/search/products"));
-      url.searchParams.set("q", query);
+      const url = apiUrl("/api/user/search/products");
+      const fullUrl = new URL(url, window.location.origin);
+      fullUrl.searchParams.set("q", query);
       if (typeof params?.page === "number" && Number.isFinite(params.page)) {
-        url.searchParams.set("page", String(params.page));
+        fullUrl.searchParams.set("page", String(params.page));
       }
       if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
-        url.searchParams.set("page_size", String(params.page_size));
+        fullUrl.searchParams.set("page_size", String(params.page_size));
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -2434,15 +2441,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw { message: "Unauthorized: Only users can access this endpoint." } as MyProductCardsResponseBody;
       }
 
-      const url = new URL(apiUrl("/api/user/products/cards"));
+      const url = apiUrl("/api/user/products/cards");
+      const fullUrl = new URL(url, window.location.origin);
       if (typeof params?.page === "number" && Number.isFinite(params.page)) {
-        url.searchParams.set("page", String(params.page));
+        fullUrl.searchParams.set("page", String(params.page));
       }
       if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
-        url.searchParams.set("page_size", String(params.page_size));
+        fullUrl.searchParams.set("page_size", String(params.page_size));
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -2482,15 +2490,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       const normalizedSellerId = Number.isFinite(sellerId) ? Math.trunc(sellerId) : NaN;
-      const url = new URL(apiUrl(`/api/user/sellers/${normalizedSellerId}`));
+      const url = apiUrl(`/api/user/sellers/${normalizedSellerId}`);
+      const fullUrl = new URL(url, window.location.origin);
       if (typeof params?.page === "number" && Number.isFinite(params.page)) {
-        url.searchParams.set("page", String(params.page));
+        fullUrl.searchParams.set("page", String(params.page));
       }
       if (typeof params?.page_size === "number" && Number.isFinite(params.page_size)) {
-        url.searchParams.set("page_size", String(params.page_size));
+        fullUrl.searchParams.set("page_size", String(params.page_size));
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -2676,26 +2685,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw { message: "Unauthorized: Only users can access this endpoint." } as NearbyResponseBody;
       }
 
-      const url = new URL(apiUrl("/api/user/nearby"));
-      url.searchParams.set("lat", String(params.lat));
-      url.searchParams.set("lng", String(params.lng));
+      const url = apiUrl("/api/user/nearby");
+      const fullUrl = new URL(url, window.location.origin);
+      fullUrl.searchParams.set("lat", String(params.lat));
+      fullUrl.searchParams.set("lng", String(params.lng));
       if (typeof params.distance_km === "number" && Number.isFinite(params.distance_km)) {
-        url.searchParams.set("distance_km", String(params.distance_km));
+        fullUrl.searchParams.set("distance_km", String(params.distance_km));
       }
       if (typeof params.category_id === "number" && Number.isFinite(params.category_id)) {
-        url.searchParams.set("category_id", String(params.category_id));
+        fullUrl.searchParams.set("category_id", String(params.category_id));
       }
       if (typeof params.condition_level_id === "number" && Number.isFinite(params.condition_level_id)) {
-        url.searchParams.set("condition_level_id", String(params.condition_level_id));
+        fullUrl.searchParams.set("condition_level_id", String(params.condition_level_id));
       }
       if (params.q) {
-        url.searchParams.set("q", params.q);
+        fullUrl.searchParams.set("q", params.q);
       }
       if (params.location_q) {
-        url.searchParams.set("location_q", params.location_q);
+        fullUrl.searchParams.set("location_q", params.location_q);
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",

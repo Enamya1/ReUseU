@@ -94,12 +94,14 @@ export interface Product {
   seller?: {
     id: number;
     username: string;
+    full_name?: string;
     profile_picture?: string;
   };
   dormitory_id: number;
   dormitory?: Dormitory | {
     latitude?: number;
     longitude?: number;
+    dormitory_name?: string;
   };
   category_id: number;
   category?: Category;
