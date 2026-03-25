@@ -45,6 +45,7 @@ interface AuthContextType {
   createExchangeProduct: (data: CreateExchangeProductInput) => Promise<CreateExchangeProductResponseBody>;
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   sendMessage: (data: SendMessageInput) => Promise<SendMessageResponseBody>;
+  transferMessage: (data: TransferMessageInput) => Promise<TransferMessageResponseBody>;
   createAiSession: (data?: { title?: string | null }) => Promise<CreateAiSessionResponseBody>;
   sendAiSessionMessage: (data: {
     session_id: string;
@@ -529,6 +530,26 @@ type SendMessageResponseBody = {
   errors?: Record<string, string[]>;
 };
 
+type TransferMessageInput = {
+  conversation_id: number;
+  amount: number;
+  currency: string;
+  reference?: string;
+};
+
+type TransferMessageResponseBody = {
+  message?: string;
+  transfer?: {
+    amount: number;
+    currency: string;
+    from_wallet_id: number;
+    to_wallet_id: number;
+    atomic_transaction_id: number;
+    reference?: string;
+  };
+  errors?: Record<string, string[]>;
+};
+
 type CreateAiSessionResponseBody = {
   session_id?: string;
   expires_at?: string;
@@ -621,6 +642,8 @@ type MessageThreadItem = {
   sender_id?: number;
   sender_username?: string;
   message_text?: string;
+  message_type?: string;
+  transfer_data?: Record<string, unknown>;
   read_at?: string | null;
   created_at?: string;
 };
@@ -1625,6 +1648,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (response.status === 401) throw { message: "Unauthenticated." } as SendMessageResponseBody;
       if (response.status === 403) {
         throw { message: "Unauthorized: Only users can access this endpoint." } as SendMessageResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const transferMessage = useCallback(
+    async (data: TransferMessageInput): Promise<TransferMessageResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as TransferMessageResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as TransferMessageResponseBody;
+      }
+
+      const response = await fetch(apiUrl("/api/user/messages/transfer"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify({
+          conversation_id: data.conversation_id,
+          amount: data.amount,
+          currency: data.currency,
+          reference: data.reference,
+        }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as TransferMessageResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (response.status === 409) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as TransferMessageResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as TransferMessageResponseBody;
       }
       return { message: "Request failed" };
     },
@@ -3162,6 +3233,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     createExchangeProduct,
     createTag,
     sendMessage,
+    transferMessage,
     createAiSession,
     sendAiSessionMessage,
     getAiHistory,

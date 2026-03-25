@@ -1,11 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Ban, Check, CheckCheck, ChevronDown, ChevronUp, Clock, FileText, ImagePlus, Plus, Search, Send } from 'lucide-react';
+import { Ban, Check, CheckCheck, ChevronDown, ChevronUp, Clock, DollarSign, FileText, ImagePlus, Plus, Search, Send, ArrowRightLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +21,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +41,17 @@ type MessageAttachment = {
   url?: string;
 };
 
+type TransferData = {
+  amount: number;
+  currency: string;
+  from_wallet_id: number;
+  to_wallet_id: number;
+  transaction_ledger_id: number;
+  atomic_transaction_id: number;
+  sender_username: string;
+  reference?: string;
+};
+
 type MessageItem = {
   id: string;
   sender: 'me' | 'them';
@@ -32,6 +59,8 @@ type MessageItem = {
   time: string;
   attachments?: MessageAttachment[];
   status?: 'sent' | 'read' | 'pending' | 'blocked';
+  messageType?: 'text' | 'transfer' | 'voice';
+  transferData?: TransferData;
 };
 
 type ThreadItem = {
@@ -46,6 +75,20 @@ type ThreadItem = {
 
 const initialThreads: ThreadItem[] = [];
 
+// Popular currencies list with MAD as default
+const POPULAR_CURRENCIES = [
+  { code: 'MAD', name: 'Moroccan Dirham' },
+  { code: 'USD', name: 'US Dollar' },
+  { code: 'EUR', name: 'Euro' },
+  { code: 'GBP', name: 'British Pound' },
+  { code: 'CNY', name: 'Chinese Yuan' },
+  { code: 'JPY', name: 'Japanese Yen' },
+  { code: 'CAD', name: 'Canadian Dollar' },
+  { code: 'AUD', name: 'Australian Dollar' },
+  { code: 'CHF', name: 'Swiss Franc' },
+  { code: 'AED', name: 'UAE Dirham' },
+];
+
 const MessagesPage: React.FC = () => {
   const [threads, setThreads] = useState<ThreadItem[]>(initialThreads);
   const [selectedThreadId, setSelectedThreadId] = useState('');
@@ -59,6 +102,11 @@ const MessagesPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMatches, setSearchMatches] = useState<number[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferCurrency, setTransferCurrency] = useState('CNY');
+  const [transferReference, setTransferReference] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const attachRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -67,7 +115,7 @@ const MessagesPage: React.FC = () => {
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, user, sendMessage, getMessageContacts, getMessages } = useAuth();
+  const { isAuthenticated, user, sendMessage, getMessageContacts, getMessages, transferMessage } = useAuth();
 
   const receiverId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -351,6 +399,18 @@ const MessagesPage: React.FC = () => {
     return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }, []);
 
+  const formatCurrency = useCallback((amount: number, currency: string) => {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 2,
+      }).format(amount);
+    } catch (e) {
+      return `${currency} ${amount.toFixed(2)}`;
+    }
+  }, []);
+
   useEffect(() => {
     setShowSearchHistory(false);
     setSearchQuery('');
@@ -381,12 +441,36 @@ const MessagesPage: React.FC = () => {
             ((Number.isFinite(currentUserId) && senderId === currentUserId) ||
               (Number.isFinite(otherUserId) && senderId !== otherUserId));
           const timeLabel = formatTimeLabel(message.created_at);
+          
+          // Parse transfer data if this is a transfer message
+          let transferData: TransferData | undefined;
+          if (message.message_type === 'transfer' && message.transfer_data) {
+            try {
+              const td = message.transfer_data;
+              transferData = {
+                amount: Number(td.amount || 0),
+                currency: String(td.currency || ''),
+                from_wallet_id: Number(td.from_wallet_id || 0),
+                to_wallet_id: Number(td.to_wallet_id || 0),
+                transaction_ledger_id: Number(td.transaction_ledger_id || 0),
+                atomic_transaction_id: Number(td.atomic_transaction_id || 0),
+                sender_username: String(td.sender_username || ''),
+                reference: td.reference ? String(td.reference) : undefined,
+              };
+            } catch (e) {
+              // If parsing fails, treat as regular message
+              console.warn('Failed to parse transfer data:', e);
+            }
+          }
+          
           return {
             id: message.id ? `m-${message.id}` : `m-${Math.random().toString(36).slice(2)}`,
             sender: isMe ? 'me' : 'them',
             text: message.message_text?.trim() || undefined,
             time: timeLabel,
             status: isMe ? (message.read_at ? 'read' : 'sent') : undefined,
+            messageType: (message.message_type as 'text' | 'transfer' | 'voice') || 'text',
+            transferData,
           } as MessageItem;
         });
         const lastMessage = mappedMessages[mappedMessages.length - 1];
@@ -693,6 +777,110 @@ const MessagesPage: React.FC = () => {
     }
   };
 
+  const handleTransfer = async () => {
+    if (!selectedThread?.conversationId) {
+      toast({
+        title: 'Unable to transfer',
+        description: 'Conversation not found.',
+      });
+      return;
+    }
+
+    const amount = parseFloat(transferAmount);
+    if (isNaN(amount) || amount < 0.01) {
+      toast({
+        title: 'Invalid amount',
+        description: 'Please enter a valid amount (minimum 0.01).',
+      });
+      return;
+    }
+
+    if (!transferCurrency) {
+      toast({
+        title: 'Invalid currency',
+        description: 'Please select a currency.',
+      });
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login required',
+        description: 'Please log in to transfer money.',
+      });
+      navigate('/login');
+      return;
+    }
+
+    setIsTransferring(true);
+
+    try {
+      const response = await transferMessage({
+        conversation_id: selectedThread.conversationId,
+        amount,
+        currency: transferCurrency,
+        reference: transferReference.trim() || undefined,
+      });
+
+      toast({
+        title: 'Transfer completed successfully',
+        description: `Transferred ${amount} ${transferCurrency}${transferReference.trim() ? ` - ${transferReference}` : ''}`,
+      });
+
+      // Reload messages to show the transfer message
+      try {
+        const messagesResponse = await getMessages({ conversation_id: selectedThread.conversationId, limit: 50 });
+        const otherUser = messagesResponse.conversation?.other_user;
+        const mappedMessages = (messagesResponse.messages ?? []).map((message) => {
+          const senderId = typeof message.sender_id === 'string' ? Number(message.sender_id) : message.sender_id;
+          const currentUserId = typeof user?.id === 'string' ? Number(user.id) : user?.id;
+          const otherUserId = typeof otherUser?.id === 'string' ? Number(otherUser.id) : otherUser?.id;
+          const isMe =
+            Number.isFinite(senderId) &&
+            ((Number.isFinite(currentUserId) && senderId === currentUserId) ||
+              (Number.isFinite(otherUserId) && senderId !== otherUserId));
+          const timeLabel = formatTimeLabel(message.created_at);
+          return {
+            id: message.id ? `m-${message.id}` : `m-${Math.random().toString(36).slice(2)}`,
+            sender: isMe ? 'me' : 'them',
+            text: message.message_text?.trim() || undefined,
+            time: timeLabel,
+            status: isMe ? (message.read_at ? 'read' : 'sent') : undefined,
+          } as MessageItem;
+        });
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.id === selectedThread.id
+              ? {
+                  ...thread,
+                  messages: mappedMessages,
+                  lastMessage: mappedMessages[mappedMessages.length - 1]?.text || thread.lastMessage,
+                  lastTime: mappedMessages[mappedMessages.length - 1]?.time || thread.lastTime,
+                }
+              : thread,
+          ),
+        );
+      } catch (error) {
+        // Ignore error when reloading messages
+      }
+
+      setShowTransferDialog(false);
+      setTransferAmount('');
+      setTransferCurrency('CNY');
+      setTransferReference('');
+    } catch (error) {
+      const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+      const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+      const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+      toast({
+        title: 'Unable to complete transfer',
+        description: firstError || message || 'Please try again.',
+      });
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   const headerClassName =
     "bg-black/25 mix-blend-normal [&_a]:text-white [&_a:hover]:text-white [&_button]:text-white [&_button:hover]:text-white [&_svg]:text-white/80 [&_input]:bg-white/5 [&_input]:text-white [&_input]:placeholder:text-white/60";
 
@@ -904,6 +1092,62 @@ const MessagesPage: React.FC = () => {
                     ) : (
                       <Check className="h-3.5 w-3.5" />
                     );
+
+                  // Render transfer message differently
+                  if (message.messageType === 'transfer' && message.transferData) {
+                    const { amount, currency, reference, sender_username } = message.transferData;
+                    const isSender = isMe;
+                    
+                    return (
+                      <div
+                        key={message.id}
+                        ref={(node) => {
+                          messageRefs.current[message.id] = node;
+                        }}
+                        className={cn('flex w-full max-w-[80%] flex-col gap-2 py-2', isMe ? 'ml-auto items-end' : 'items-start')}
+                      >
+                        <div
+                          className={cn(
+                            'w-full rounded-2xl border-2 p-4 shadow-xl',
+                            isMe 
+                              ? 'border-emerald-500/50 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10' 
+                              : 'border-blue-500/50 bg-gradient-to-br from-blue-500/20 to-blue-600/10',
+                            isMatch && 'border-amber-300/50 bg-amber-400/10',
+                            isActiveMatch && 'border-amber-300 bg-amber-400/20 shadow-[0_0_20px_rgba(251,191,36,0.35)]',
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={cn('flex h-10 w-10 items-center justify-center rounded-full', isMe ? 'bg-emerald-500/20' : 'bg-blue-500/20')}>
+                              <ArrowRightLeft className={cn('h-5 w-5', isMe ? 'text-emerald-400' : 'text-blue-400')} />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={cn('text-sm font-semibold', isMe ? 'text-emerald-300' : 'text-blue-300')}>
+                                  {isSender ? 'You sent' : `${sender_username || 'User'} sent`}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-2xl font-bold text-white">
+                                {formatCurrency(amount, currency)}
+                              </div>
+                              {reference ? (
+                                <div className="mt-1 text-sm text-white/70 italic">"{reference}"</div>
+                              ) : null}
+                              <div className="mt-2 flex items-center gap-2 text-xs text-white/50">
+                                <span>{message.time}</span>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  {statusIcon}
+                                  <span className="capitalize">{messageStatus}</span>
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Regular message rendering
                   return (
                     <div
                       key={message.id}
@@ -1016,6 +1260,18 @@ const MessagesPage: React.FC = () => {
                 ) : null}
               </div>
 
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowTransferDialog(true)}
+                disabled={!selectedThread}
+                className="h-12 w-12 rounded-full border-white/30 bg-white/3 text-white hover:bg-white/5 disabled:opacity-50"
+                title="Transfer money"
+              >
+                <DollarSign className="h-5 w-5" />
+              </Button>
+
               <Input
                 value={messageInput}
                 onChange={(event) => setMessageInput(event.target.value)}
@@ -1045,6 +1301,82 @@ const MessagesPage: React.FC = () => {
             ) : null}
           </section>
         </div>
+
+        {/* Transfer Dialog */}
+        <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+          <DialogContent className="bg-background sm:rounded-lg">
+            <DialogHeader>
+              <DialogTitle>Transfer Money</DialogTitle>
+              <DialogDescription>
+                Send money to {selectedThread?.name || 'this user'}. The amount will be transferred from your wallet to theirs.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="transfer-amount">Amount</Label>
+                <Input
+                  id="transfer-amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="transfer-currency">Currency</Label>
+                <Select value={transferCurrency} onValueChange={setTransferCurrency}>
+                  <SelectTrigger className="w-full" id="transfer-currency">
+                    <SelectValue placeholder="Select a currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {POPULAR_CURRENCIES.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="transfer-reference">Reference (optional)</Label>
+                <Input
+                  id="transfer-reference"
+                  type="text"
+                  maxLength={255}
+                  placeholder="Payment for books"
+                  value={transferReference}
+                  onChange={(e) => setTransferReference(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowTransferDialog(false);
+                  setTransferAmount('');
+                  setTransferCurrency('CNY');
+                  setTransferReference('');
+                }}
+                disabled={isTransferring}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleTransfer}
+                disabled={isTransferring || !transferAmount || !transferCurrency}
+              >
+                {isTransferring ? 'Transferring...' : 'Transfer'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
