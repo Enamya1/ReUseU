@@ -5,8 +5,9 @@ import { useTranslation } from 'react-i18next';
 
 const Footer: React.FC = () => {
   const { t } = useTranslation();
+
   return (
-    <footer className="border-t border-border bg-background mt-auto">
+    <footer className="border-t border-border/50 shadow-sm bg-background mt-auto">
       <div className="container py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
@@ -16,12 +17,14 @@ const Footer: React.FC = () => {
                 S
               </div>
               <span className="font-display text-xl font-bold text-foreground">
-                Suki
+                Sukio
               </span>
             </Link>
+
             <p className="text-sm text-muted-foreground">
               {t('footer.tagline')}
             </p>
+
             <div className="flex gap-4">
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
                 <Twitter className="w-5 h-5" />
