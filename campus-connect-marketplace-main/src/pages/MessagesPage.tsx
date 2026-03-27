@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Ban, Check, CheckCheck, ChevronDown, ChevronUp, Clock, DollarSign, FileText, ImagePlus, Plus, Search, Send, ArrowRightLeft } from 'lucide-react';
+import { Ban, CalendarClock, Check, CheckCheck, ChevronDown, ChevronUp, Clock, DollarSign, FileText, ImagePlus, MapPin, Plus, Search, Send, ArrowRightLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +53,19 @@ type TransferData = {
   reference?: string;
 };
 
+type PaymentRequestData = {
+  payment_request_id?: number;
+  amount: number;
+  currency: string;
+  product_id?: number | null;
+  product_title?: string | null;
+  sender_username?: string;
+  receiver_id?: number;
+  expires_at?: string;
+  status?: string;
+  reference?: string;
+};
+
 type MessageItem = {
   id: string;
   sender: 'me' | 'them';
@@ -59,8 +73,10 @@ type MessageItem = {
   time: string;
   attachments?: MessageAttachment[];
   status?: 'sent' | 'read' | 'pending' | 'blocked';
-  messageType?: 'text' | 'transfer' | 'voice';
+  messageType?: 'text' | 'transfer' | 'voice' | 'payment_request' | 'payment_confirmation';
+  messageKind?: 'normal' | 'payment_request_unconfirmed' | 'payment_request_confirmed' | 'transfer';
   transferData?: TransferData;
+  paymentRequestData?: PaymentRequestData;
 };
 
 type ThreadItem = {
@@ -71,6 +87,27 @@ type ThreadItem = {
   messages: MessageItem[];
   conversationId?: number;
   avatarUrl?: string;
+};
+
+type MyProductCard = {
+  id: number;
+  title: string;
+  price: number;
+  currency?: string;
+  status: 'available' | 'sold' | 'reserved';
+  image_thumbnail_url?: string | null;
+};
+
+type MessageThreadEntry = {
+  id?: number | string;
+  sender_id?: number | string;
+  message_text?: string;
+  message_type?: string;
+  message_kind?: string;
+  payment_request_status?: string | null;
+  transfer_data?: Record<string, unknown> | null;
+  read_at?: string | null;
+  created_at?: string;
 };
 
 const initialThreads: ThreadItem[] = [];
@@ -107,6 +144,24 @@ const MessagesPage: React.FC = () => {
   const [transferCurrency, setTransferCurrency] = useState('CNY');
   const [transferReference, setTransferReference] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
+  const [showPaymentRequestDialog, setShowPaymentRequestDialog] = useState(false);
+  const [paymentRequestAmount, setPaymentRequestAmount] = useState('');
+  const [paymentRequestCurrency, setPaymentRequestCurrency] = useState('CNY');
+  const [paymentRequestMessage, setPaymentRequestMessage] = useState('');
+  const [paymentRequestExpiresIn, setPaymentRequestExpiresIn] = useState('24');
+  const [paymentRequestProductId, setPaymentRequestProductId] = useState<number | null>(null);
+  const [myProducts, setMyProducts] = useState<MyProductCard[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isPaymentRequesting, setIsPaymentRequesting] = useState(false);
+  const [activePaymentRequest, setActivePaymentRequest] = useState<PaymentRequestData | null>(null);
+  const [showPaymentConfirmDialog, setShowPaymentConfirmDialog] = useState(false);
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+  const [showMeetingDialog, setShowMeetingDialog] = useState(false);
+  const [meetingLocation, setMeetingLocation] = useState('');
+  const [meetingDate, setMeetingDate] = useState('');
+  const [meetingTime, setMeetingTime] = useState('');
+  const [meetingNote, setMeetingNote] = useState('');
+  const [isSendingMeeting, setIsSendingMeeting] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const attachRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -115,7 +170,17 @@ const MessagesPage: React.FC = () => {
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, user, sendMessage, getMessageContacts, getMessages, transferMessage } = useAuth();
+  const {
+    isAuthenticated,
+    user,
+    sendMessage,
+    getMessageContacts,
+    getMessages,
+    transferMessage,
+    createPaymentRequest,
+    confirmPaymentRequest,
+    getMyProductCards,
+  } = useAuth();
 
   const receiverId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -411,6 +476,98 @@ const MessagesPage: React.FC = () => {
     }
   }, []);
 
+  const mapMessageThread = useCallback(
+    (messages: MessageThreadEntry[], otherUser?: { id?: number | string }) => {
+      return (messages ?? []).map((message) => {
+        const senderId = typeof message.sender_id === 'string' ? Number(message.sender_id) : message.sender_id;
+        const currentUserId = typeof user?.id === 'string' ? Number(user.id) : user?.id;
+        const otherUserId = typeof otherUser?.id === 'string' ? Number(otherUser.id) : otherUser?.id;
+        const isMe =
+          Number.isFinite(senderId) &&
+          ((Number.isFinite(currentUserId) && senderId === currentUserId) ||
+            (Number.isFinite(otherUserId) && senderId !== otherUserId));
+        const timeLabel = formatTimeLabel(message.created_at);
+
+        let transferData: TransferData | undefined;
+        if (message.message_type === 'transfer' && message.transfer_data) {
+          try {
+            const td = message.transfer_data as Record<string, unknown>;
+            transferData = {
+              amount: typeof td.amount === 'number' ? td.amount : Number(td.amount || 0),
+              currency: typeof td.currency === 'string' ? td.currency : String(td.currency || ''),
+              from_wallet_id: typeof td.from_wallet_id === 'number' ? td.from_wallet_id : Number(td.from_wallet_id || 0),
+              to_wallet_id: typeof td.to_wallet_id === 'number' ? td.to_wallet_id : Number(td.to_wallet_id || 0),
+              transaction_ledger_id:
+                typeof td.transaction_ledger_id === 'number' ? td.transaction_ledger_id : Number(td.transaction_ledger_id || 0),
+              atomic_transaction_id:
+                typeof td.atomic_transaction_id === 'number' ? td.atomic_transaction_id : Number(td.atomic_transaction_id || 0),
+              sender_username: typeof td.sender_username === 'string' ? td.sender_username : String(td.sender_username || ''),
+              reference: td.reference ? String(td.reference) : undefined,
+            };
+          } catch (e) {
+            console.warn('Failed to parse transfer data:', e);
+          }
+        }
+
+        let paymentRequestData: PaymentRequestData | undefined;
+        if (
+          (message.message_type === 'payment_request' || message.message_type === 'payment_confirmation') &&
+          message.transfer_data
+        ) {
+          try {
+            const td = message.transfer_data as Record<string, unknown>;
+            const paymentRequestId =
+              typeof td.payment_request_id === 'number'
+                ? td.payment_request_id
+                : typeof td.payment_request_id === 'string'
+                  ? Number(td.payment_request_id)
+                  : undefined;
+            const productId =
+              typeof td.product_id === 'number'
+                ? td.product_id
+                : typeof td.product_id === 'string'
+                  ? Number(td.product_id)
+                  : undefined;
+            paymentRequestData = {
+              payment_request_id: paymentRequestId,
+              amount: typeof td.amount === 'number' ? td.amount : Number(td.amount || 0),
+              currency: typeof td.currency === 'string' ? td.currency : String(td.currency || ''),
+              product_id: productId,
+              product_title: td.product_title ? String(td.product_title) : undefined,
+              sender_username: td.sender_username ? String(td.sender_username) : undefined,
+              receiver_id:
+                typeof td.receiver_id === 'number'
+                  ? td.receiver_id
+                  : typeof td.receiver_id === 'string'
+                    ? Number(td.receiver_id)
+                    : undefined,
+              expires_at: td.expires_at ? String(td.expires_at) : undefined,
+              status:
+                message.payment_request_status ||
+                (td.status ? String(td.status) : undefined),
+              reference: td.reference ? String(td.reference) : undefined,
+            };
+          } catch (e) {
+            console.warn('Failed to parse payment request data:', e);
+          }
+        }
+
+        return {
+          id: message.id ? `m-${message.id}` : `m-${Math.random().toString(36).slice(2)}`,
+          sender: isMe ? 'me' : 'them',
+          text: message.message_text?.trim() || undefined,
+          time: timeLabel,
+          status: isMe ? (message.read_at ? 'read' : 'sent') : undefined,
+          messageType: (message.message_type as MessageItem['messageType']) || 'text',
+          messageKind: (message.message_kind as MessageItem['messageKind']) || 'normal',
+          transferData,
+          paymentRequestData,
+        } as MessageItem;
+      });
+    },
+    [formatTimeLabel, user?.id],
+  );
+
   useEffect(() => {
     setShowSearchHistory(false);
     setSearchQuery('');
@@ -432,47 +589,7 @@ const MessagesPage: React.FC = () => {
         const response = await getMessages({ conversation_id: selectedThread.conversationId, limit: 50 });
         if (cancelled) return;
         const otherUser = response.conversation?.other_user;
-        const mappedMessages = (response.messages ?? []).map((message) => {
-          const senderId = typeof message.sender_id === 'string' ? Number(message.sender_id) : message.sender_id;
-          const currentUserId = typeof user?.id === 'string' ? Number(user.id) : user?.id;
-          const otherUserId = typeof otherUser?.id === 'string' ? Number(otherUser.id) : otherUser?.id;
-          const isMe =
-            Number.isFinite(senderId) &&
-            ((Number.isFinite(currentUserId) && senderId === currentUserId) ||
-              (Number.isFinite(otherUserId) && senderId !== otherUserId));
-          const timeLabel = formatTimeLabel(message.created_at);
-          
-          // Parse transfer data if this is a transfer message
-          let transferData: TransferData | undefined;
-          if (message.message_type === 'transfer' && message.transfer_data) {
-            try {
-              const td = message.transfer_data;
-              transferData = {
-                amount: Number(td.amount || 0),
-                currency: String(td.currency || ''),
-                from_wallet_id: Number(td.from_wallet_id || 0),
-                to_wallet_id: Number(td.to_wallet_id || 0),
-                transaction_ledger_id: Number(td.transaction_ledger_id || 0),
-                atomic_transaction_id: Number(td.atomic_transaction_id || 0),
-                sender_username: String(td.sender_username || ''),
-                reference: td.reference ? String(td.reference) : undefined,
-              };
-            } catch (e) {
-              // If parsing fails, treat as regular message
-              console.warn('Failed to parse transfer data:', e);
-            }
-          }
-          
-          return {
-            id: message.id ? `m-${message.id}` : `m-${Math.random().toString(36).slice(2)}`,
-            sender: isMe ? 'me' : 'them',
-            text: message.message_text?.trim() || undefined,
-            time: timeLabel,
-            status: isMe ? (message.read_at ? 'read' : 'sent') : undefined,
-            messageType: (message.message_type as 'text' | 'transfer' | 'voice') || 'text',
-            transferData,
-          } as MessageItem;
-        });
+        const mappedMessages = mapMessageThread(response.messages ?? [], otherUser);
         const lastMessage = mappedMessages[mappedMessages.length - 1];
         setThreads((prev) =>
           prev.map((thread) =>
@@ -503,7 +620,45 @@ const MessagesPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [formatTimeLabel, getMessages, isAuthenticated, selectedThread?.conversationId, selectedThread?.id, user?.id]);
+  }, [formatTimeLabel, getMessages, isAuthenticated, mapMessageThread, selectedThread?.conversationId, selectedThread?.id, user?.id]);
+
+  useEffect(() => {
+    if (!showPaymentRequestDialog || !isAuthenticated) return;
+    let cancelled = false;
+    const run = async () => {
+      setIsLoadingProducts(true);
+      try {
+        const response = await getMyProductCards({ page_size: 50 });
+        if (cancelled) return;
+        const products = (response.products ?? []).map((product) => ({
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          currency: product.currency,
+          status: product.status,
+          image_thumbnail_url: product.image_thumbnail_url,
+        }));
+        setMyProducts(products);
+        if (products.length > 0 && paymentRequestProductId === null) {
+          setPaymentRequestProductId(products[0].id);
+        }
+      } catch (error) {
+        const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+        const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+        const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+        toast({
+          title: 'Unable to load products',
+          description: firstError || message || 'Please try again.',
+        });
+      } finally {
+        if (!cancelled) setIsLoadingProducts(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getMyProductCards, isAuthenticated, paymentRequestProductId, showPaymentRequestDialog]);
 
   const scrollToMatch = (index: number, matches = searchMatches) => {
     if (!selectedThread || matches.length === 0) return;
@@ -831,23 +986,7 @@ const MessagesPage: React.FC = () => {
       try {
         const messagesResponse = await getMessages({ conversation_id: selectedThread.conversationId, limit: 50 });
         const otherUser = messagesResponse.conversation?.other_user;
-        const mappedMessages = (messagesResponse.messages ?? []).map((message) => {
-          const senderId = typeof message.sender_id === 'string' ? Number(message.sender_id) : message.sender_id;
-          const currentUserId = typeof user?.id === 'string' ? Number(user.id) : user?.id;
-          const otherUserId = typeof otherUser?.id === 'string' ? Number(otherUser.id) : otherUser?.id;
-          const isMe =
-            Number.isFinite(senderId) &&
-            ((Number.isFinite(currentUserId) && senderId === currentUserId) ||
-              (Number.isFinite(otherUserId) && senderId !== otherUserId));
-          const timeLabel = formatTimeLabel(message.created_at);
-          return {
-            id: message.id ? `m-${message.id}` : `m-${Math.random().toString(36).slice(2)}`,
-            sender: isMe ? 'me' : 'them',
-            text: message.message_text?.trim() || undefined,
-            time: timeLabel,
-            status: isMe ? (message.read_at ? 'read' : 'sent') : undefined,
-          } as MessageItem;
-        });
+        const mappedMessages = mapMessageThread(messagesResponse.messages ?? [], otherUser);
         setThreads((prev) =>
           prev.map((thread) =>
             thread.id === selectedThread.id
@@ -881,8 +1020,282 @@ const MessagesPage: React.FC = () => {
     }
   };
 
+  const handleOpenPaymentRequest = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login required',
+        description: 'Please log in to request a payment.',
+      });
+      navigate('/login');
+      return;
+    }
+    setShowPaymentRequestDialog(true);
+  };
+
+  const handlePaymentRequest = async () => {
+    if (!selectedThread?.conversationId) {
+      toast({
+        title: 'Unable to request payment',
+        description: 'Conversation not found.',
+      });
+      return;
+    }
+
+    const amount = parseFloat(paymentRequestAmount);
+    if (isNaN(amount) || amount < 0.01) {
+      toast({
+        title: 'Invalid amount',
+        description: 'Please enter a valid amount (minimum 0.01).',
+      });
+      return;
+    }
+
+    if (!paymentRequestCurrency) {
+      toast({
+        title: 'Invalid currency',
+        description: 'Please select a currency.',
+      });
+      return;
+    }
+
+    if (myProducts.length > 0 && paymentRequestProductId === null) {
+      toast({
+        title: 'Select a product',
+        description: 'Please choose a product to attach to this request.',
+      });
+      return;
+    }
+
+    const expiresInValue = paymentRequestExpiresIn.trim()
+      ? Number.parseInt(paymentRequestExpiresIn, 10)
+      : undefined;
+    if (typeof expiresInValue === 'number' && (Number.isNaN(expiresInValue) || expiresInValue < 1 || expiresInValue > 720)) {
+      toast({
+        title: 'Invalid expiration',
+        description: 'Expiration must be between 1 and 720 hours.',
+      });
+      return;
+    }
+
+    setIsPaymentRequesting(true);
+
+    try {
+      await createPaymentRequest({
+        conversation_id: selectedThread.conversationId,
+        product_id: paymentRequestProductId ?? undefined,
+        amount,
+        currency: paymentRequestCurrency,
+        message: paymentRequestMessage.trim() || undefined,
+        expires_in_hours: expiresInValue,
+      });
+
+      toast({
+        title: 'Payment request sent',
+        description: `Requested ${amount} ${paymentRequestCurrency}${paymentRequestMessage.trim() ? ` - ${paymentRequestMessage}` : ''}`,
+      });
+
+      try {
+        const messagesResponse = await getMessages({ conversation_id: selectedThread.conversationId, limit: 50 });
+        const otherUser = messagesResponse.conversation?.other_user;
+        const mappedMessages = mapMessageThread(messagesResponse.messages ?? [], otherUser);
+        const lastMessage = mappedMessages[mappedMessages.length - 1];
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.id === selectedThread.id
+              ? {
+                  ...thread,
+                  messages: mappedMessages,
+                  lastMessage: lastMessage?.text || thread.lastMessage,
+                  lastTime: lastMessage?.time || thread.lastTime,
+                  conversationId: messagesResponse.conversation?.id ?? thread.conversationId,
+                }
+              : thread,
+          ),
+        );
+      } catch (error) {
+        // ignore
+      }
+
+      setShowPaymentRequestDialog(false);
+      setPaymentRequestAmount('');
+      setPaymentRequestCurrency('CNY');
+      setPaymentRequestMessage('');
+      setPaymentRequestExpiresIn('24');
+    } catch (error) {
+      const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+      const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+      const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+      toast({
+        title: 'Unable to request payment',
+        description: firstError || message || 'Please try again.',
+      });
+    } finally {
+      setIsPaymentRequesting(false);
+    }
+  };
+
+  const handleConfirmPaymentRequest = async () => {
+    if (!activePaymentRequest?.payment_request_id) {
+      toast({
+        title: 'Unable to confirm',
+        description: 'Payment request not found.',
+      });
+      return;
+    }
+
+    if (!selectedThread?.conversationId) {
+      toast({
+        title: 'Unable to confirm',
+        description: 'Conversation not found.',
+      });
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login required',
+        description: 'Please log in to confirm payment.',
+      });
+      navigate('/login');
+      return;
+    }
+
+    setIsConfirmingPayment(true);
+
+    try {
+      await confirmPaymentRequest(activePaymentRequest.payment_request_id);
+      toast({
+        title: 'Payment confirmed',
+        description: `Paid ${activePaymentRequest.amount} ${activePaymentRequest.currency}`,
+      });
+
+      try {
+        const messagesResponse = await getMessages({ conversation_id: selectedThread.conversationId, limit: 50 });
+        const otherUser = messagesResponse.conversation?.other_user;
+        const mappedMessages = mapMessageThread(messagesResponse.messages ?? [], otherUser);
+        const lastMessage = mappedMessages[mappedMessages.length - 1];
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.id === selectedThread.id
+              ? {
+                  ...thread,
+                  messages: mappedMessages,
+                  lastMessage: lastMessage?.text || thread.lastMessage,
+                  lastTime: lastMessage?.time || thread.lastTime,
+                  conversationId: messagesResponse.conversation?.id ?? thread.conversationId,
+                }
+              : thread,
+          ),
+        );
+      } catch (error) {
+        // ignore
+      }
+
+      setShowPaymentConfirmDialog(false);
+      setActivePaymentRequest(null);
+    } catch (error) {
+      const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+      const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+      const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+      toast({
+        title: 'Unable to confirm payment',
+        description: firstError || message || 'Please try again.',
+      });
+    } finally {
+      setIsConfirmingPayment(false);
+    }
+  };
+
+  const handleMeetingRequest = async () => {
+    if (!selectedThread) return;
+    if (!meetingLocation.trim() || !meetingDate || !meetingTime) {
+      toast({
+        title: 'Missing details',
+        description: 'Please add a location, date, and time.',
+      });
+      return;
+    }
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login required',
+        description: 'Please log in to send a meeting request.',
+      });
+      navigate('/login');
+      return;
+    }
+    const receiverIdValue = Number(selectedThread.id);
+    if (!Number.isFinite(receiverIdValue)) {
+      toast({
+        title: 'Unable to send request',
+        description: 'Missing receiver information.',
+      });
+      return;
+    }
+
+    const noteText = meetingNote.trim() ? `Note: ${meetingNote.trim()}` : '';
+    const messageText = [
+      'Meeting request',
+      `Location: ${meetingLocation.trim()}`,
+      `Date: ${meetingDate}`,
+      `Time: ${meetingTime}`,
+      noteText,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    setIsSendingMeeting(true);
+    try {
+      const response = await sendMessage({ receiver_id: receiverIdValue, message_text: messageText });
+      const createdAt = response.message_data?.created_at;
+      const timeLabel = createdAt
+        ? new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const newMessage: MessageItem = {
+        id: response.message_data?.id ? `m-${response.message_data.id}` : `m-${Date.now()}`,
+        sender: 'me',
+        text: response.message_data?.message_text || messageText,
+        time: timeLabel,
+        status: 'sent',
+      };
+      setThreads((prev) => {
+        const updatedThreads = prev.map((thread) =>
+          thread.id === selectedThread.id
+            ? {
+                ...thread,
+                lastMessage: newMessage.text || 'Message',
+                lastTime: newMessage.time,
+                messages: [...thread.messages, newMessage],
+                conversationId: thread.conversationId ?? response.conversation_id,
+              }
+            : thread,
+        );
+        return orderThreadsByActivity(updatedThreads, selectedThread.id);
+      });
+      setShowMeetingDialog(false);
+      setMeetingLocation('');
+      setMeetingDate('');
+      setMeetingTime('');
+      setMeetingNote('');
+    } catch (error) {
+      const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+      const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+      const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+      toast({
+        title: 'Unable to send request',
+        description: firstError || message || 'Please try again.',
+      });
+    } finally {
+      setIsSendingMeeting(false);
+    }
+  };
+
   const headerClassName =
     "bg-black/25 mix-blend-normal [&_a]:text-white [&_a:hover]:text-white [&_button]:text-white [&_button:hover]:text-white [&_svg]:text-white/80 [&_input]:bg-white/5 [&_input]:text-white [&_input]:placeholder:text-white/60";
+  const paymentConfirmExpiresAt = activePaymentRequest?.expires_at ? new Date(activePaymentRequest.expires_at) : null;
+  const paymentConfirmExpired = paymentConfirmExpiresAt ? paymentConfirmExpiresAt.getTime() < Date.now() : false;
+  const paymentConfirmStatus = activePaymentRequest?.status || 'pending';
+  const canConfirmPayment =
+    !!activePaymentRequest && !paymentConfirmExpired && (paymentConfirmStatus === 'pending' || paymentConfirmStatus === 'created');
 
   return (
     <MainLayout showFooter={false} showFloatingButton={false} headerClassName={headerClassName}>
@@ -1093,8 +1506,160 @@ const MessagesPage: React.FC = () => {
                       <Check className="h-3.5 w-3.5" />
                     );
 
+                  if (
+                    (message.messageKind === 'payment_request_unconfirmed' ||
+                      message.messageType === 'payment_request') &&
+                    message.paymentRequestData
+                  ) {
+                    const request = message.paymentRequestData;
+                    const expiresAt = request.expires_at ? new Date(request.expires_at) : null;
+                    const isExpired = expiresAt ? expiresAt.getTime() < Date.now() : false;
+                    const statusLabel =
+                      isExpired ? 'expired' : request.status || 'pending';
+                    const canConfirm =
+                      !isMe && !isExpired && (statusLabel === 'pending' || statusLabel === 'created');
+
+                    const content = (
+                      <div
+                        className={cn(
+                          'w-full rounded-2xl border p-3 shadow-lg',
+                          isMe
+                            ? 'border-slate-500/40 bg-gradient-to-br from-slate-500/15 to-slate-700/10'
+                            : 'border-sky-400/40 bg-gradient-to-br from-sky-500/15 to-indigo-500/10',
+                          isMatch && 'border-amber-300/50 bg-amber-400/10',
+                          isActiveMatch && 'border-amber-300 bg-amber-400/20 shadow-[0_0_20px_rgba(251,191,36,0.35)]',
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', isMe ? 'bg-slate-500/20' : 'bg-sky-500/20')}>
+                            <DollarSign className={cn('h-4 w-4', isMe ? 'text-slate-200' : 'text-sky-200')} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={cn('text-xs font-semibold', isMe ? 'text-slate-200' : 'text-sky-200')}>
+                                {isMe ? 'Payment request sent' : 'Payment request'}
+                              </span>
+                              <Badge
+                                className={cn(
+                                  'border-0 text-[9px] uppercase tracking-[0.15em]',
+                                  statusLabel === 'paid'
+                                    ? 'bg-emerald-500/20 text-emerald-200'
+                                    : statusLabel === 'expired'
+                                      ? 'bg-red-500/20 text-red-200'
+                                      : 'bg-white/10 text-white/80',
+                                )}
+                              >
+                                {statusLabel}
+                              </Badge>
+                            </div>
+                            <div className="mt-1 text-xl font-bold text-white">
+                              {formatCurrency(request.amount, request.currency)}
+                            </div>
+                            {request.product_title ? (
+                              <div className="mt-2 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-[11px] text-white/80">
+                                {request.product_title}
+                              </div>
+                            ) : null}
+                            {message.text ? <div className="mt-2 text-[11px] text-white/70">"{message.text}"</div> : null}
+                            <div className="mt-2 flex items-center gap-2 text-[11px] text-white/50">
+                              <span>{message.time}</span>
+                              {expiresAt ? (
+                                <>
+                                  <span>•</span>
+                                  <span>Expires {expiresAt.toLocaleString()}</span>
+                                </>
+                              ) : null}
+                            </div>
+                            {!isMe ? (
+                              <div className="mt-2 text-[11px] text-white/70">
+                                {canConfirm ? 'Tap to confirm payment' : 'Payment request status updated'}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    );
+
+                    return (
+                      <div
+                        key={message.id}
+                        ref={(node) => {
+                          messageRefs.current[message.id] = node;
+                        }}
+                        className={cn('flex w-full max-w-[72%] flex-col gap-2 py-2', isMe ? 'ml-auto items-end' : 'items-start')}
+                      >
+                        {isMe ? (
+                          content
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActivePaymentRequest(request);
+                              setShowPaymentConfirmDialog(true);
+                            }}
+                            className="w-full text-left"
+                          >
+                            {content}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (
+                    (message.messageKind === 'payment_request_confirmed' || message.messageType === 'payment_confirmation') &&
+                    message.paymentRequestData
+                  ) {
+                    const confirmation = message.paymentRequestData;
+
+                    return (
+                      <div
+                        key={message.id}
+                        ref={(node) => {
+                          messageRefs.current[message.id] = node;
+                        }}
+                        className={cn('flex w-full max-w-[72%] flex-col gap-2 py-2', isMe ? 'ml-auto items-end' : 'items-start')}
+                      >
+                        <div
+                          className={cn(
+                            'w-full rounded-2xl border p-3 shadow-lg',
+                            isMe
+                              ? 'border-violet-400/40 bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10'
+                              : 'border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-500/15 to-violet-500/10',
+                            isMatch && 'border-amber-300/50 bg-amber-400/10',
+                            isActiveMatch && 'border-amber-300 bg-amber-400/20 shadow-[0_0_20px_rgba(251,191,36,0.35)]',
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', isMe ? 'bg-violet-500/20' : 'bg-fuchsia-500/20')}>
+                              <CheckCheck className={cn('h-4 w-4', isMe ? 'text-violet-200' : 'text-fuchsia-200')} />
+                            </div>
+                            <div className="flex-1">
+                              <div className={cn('text-xs font-semibold', isMe ? 'text-violet-200' : 'text-fuchsia-200')}>
+                                Payment confirmed
+                              </div>
+                              <div className="mt-1 text-xl font-bold text-white">
+                                {formatCurrency(confirmation.amount, confirmation.currency)}
+                              </div>
+                              {confirmation.product_title ? (
+                                <div className="mt-2 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-[11px] text-white/80">
+                                  {confirmation.product_title}
+                                </div>
+                              ) : null}
+                              <div className="mt-2 flex items-center gap-2 text-[11px] text-white/50">
+                                <span>{message.time}</span>
+                                <span>•</span>
+                                <span className="capitalize">{confirmation.status || 'paid'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   // Render transfer message differently
-                  if (message.messageType === 'transfer' && message.transferData) {
+                  if (message.messageKind === 'transfer' && message.transferData) {
                     const { amount, currency, reference, sender_username } = message.transferData;
                     const isSender = isMe;
                     
@@ -1104,35 +1669,35 @@ const MessagesPage: React.FC = () => {
                         ref={(node) => {
                           messageRefs.current[message.id] = node;
                         }}
-                        className={cn('flex w-full max-w-[80%] flex-col gap-2 py-2', isMe ? 'ml-auto items-end' : 'items-start')}
+                        className={cn('flex w-full max-w-[72%] flex-col gap-2 py-2', isMe ? 'ml-auto items-end' : 'items-start')}
                       >
                         <div
                           className={cn(
-                            'w-full rounded-2xl border-2 p-4 shadow-xl',
+                            'w-full rounded-2xl border p-3 shadow-lg',
                             isMe 
-                              ? 'border-emerald-500/50 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10' 
-                              : 'border-blue-500/50 bg-gradient-to-br from-blue-500/20 to-blue-600/10',
+                              ? 'border-cyan-400/40 bg-gradient-to-br from-cyan-500/15 to-blue-500/10' 
+                              : 'border-blue-400/40 bg-gradient-to-br from-blue-500/15 to-cyan-500/10',
                             isMatch && 'border-amber-300/50 bg-amber-400/10',
                             isActiveMatch && 'border-amber-300 bg-amber-400/20 shadow-[0_0_20px_rgba(251,191,36,0.35)]',
                           )}
                         >
                           <div className="flex items-start gap-3">
-                            <div className={cn('flex h-10 w-10 items-center justify-center rounded-full', isMe ? 'bg-emerald-500/20' : 'bg-blue-500/20')}>
-                              <ArrowRightLeft className={cn('h-5 w-5', isMe ? 'text-emerald-400' : 'text-blue-400')} />
+                            <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', isMe ? 'bg-cyan-500/20' : 'bg-blue-500/20')}>
+                              <ArrowRightLeft className={cn('h-4 w-4', isMe ? 'text-cyan-200' : 'text-blue-200')} />
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className={cn('text-sm font-semibold', isMe ? 'text-emerald-300' : 'text-blue-300')}>
+                                <span className={cn('text-xs font-semibold', isMe ? 'text-cyan-200' : 'text-blue-200')}>
                                   {isSender ? 'You sent' : `${sender_username || 'User'} sent`}
                                 </span>
                               </div>
-                              <div className="mt-1 text-2xl font-bold text-white">
+                              <div className="mt-1 text-xl font-bold text-white">
                                 {formatCurrency(amount, currency)}
                               </div>
                               {reference ? (
-                                <div className="mt-1 text-sm text-white/70 italic">"{reference}"</div>
+                                <div className="mt-1 text-[11px] text-white/70 italic">"{reference}"</div>
                               ) : null}
-                              <div className="mt-2 flex items-center gap-2 text-xs text-white/50">
+                              <div className="mt-2 flex items-center gap-2 text-[11px] text-white/50">
                                 <span>{message.time}</span>
                                 <span>•</span>
                                 <span className="flex items-center gap-1">
@@ -1233,7 +1798,7 @@ const MessagesPage: React.FC = () => {
                   <Plus className="h-5 w-5" />
                 </Button>
                 {attachOpen ? (
-                  <div className="absolute bottom-14 left-0 z-20 w-[170px] rounded-2xl border border-white/10 bg-black/60 py-2 shadow-2xl backdrop-blur-xl">
+                  <div className="absolute bottom-14 left-0 z-20 w-[220px] rounded-2xl border border-white/10 bg-black/60 py-2 shadow-2xl backdrop-blur-xl">
                     <button
                       type="button"
                       onClick={() => {
@@ -1256,21 +1821,42 @@ const MessagesPage: React.FC = () => {
                       <FileText className="h-4 w-4" />
                       File
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTransferDialog(true);
+                        setAttachOpen(false);
+                      }}
+                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                    >
+                      <ArrowRightLeft className="h-4 w-4" />
+                      Transfer money
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleOpenPaymentRequest();
+                        setAttachOpen(false);
+                      }}
+                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                    >
+                      <DollarSign className="h-4 w-4" />
+                      Request payment
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMeetingDialog(true);
+                        setAttachOpen(false);
+                      }}
+                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Set meeting
+                    </button>
                   </div>
                 ) : null}
               </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => setShowTransferDialog(true)}
-                disabled={!selectedThread}
-                className="h-12 w-12 rounded-full border-white/30 bg-white/3 text-white hover:bg-white/5 disabled:opacity-50"
-                title="Transfer money"
-              >
-                <DollarSign className="h-5 w-5" />
-              </Button>
 
               <Input
                 value={messageInput}
@@ -1373,6 +1959,281 @@ const MessagesPage: React.FC = () => {
                 disabled={isTransferring || !transferAmount || !transferCurrency}
               >
                 {isTransferring ? 'Transferring...' : 'Transfer'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showPaymentRequestDialog} onOpenChange={setShowPaymentRequestDialog}>
+          <DialogContent className="bg-background sm:rounded-lg">
+            <DialogHeader>
+              <DialogTitle>Request Payment</DialogTitle>
+              <DialogDescription>
+                Request payment from {selectedThread?.name || 'this user'} for one of your listings.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Product</Label>
+                <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
+                  {isLoadingProducts ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                      Loading your products...
+                    </div>
+                  ) : myProducts.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-3 text-sm text-white/70">
+                      No products available for payment requests.
+                    </div>
+                  ) : (
+                    myProducts.map((product) => {
+                      const isSelected = paymentRequestProductId === product.id;
+                      const imageUrl = normalizeImageUrl(product.image_thumbnail_url) || '/placeholder.svg';
+                      return (
+                        <label
+                          key={product.id}
+                          className={cn(
+                            'flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 transition',
+                            isSelected ? 'border-emerald-400/60 bg-emerald-500/10' : 'border-white/10 bg-white/5',
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="payment-request-product"
+                            checked={isSelected}
+                            onChange={() => setPaymentRequestProductId(product.id)}
+                            className="h-4 w-4 accent-emerald-500"
+                          />
+                          <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 overflow-hidden rounded-lg bg-white/5">
+                              <img src={imageUrl} alt={product.title} className="h-full w-full object-cover" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-white">{product.title}</div>
+                              <div className="text-xs text-white/60">
+                                {formatCurrency(product.price, product.currency || paymentRequestCurrency)}
+                              </div>
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="payment-request-amount">Amount</Label>
+                <Input
+                  id="payment-request-amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  value={paymentRequestAmount}
+                  onChange={(e) => setPaymentRequestAmount(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="payment-request-currency">Currency</Label>
+                <Select value={paymentRequestCurrency} onValueChange={setPaymentRequestCurrency}>
+                  <SelectTrigger className="w-full" id="payment-request-currency">
+                    <SelectValue placeholder="Select a currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {POPULAR_CURRENCIES.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="payment-request-message">Message (optional)</Label>
+                <Textarea
+                  id="payment-request-message"
+                  maxLength={1000}
+                  placeholder="Add a note for this request"
+                  value={paymentRequestMessage}
+                  onChange={(e) => setPaymentRequestMessage(e.target.value)}
+                  className="min-h-[90px] w-full"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="payment-request-expires">Expires in hours (1-720)</Label>
+                <Input
+                  id="payment-request-expires"
+                  type="number"
+                  min="1"
+                  max="720"
+                  placeholder="24"
+                  value={paymentRequestExpiresIn}
+                  onChange={(e) => setPaymentRequestExpiresIn(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowPaymentRequestDialog(false);
+                  setPaymentRequestAmount('');
+                  setPaymentRequestCurrency('CNY');
+                  setPaymentRequestMessage('');
+                  setPaymentRequestExpiresIn('24');
+                }}
+                disabled={isPaymentRequesting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handlePaymentRequest}
+                disabled={isPaymentRequesting || !paymentRequestAmount || !paymentRequestCurrency}
+              >
+                {isPaymentRequesting ? 'Requesting...' : 'Request Payment'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={showPaymentConfirmDialog}
+          onOpenChange={(open) => {
+            setShowPaymentConfirmDialog(open);
+            if (!open) setActivePaymentRequest(null);
+          }}
+        >
+          <DialogContent className="bg-background sm:rounded-lg">
+            <DialogHeader>
+              <DialogTitle>Confirm Payment</DialogTitle>
+              <DialogDescription>
+                Review the payment request details before confirming.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm font-semibold text-white/90">Amount</div>
+                <div className="mt-1 text-2xl font-bold text-white">
+                  {activePaymentRequest ? formatCurrency(activePaymentRequest.amount, activePaymentRequest.currency) : '—'}
+                </div>
+                {activePaymentRequest?.product_title ? (
+                  <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">
+                    {activePaymentRequest.product_title}
+                  </div>
+                ) : null}
+                {activePaymentRequest?.reference ? (
+                  <div className="mt-2 text-xs text-white/70">Reference: {activePaymentRequest.reference}</div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/60">
+                  <Badge className="border-0 bg-white/10 text-white/80">
+                    {paymentConfirmStatus}
+                  </Badge>
+                  {paymentConfirmExpiresAt ? (
+                    <span>Expires {paymentConfirmExpiresAt.toLocaleString()}</span>
+                  ) : null}
+                </div>
+              </div>
+              {paymentConfirmExpired ? (
+                <div className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-xs text-red-100">
+                  This payment request has expired.
+                </div>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowPaymentConfirmDialog(false);
+                  setActivePaymentRequest(null);
+                }}
+                disabled={isConfirmingPayment}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmPaymentRequest}
+                disabled={!canConfirmPayment || isConfirmingPayment}
+              >
+                {isConfirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showMeetingDialog} onOpenChange={setShowMeetingDialog}>
+          <DialogContent className="bg-background sm:rounded-lg">
+            <DialogHeader>
+              <DialogTitle>Set Meeting</DialogTitle>
+              <DialogDescription>
+                Propose a meeting location and time for {selectedThread?.name || 'this user'}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="meeting-location">Location</Label>
+                <Input
+                  id="meeting-location"
+                  placeholder="Library entrance, Building A"
+                  value={meetingLocation}
+                  onChange={(e) => setMeetingLocation(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="meeting-date">Date</Label>
+                <Input
+                  id="meeting-date"
+                  type="date"
+                  value={meetingDate}
+                  onChange={(e) => setMeetingDate(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="meeting-time">Time</Label>
+                <Input
+                  id="meeting-time"
+                  type="time"
+                  value={meetingTime}
+                  onChange={(e) => setMeetingTime(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="meeting-note">Note (optional)</Label>
+                <Textarea
+                  id="meeting-note"
+                  maxLength={300}
+                  placeholder="Add any details"
+                  value={meetingNote}
+                  onChange={(e) => setMeetingNote(e.target.value)}
+                  className="min-h-[80px]"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowMeetingDialog(false);
+                  setMeetingLocation('');
+                  setMeetingDate('');
+                  setMeetingTime('');
+                  setMeetingNote('');
+                }}
+                disabled={isSendingMeeting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleMeetingRequest}
+                disabled={isSendingMeeting || !meetingLocation.trim() || !meetingDate || !meetingTime}
+              >
+                {isSendingMeeting ? 'Sending...' : 'Send Request'}
               </Button>
             </DialogFooter>
           </DialogContent>

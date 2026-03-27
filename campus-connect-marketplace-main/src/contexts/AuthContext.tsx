@@ -46,6 +46,8 @@ interface AuthContextType {
   createTag: (data: CreateTagInput) => Promise<CreateTagResponseBody>;
   sendMessage: (data: SendMessageInput) => Promise<SendMessageResponseBody>;
   transferMessage: (data: TransferMessageInput) => Promise<TransferMessageResponseBody>;
+  createPaymentRequest: (data: CreatePaymentRequestInput) => Promise<CreatePaymentRequestResponseBody>;
+  confirmPaymentRequest: (requestId: number) => Promise<ConfirmPaymentRequestResponseBody>;
   createAiSession: (data?: { title?: string | null }) => Promise<CreateAiSessionResponseBody>;
   sendAiSessionMessage: (data: {
     session_id: string;
@@ -546,6 +548,51 @@ type TransferMessageResponseBody = {
     to_wallet_id: number;
     atomic_transaction_id: number;
     reference?: string;
+  };
+  errors?: Record<string, string[]>;
+};
+
+type CreatePaymentRequestInput = {
+  conversation_id: number;
+  product_id?: number;
+  amount: number;
+  currency: string;
+  message?: string;
+  expires_in_hours?: number;
+};
+
+type PaymentRequestItem = {
+  id?: number;
+  conversation_id?: number;
+  sender_id?: number;
+  sender_username?: string;
+  receiver_id?: number;
+  product_id?: number | null;
+  product_title?: string | null;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  message?: string | null;
+  expires_at?: string;
+  created_at?: string;
+};
+
+type CreatePaymentRequestResponseBody = {
+  message?: string;
+  payment_request?: PaymentRequestItem;
+  errors?: Record<string, string[]>;
+};
+
+type ConfirmPaymentRequestResponseBody = {
+  message?: string;
+  payment?: {
+    payment_request_id?: number;
+    amount?: number;
+    currency?: string;
+    from_wallet_id?: number;
+    to_wallet_id?: number;
+    atomic_transaction_id?: number;
+    status?: string;
   };
   errors?: Record<string, string[]>;
 };
@@ -1696,6 +1743,100 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (response.status === 401) throw { message: "Unauthenticated." } as TransferMessageResponseBody;
       if (response.status === 403) {
         throw { message: "Unauthorized: Only users can access this endpoint." } as TransferMessageResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const createPaymentRequest = useCallback(
+    async (data: CreatePaymentRequestInput): Promise<CreatePaymentRequestResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as CreatePaymentRequestResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreatePaymentRequestResponseBody;
+      }
+
+      const response = await fetch(apiUrl("/api/user/payment-requests"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify(
+          removeUndefined({
+            conversation_id: data.conversation_id,
+            product_id: data.product_id,
+            amount: data.amount,
+            currency: data.currency,
+            message: data.message,
+            expires_in_hours: data.expires_in_hours,
+          }),
+        ),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as CreatePaymentRequestResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (response.status === 409) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as CreatePaymentRequestResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as CreatePaymentRequestResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const confirmPaymentRequest = useCallback(
+    async (requestId: number): Promise<ConfirmPaymentRequestResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as ConfirmPaymentRequestResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as ConfirmPaymentRequestResponseBody;
+      }
+
+      const normalizedRequestId = Number.isFinite(requestId) ? Math.trunc(requestId) : NaN;
+      const response = await fetch(apiUrl(`/api/user/payment-requests/${normalizedRequestId}/confirm`), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as ConfirmPaymentRequestResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (response.status === 409) throw responseBody;
+        if (!response.ok) return responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as ConfirmPaymentRequestResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as ConfirmPaymentRequestResponseBody;
       }
       return { message: "Request failed" };
     },
@@ -3234,6 +3375,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     createTag,
     sendMessage,
     transferMessage,
+    createPaymentRequest,
+    confirmPaymentRequest,
     createAiSession,
     sendAiSessionMessage,
     getAiHistory,
@@ -3276,6 +3419,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     createExchangeProduct,
     createTag,
     sendMessage,
+    transferMessage,
+    createPaymentRequest,
+    confirmPaymentRequest,
     createAiSession,
     sendAiSessionMessage,
     getAiHistory,
