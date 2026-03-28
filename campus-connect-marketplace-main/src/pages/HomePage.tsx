@@ -380,15 +380,10 @@ const HomePage: React.FC = () => {
 
         <nav className="fixed top-0 left-0 right-0 z-40 mix-blend-difference">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-            <Link to="/" className="flex items-center gap-3 landing-cursor-hover mr-6 xl:mr-10">
-              <div className="h-12 w-12 rounded-full border border-white flex items-center justify-center">
-                <img
-                  src="/logo_enhanced.png"
-                  alt="Suki"
-                  className="h-9 w-9 object-contain"
-                />
-              </div>
-              <span className="text-xs font-medium tracking-[0.3em] uppercase">Suki</span>
+            <Link to="/" className="flex items-center gap-2 landing-cursor-hover mr-6 xl:mr-10">
+              <span className="xiaowu-brand xiaowu-logo-landing text-lg" aria-label="校物圈，校园物品共享平台">
+                校物圈
+              </span>
             </Link>
             <ul className="hidden md:flex items-center gap-10 text-[11px] tracking-[0.3em] uppercase">
               {navLinks.map((link) => (
@@ -580,15 +575,10 @@ const HomePage: React.FC = () => {
           <div className="mx-auto max-w-6xl px-6">
             <div className="grid gap-12 lg:grid-cols-[2fr_1fr_1fr_1fr]">
               <div className="max-w-sm">
-                <div className="flex items-center gap-3 mb-5 landing-cursor-hover">
-                  <div className="h-10 w-10 rounded-full border border-white flex items-center justify-center">
-                    <img
-                      src="/logo_enhanced.png"
-                      alt="Suki"
-                      className="h-7 w-7 object-contain"
-                    />
-                  </div>
-                  <span className="text-lg font-semibold tracking-wide">Suki</span>
+                <div className="flex items-center gap-2 mb-5 landing-cursor-hover">
+                  <span className="xiaowu-brand xiaowu-logo-landing text-base" aria-label="校物圈，校园物品共享平台">
+                    校物圈
+                  </span>
                 </div>
                 <p className="text-sm text-white/50 leading-relaxed">
                   {t('landing.footer.desc')}

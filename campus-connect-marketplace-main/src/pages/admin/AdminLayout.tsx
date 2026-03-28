@@ -42,13 +42,10 @@ const AdminLayout: React.FC = () => {
           {/* Logo */}
           <div className="p-6 border-b border-white/10">
             <Link to="/admin/dashboard" className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-tertiary text-tertiary-foreground flex items-center justify-center text-sm font-semibold">
-                S
-              </div>
-              <div>
-                <span className="font-display text-lg font-bold text-white">Suki</span>
-                <span className="block text-xs text-white/60">Admin Console</span>
-              </div>
+              <span className="xiaowu-brand xiaowu-logo-admin" aria-label="校物圈管理后台">
+                校物圈
+              </span>
+              <span className="block text-xs text-white/60">Admin Console</span>
             </Link>
           </div>
 

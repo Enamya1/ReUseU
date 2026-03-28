@@ -222,15 +222,8 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
         {/* Left section - Logo and main navigation */}
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-3 landing-cursor-hover shrink-0">
-            <div className="h-11 w-11 rounded-full flex items-center justify-center">
-              <img
-                src="/logo_enhanced.png"
-                alt="Suki"
-                className="h-8 w-8 object-contain"
-              />
-            </div>
-            <span className="text-xs font-medium tracking-[0.3em] uppercase text-white hidden sm:block">
-              Suki
+            <span className="xiaowu-brand xiaowu-logo-header" aria-label="校物圈，校园物品共享平台">
+              校物圈
             </span>
           </Link>
 

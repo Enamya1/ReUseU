@@ -44,7 +44,7 @@
     "terms": "شروط الخدمة",
     "privacy": "سياسة الخصوصية",
     "guidelines": "إرشادات المجتمع",
-    "copyright": "© {{year}} Suki. جميع الحقوق محفوظة.",
+    "copyright": "© {{year}} 校物圈. جميع الحقوق محفوظة.",
     "madeWith": "صُنع بحب لمجتمعات الحرم الجامعي"
   },
   "home": {
@@ -68,7 +68,7 @@
     "emptyCategory": "لا توجد عناصر في هذه الفئة بعد",
     "viewAllItems": "عرض جميع العناصر",
     "ctaTitle": "جاهز لبدء التداول؟",
-    "ctaSubtitle": "انضم لآلاف الطلاب الذين يستخدمون Suki للشراء والبيع داخل الحرم الجامعي.",
+    "ctaSubtitle": "انضم لآلاف الطلاب الذين يستخدمون 校物圈 للشراء والبيع داخل الحرم الجامعي.",
     "ctaButton": "إنشاء حساب مجاني"
   },
   "landing": {
@@ -93,10 +93,10 @@
       "universities": "Universities"
     },
     "about": {
-      "label": "About Suki",
+      "label": "About 校物圈",
       "titleLine1": "Built by students,",
       "titleLine2": "for students.",
-      "text1": "Suki was born from a simple observation: students have stuff they do not need, and other students need stuff they cannot afford new. We created a safe, campus-focused marketplace that eliminates the risks of traditional online trading.",
+      "text1": "校物圈 was born from a simple observation: students have stuff they do not need, and other students need stuff they cannot afford new. We created a safe, campus-focused marketplace that eliminates the risks of traditional online trading.",
       "text2": "Every user is verified with their university email, every transaction happens on campus, and our community ratings ensure you are always dealing with trusted peers.",
       "features": {
         "verified": {
@@ -207,7 +207,7 @@
         "guidelines": "Community Guidelines",
         "report": "Report an Issue"
       },
-      "copyright": "© 2026 Suki. All rights reserved. Made with ❤️ for students."
+      "copyright": "© 2026 校物圈. All rights reserved. Made with ❤️ for students."
     },
     "floatingCta": "Create an account to start buying and selling. •"
   },
@@ -253,7 +253,7 @@
     "missingFields": "يرجى تعبئة جميع الحقول المطلوبة",
     "passwordMismatch": "يرجى التأكد من تطابق كلمتي المرور",
     "passwordTooShort": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
-    "success": "مرحبًا بك في Suki",
+    "success": "مرحبًا بك في 校物圈",
     "error": "حدث خطأ ما. حاول مرة أخرى."
   },
   "favorites": {
@@ -370,7 +370,7 @@
     "validationTitle": "خطأ في التحقق",
     "validationDesc": "يرجى مراجعة الحقول المظللة",
     "createSuccessTitle": "تم إنشاء الإعلان!",
-    "createSuccessDesc": "عنصرك متاح الآن على Suki",
+    "createSuccessDesc": "عنصرك متاح الآن على 校物圈",
     "createErrorDesc": "فشل إنشاء الإعلان",
     "missingFields": "يرجى تعبئة الحقول المطلوبة",
     "invalidPrice": "يجب أن يكون السعر 0.01 على الأقل",
@@ -390,7 +390,7 @@
     "favoriteRemovedDesc": "تمت إزالة العنصر من مفضلتك",
     "shareTitle": "تم نسخ الرابط!",
     "shareDesc": "تم نسخ رابط المنتج إلى الحافظة",
-    "shareText": "اطّلع على {{title}} على Suki!",
+    "shareText": "اطّلع على {{title}} على 校物圈!",
     "messageSent": "تم إرسال الرسالة!",
     "messageSentDesc": "سيتم إخطار البائع",
     "breadcrumbHome": "الرئيسية",

@@ -13,11 +13,8 @@ const Footer: React.FC = () => {
           {/* Brand */}
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
-                S
-              </div>
-              <span className="font-display text-xl font-bold text-foreground">
-                Sukio
+              <span className="xiaowu-brand xiaowu-logo-footer text-xl" aria-label="校物圈，校园物品共享平台">
+                校物圈
               </span>
             </Link>
 

@@ -44,7 +44,7 @@
       "terms": "服务条款",
       "privacy": "隐私政策",
       "guidelines": "社区指南",
-      "copyright": "© {{year}} Suki. 保留所有权利。",
+      "copyright": "© {{year}} 校物圈. 保留所有权利。",
       "madeWith": "为校园社区用心打造"
 },
 "home": {
@@ -93,10 +93,10 @@
       "universities": "Universities"
     },
     "about": {
-      "label": "About Suki",
+      "label": "关于校物圈",
       "titleLine1": "Built by students,",
       "titleLine2": "for students.",
-      "text1": "Suki was born from a simple observation: students have stuff they do not need, and other students need stuff they cannot afford new. We created a safe, campus-focused marketplace that eliminates the risks of traditional online trading.",
+      "text1": "校物圈诞生于一个简单的观察：学生们有不需要的物品，而其他学生需要这些物品却买不起新的。我们创建了一个安全、专注于校园的市场，消除了传统在线交易的风险。",
       "text2": "Every user is verified with their university email, every transaction happens on campus, and our community ratings ensure you are always dealing with trusted peers.",
       "features": {
         "verified": {
@@ -207,7 +207,7 @@
         "guidelines": "Community Guidelines",
         "report": "Report an Issue"
       },
-      "copyright": "© 2026 Suki. All rights reserved. Made with ❤️ for students."
+      "copyright": "© 2026 校物圈. 保留所有权利。为校园社区用心打造"
     },
     "floatingCta": "Create an account to start buying and selling. •"
   },
@@ -253,7 +253,7 @@
     "missingFields": "请填写所有必填字段",
     "passwordMismatch": "两次密码不一致",
     "passwordTooShort": "密码至少 8 个字符",
-    "success": "欢迎加入 Suki",
+    "success": "欢迎加入 校物圈",
     "error": "出现错误，请重试。"
   },
   "favorites": {
@@ -370,7 +370,7 @@
     "validationTitle": "校验错误",
     "validationDesc": "请检查高亮字段",
     "createSuccessTitle": "发布成功！",
-    "createSuccessDesc": "你的商品已在 Suki 上架",
+    "createSuccessDesc": "你的商品已在 校物圈 上架",
     "createErrorDesc": "发布失败",
     "missingFields": "请填写必填信息",
     "invalidPrice": "价格至少为 0.01",
@@ -390,7 +390,7 @@
     "favoriteRemovedDesc": "商品已从收藏移除",
     "shareTitle": "链接已复制！",
     "shareDesc": "商品链接已复制到剪贴板",
-    "shareText": "看看 Suki 上的 {{title}}！",
+    "shareText": "看看 校物圈 上的 {{title}}！",
     "messageSent": "已发送消息！",
     "messageSentDesc": "卖家会收到通知",
     "breadcrumbHome": "首页",
