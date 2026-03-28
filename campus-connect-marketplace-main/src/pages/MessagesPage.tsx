@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { Ban, CalendarClock, Check, CheckCheck, ChevronDown, ChevronUp, Clock, DollarSign, FileText, ImagePlus, MapPin, Plus, Search, Send, ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft, Ban, CalendarClock, Check, CheckCheck, ChevronDown, ChevronUp, Clock, DollarSign, FileText, ImagePlus, MapPin, Package, Plus, Search, Send } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -66,6 +65,22 @@ type PaymentRequestData = {
   reference?: string;
 };
 
+type ProductMentionData = {
+  id: number;
+  title: string;
+  sellerId?: number;
+  price?: number;
+  currency?: string;
+  imageUrl?: string;
+};
+
+type ProductMentionDetail = {
+  title?: string;
+  price?: number;
+  currency?: string;
+  imageUrl?: string;
+};
+
 type MessageItem = {
   id: string;
   sender: 'me' | 'them';
@@ -73,10 +88,11 @@ type MessageItem = {
   time: string;
   attachments?: MessageAttachment[];
   status?: 'sent' | 'read' | 'pending' | 'blocked';
-  messageType?: 'text' | 'transfer' | 'voice' | 'payment_request' | 'payment_confirmation';
-  messageKind?: 'normal' | 'payment_request_unconfirmed' | 'payment_request_confirmed' | 'transfer';
+  messageType?: 'text' | 'transfer' | 'voice' | 'payment_request' | 'payment_confirmation' | 'product_mention';
+  messageKind?: 'normal' | 'payment_request_unconfirmed' | 'payment_request_confirmed' | 'transfer' | 'product_mention';
   transferData?: TransferData;
   paymentRequestData?: PaymentRequestData;
+  productMentionData?: ProductMentionData;
 };
 
 type ThreadItem = {
@@ -106,6 +122,16 @@ type MessageThreadEntry = {
   message_kind?: string;
   payment_request_status?: string | null;
   transfer_data?: Record<string, unknown> | null;
+  product?: {
+    id?: number;
+    seller_id?: number;
+    title?: string;
+    price?: number | string;
+    currency?: string;
+    image_thumbnail_url?: string | null;
+    cover_image_url?: string | null;
+    image_url?: string | null;
+  } | null;
   read_at?: string | null;
   created_at?: string;
 };
@@ -145,14 +171,18 @@ const MessagesPage: React.FC = () => {
   const [transferReference, setTransferReference] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
   const [showPaymentRequestDialog, setShowPaymentRequestDialog] = useState(false);
+  const [showProductMentionDialog, setShowProductMentionDialog] = useState(false);
   const [paymentRequestAmount, setPaymentRequestAmount] = useState('');
   const [paymentRequestCurrency, setPaymentRequestCurrency] = useState('CNY');
   const [paymentRequestMessage, setPaymentRequestMessage] = useState('');
   const [paymentRequestExpiresIn, setPaymentRequestExpiresIn] = useState('24');
   const [paymentRequestProductId, setPaymentRequestProductId] = useState<number | null>(null);
+  const [productMentionProductId, setProductMentionProductId] = useState<number | null>(null);
   const [myProducts, setMyProducts] = useState<MyProductCard[]>([]);
+  const [productMentionDetails, setProductMentionDetails] = useState<Record<number, ProductMentionDetail>>({});
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isPaymentRequesting, setIsPaymentRequesting] = useState(false);
+  const [isSendingProductMention, setIsSendingProductMention] = useState(false);
   const [activePaymentRequest, setActivePaymentRequest] = useState<PaymentRequestData | null>(null);
   const [showPaymentConfirmDialog, setShowPaymentConfirmDialog] = useState(false);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
@@ -162,7 +192,7 @@ const MessagesPage: React.FC = () => {
   const [meetingTime, setMeetingTime] = useState('');
   const [meetingNote, setMeetingNote] = useState('');
   const [isSendingMeeting, setIsSendingMeeting] = useState(false);
-  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const productMentionImageRequestsRef = useRef<Set<number>>(new Set());
   const attachRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -180,6 +210,7 @@ const MessagesPage: React.FC = () => {
     createPaymentRequest,
     confirmPaymentRequest,
     getMyProductCards,
+    getProductDetail,
   } = useAuth();
 
   const receiverId = useMemo(() => {
@@ -202,229 +233,6 @@ const MessagesPage: React.FC = () => {
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : null;
   }, [location.search]);
-
-
-  useEffect(() => {
-    const container = canvasRef.current;
-    if (!container) return;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x03030a);
-
-    const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.set(1.8, 19.69, 29.08);
-    camera.lookAt(0, 0, 0);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(renderer.domElement);
-
-    const ATTRACTION_MULTIPLIER = 10.0;
-    const VELOCITY_MULTIPLIER = 3.0;
-    const BLACK_HOLE_VISUAL_SIZE = 5.2;
-    const GLOBAL_SCALE = 0.5;
-
-    const scaledBlackHoleSize = BLACK_HOLE_VISUAL_SIZE * GLOBAL_SCALE;
-    const BLACK_HOLE_KILL_RADIUS = scaledBlackHoleSize * 1.1;
-    const OUTER_MIN = 7.0 * GLOBAL_SCALE;
-    const OUTER_MAX = 12.0 * GLOBAL_SCALE;
-
-    const ambient = new THREE.AmbientLight(0x404060);
-    scene.add(ambient);
-    const light1 = new THREE.PointLight(0xffaa33, 1.5, 30);
-    light1.position.set(5, 5, 5);
-    scene.add(light1);
-    const light2 = new THREE.PointLight(0x3366ff, 1.0, 30);
-    light2.position.set(-5, -2, -5);
-    scene.add(light2);
-    const centerGlow = new THREE.PointLight(0xff5500, 0.8, 15);
-    centerGlow.position.set(0, 0, 0);
-    scene.add(centerGlow);
-
-    const blackHoleGeo = new THREE.SphereGeometry(scaledBlackHoleSize, 64, 64);
-    const blackHoleMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const blackHole = new THREE.Mesh(blackHoleGeo, blackHoleMat);
-    scene.add(blackHole);
-
-    const starsGeo = new THREE.BufferGeometry();
-    const starsCount = 2000;
-    const starPositions = new Float32Array(starsCount * 3);
-    for (let i = 0; i < starsCount; i += 1) {
-      const r = (60 + Math.random() * 40) * GLOBAL_SCALE;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      starPositions[i * 3] = Math.sin(phi) * Math.cos(theta) * r;
-      starPositions[i * 3 + 1] = Math.sin(phi) * Math.sin(theta) * r * 0.4;
-      starPositions[i * 3 + 2] = Math.cos(phi) * r;
-    }
-    starsGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-    const starsMat = new THREE.PointsMaterial({
-      color: 0x99aacc,
-      size: 0.25 * GLOBAL_SCALE,
-      transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending,
-    });
-    const stars = new THREE.Points(starsGeo, starsMat);
-    scene.add(stars);
-
-    const PARTICLE_COUNT = 2200;
-    const BASE_G = 0.35;
-    const DRAG = 0.006;
-    const SOFTENING = 0.2;
-    const BASE_TANGENTIAL_SPEED = 0.25;
-    const BASE_RADIAL_SPEED = 0.04;
-    const G = BASE_G * ATTRACTION_MULTIPLIER;
-    const TANGENTIAL_SPEED_BASE = BASE_TANGENTIAL_SPEED * VELOCITY_MULTIPLIER;
-    const RADIAL_INWARD_BASE = BASE_RADIAL_SPEED * VELOCITY_MULTIPLIER;
-    const SPEED_FACTOR = 0.8;
-
-    const particleGeo = new THREE.BufferGeometry();
-    const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-
-    const createSpriteTexture = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 64;
-      canvas.height = 64;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-      gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.95)');
-      gradient.addColorStop(0.6, 'rgba(210, 230, 255, 0.7)');
-      gradient.addColorStop(0.8, 'rgba(160, 200, 255, 0.3)');
-      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 64, 64);
-      return new THREE.CanvasTexture(canvas);
-    };
-
-    const particleMaterial = new THREE.PointsMaterial({
-      color: 0xffffff,
-      map: createSpriteTexture() ?? undefined,
-      size: 0.4 * GLOBAL_SCALE,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      transparent: true,
-      sizeAttenuation: true,
-      opacity: 1.0,
-    });
-
-    const particles = new THREE.Points(particleGeo, particleMaterial);
-    scene.add(particles);
-
-    const velocities: THREE.Vector3[] = [];
-    const up = new THREE.Vector3(0, 1, 0);
-    for (let i = 0; i < PARTICLE_COUNT; i += 1) {
-      const r = OUTER_MIN + Math.random() * (OUTER_MAX - OUTER_MIN);
-      const angle = Math.random() * Math.PI * 2;
-      const yOffset = (Math.random() - 0.5) * 2.5 * GLOBAL_SCALE;
-      const x = Math.cos(angle) * r;
-      const z = Math.sin(angle) * r;
-      const y = yOffset;
-      particlePositions[i * 3] = x;
-      particlePositions[i * 3 + 1] = y;
-      particlePositions[i * 3 + 2] = z;
-      const pos = new THREE.Vector3(x, y, z);
-      const rHat = pos.clone().normalize();
-      const tanDir = new THREE.Vector3().crossVectors(rHat, up);
-      if (tanDir.length() < 0.1) {
-        tanDir.set(1, 0, 0);
-      } else {
-        tanDir.normalize();
-      }
-      const tanSpeed = TANGENTIAL_SPEED_BASE * (0.7 + 0.6 * Math.random());
-      const radialSpeed = RADIAL_INWARD_BASE * (0.5 + Math.random());
-      const vel = tanDir.clone().multiplyScalar(tanSpeed).add(rHat.clone().multiplyScalar(-radialSpeed));
-      vel.x += (Math.random() - 0.5) * 0.03;
-      vel.y += (Math.random() - 0.5) * 0.03;
-      vel.z += (Math.random() - 0.5) * 0.03;
-      velocities.push(vel);
-    }
-
-    particleGeo.attributes.position.needsUpdate = true;
-
-    const clock = new THREE.Clock();
-    let frameId = 0;
-
-    const animate = () => {
-      const delta = Math.min(clock.getDelta(), 0.1);
-      const positions = particleGeo.attributes.position.array as Float32Array;
-      for (let i = 0; i < PARTICLE_COUNT; i += 1) {
-        const ix = i * 3;
-        const iy = i * 3 + 1;
-        const iz = i * 3 + 2;
-        const pos = new THREE.Vector3(positions[ix], positions[iy], positions[iz]);
-        const vel = velocities[i];
-        const distSq = pos.lengthSq() + SOFTENING;
-        const dirToCenter = pos.clone().negate().normalize();
-        const gravStrength = G / distSq;
-        const gravAcc = dirToCenter.multiplyScalar(gravStrength);
-        const dragAcc = vel.clone().multiplyScalar(-DRAG);
-        const acc = gravAcc.add(dragAcc);
-        vel.add(acc.multiplyScalar(delta * SPEED_FACTOR));
-        if (vel.length() > 1.2) vel.normalize().multiplyScalar(1.2);
-        pos.add(vel.clone().multiplyScalar(delta * SPEED_FACTOR));
-        if (pos.length() < BLACK_HOLE_KILL_RADIUS) {
-          const newR = OUTER_MIN + Math.random() * (OUTER_MAX - OUTER_MIN);
-          const newAngle = Math.random() * Math.PI * 2;
-          const newY = (Math.random() - 0.5) * 2.5 * GLOBAL_SCALE;
-          pos.set(Math.cos(newAngle) * newR, newY, Math.sin(newAngle) * newR);
-          const rHatNew = pos.clone().normalize();
-          const tanDirNew = new THREE.Vector3().crossVectors(rHatNew, up);
-          if (tanDirNew.length() < 0.1) {
-            tanDirNew.set(1, 0, 0);
-          } else {
-            tanDirNew.normalize();
-          }
-          const tanSpeedNew = TANGENTIAL_SPEED_BASE * (0.7 + 0.6 * Math.random());
-          const radialSpeedNew = RADIAL_INWARD_BASE * (0.5 + Math.random());
-          vel.copy(tanDirNew.multiplyScalar(tanSpeedNew).add(rHatNew.clone().multiplyScalar(-radialSpeedNew)));
-          vel.x += (Math.random() - 0.5) * 0.03;
-          vel.y += (Math.random() - 0.5) * 0.03;
-          vel.z += (Math.random() - 0.5) * 0.03;
-        }
-        positions[ix] = pos.x;
-        positions[iy] = pos.y;
-        positions[iz] = pos.z;
-      }
-      particleGeo.attributes.position.needsUpdate = true;
-      stars.rotation.y += 0.0001;
-      renderer.render(scene, camera);
-      frameId = window.requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    const handleResize = () => {
-      if (!container) return;
-      const width = container.clientWidth || window.innerWidth;
-      const height = container.clientHeight || window.innerHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.cancelAnimationFrame(frameId);
-      starsGeo.dispose();
-      starsMat.dispose();
-      particleGeo.dispose();
-      particleMaterial.dispose();
-      blackHoleGeo.dispose();
-      blackHoleMat.dispose();
-      renderer.dispose();
-      if (renderer.domElement.parentElement) {
-        renderer.domElement.parentElement.removeChild(renderer.domElement);
-      }
-    };
-  }, []);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!attachRef.current) return;
@@ -552,21 +360,139 @@ const MessagesPage: React.FC = () => {
           }
         }
 
+        let productMentionData: ProductMentionData | undefined;
+        if (message.message_type === 'product_mention') {
+          const rawProduct = message.product ?? undefined;
+          const rawTransfer = message.transfer_data ?? undefined;
+          const productId =
+            typeof rawProduct?.id === 'number'
+              ? rawProduct.id
+              : typeof rawTransfer?.product_id === 'number'
+                ? rawTransfer.product_id
+                : typeof rawTransfer?.product_id === 'string'
+                  ? Number(rawTransfer.product_id)
+                  : undefined;
+          const productTitle =
+            (typeof rawProduct?.title === 'string' && rawProduct.title.trim()) ||
+            (typeof rawTransfer?.product_title === 'string' && rawTransfer.product_title.trim()) ||
+            'Product mention';
+          const sellerId =
+            typeof rawProduct?.seller_id === 'number'
+              ? rawProduct.seller_id
+              : typeof rawTransfer?.seller_id === 'number'
+                ? rawTransfer.seller_id
+                : undefined;
+          const parsedPrice =
+            typeof rawProduct?.price === 'number'
+              ? rawProduct.price
+              : typeof rawProduct?.price === 'string'
+                ? Number(rawProduct.price)
+                : typeof rawTransfer?.price === 'number'
+                  ? rawTransfer.price
+                  : typeof rawTransfer?.price === 'string'
+                    ? Number(rawTransfer.price)
+                    : undefined;
+          const imageUrl =
+            normalizeImageUrl(rawProduct?.image_thumbnail_url) ||
+            normalizeImageUrl(rawProduct?.cover_image_url) ||
+            normalizeImageUrl(rawProduct?.image_url) ||
+            normalizeImageUrl(
+              typeof rawTransfer?.image_thumbnail_url === 'string' ? rawTransfer.image_thumbnail_url : undefined,
+            ) ||
+            normalizeImageUrl(typeof rawTransfer?.cover_image_url === 'string' ? rawTransfer.cover_image_url : undefined) ||
+            normalizeImageUrl(typeof rawTransfer?.image_url === 'string' ? rawTransfer.image_url : undefined) ||
+            undefined;
+
+          if (typeof productId === 'number' && Number.isFinite(productId)) {
+            productMentionData = {
+              id: productId,
+              title: productTitle,
+              sellerId,
+              price: typeof parsedPrice === 'number' && Number.isFinite(parsedPrice) ? parsedPrice : undefined,
+              currency:
+                typeof rawProduct?.currency === 'string'
+                  ? rawProduct.currency
+                  : typeof rawTransfer?.currency === 'string'
+                    ? rawTransfer.currency
+                    : undefined,
+              imageUrl,
+            };
+          }
+        }
+
         return {
           id: message.id ? `m-${message.id}` : `m-${Math.random().toString(36).slice(2)}`,
           sender: isMe ? 'me' : 'them',
-          text: message.message_text?.trim() || undefined,
+          text:
+            message.message_text?.trim() ||
+            (message.message_type === 'product_mention'
+              ? `Product mention: ${productMentionData?.title || 'Listing'}`
+              : undefined),
           time: timeLabel,
           status: isMe ? (message.read_at ? 'read' : 'sent') : undefined,
           messageType: (message.message_type as MessageItem['messageType']) || 'text',
           messageKind: (message.message_kind as MessageItem['messageKind']) || 'normal',
           transferData,
           paymentRequestData,
+          productMentionData,
         } as MessageItem;
       });
     },
     [formatTimeLabel, user?.id],
   );
+
+  useEffect(() => {
+    if (!isAuthenticated || !selectedThread) return;
+    const mentionItems = selectedThread.messages
+      .filter(
+        (message) =>
+          (message.messageKind === 'product_mention' || message.messageType === 'product_mention') &&
+          message.productMentionData,
+      )
+      .map((message) => message.productMentionData as ProductMentionData);
+
+    if (mentionItems.length === 0) return;
+
+    mentionItems.forEach((productMention) => {
+      const productId = productMention.id;
+      const cached = productMentionDetails[productId];
+      if (cached !== undefined) return;
+      if (productMention.imageUrl) return;
+      if (productMentionImageRequestsRef.current.has(productId)) return;
+
+      productMentionImageRequestsRef.current.add(productId);
+      getProductDetail(productId)
+        .then((response) => {
+          const product = response.product;
+          const primaryImage =
+            product?.images?.find((image) => image.is_primary)?.image_url ||
+            product?.images?.[0]?.image_url ||
+            product?.images?.find((image) => image.image_thumbnail_url)?.image_thumbnail_url ||
+            product?.images?.[0]?.image_thumbnail_url ||
+            undefined;
+          const resolvedImageUrl = normalizeImageUrl(primaryImage) || undefined;
+
+          setProductMentionDetails((prev) => ({
+            ...prev,
+            [productId]: {
+              title: product?.title,
+              price: product?.price,
+              currency: product?.currency,
+              imageUrl: resolvedImageUrl,
+            },
+          }));
+        })
+        .catch(() => {
+          setProductMentionDetails((prev) => ({
+            ...prev,
+            [productId]: prev[productId] || {},
+          }));
+        })
+        .finally(() => {
+          productMentionImageRequestsRef.current.delete(productId);
+        });
+    });
+  }, [getProductDetail, isAuthenticated, productMentionDetails, selectedThread]);
 
   useEffect(() => {
     setShowSearchHistory(false);
@@ -623,7 +549,7 @@ const MessagesPage: React.FC = () => {
   }, [formatTimeLabel, getMessages, isAuthenticated, mapMessageThread, selectedThread?.conversationId, selectedThread?.id, user?.id]);
 
   useEffect(() => {
-    if (!showPaymentRequestDialog || !isAuthenticated) return;
+    if ((!showPaymentRequestDialog && !showProductMentionDialog) || !isAuthenticated) return;
     let cancelled = false;
     const run = async () => {
       setIsLoadingProducts(true);
@@ -642,6 +568,9 @@ const MessagesPage: React.FC = () => {
         if (products.length > 0 && paymentRequestProductId === null) {
           setPaymentRequestProductId(products[0].id);
         }
+        if (products.length > 0 && productMentionProductId === null) {
+          setProductMentionProductId(products[0].id);
+        }
       } catch (error) {
         const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
         const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
@@ -658,7 +587,14 @@ const MessagesPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [getMyProductCards, isAuthenticated, paymentRequestProductId, showPaymentRequestDialog]);
+  }, [
+    getMyProductCards,
+    isAuthenticated,
+    paymentRequestProductId,
+    productMentionProductId,
+    showPaymentRequestDialog,
+    showProductMentionDialog,
+  ]);
 
   const scrollToMatch = (index: number, matches = searchMatches) => {
     if (!selectedThread || matches.length === 0) return;
@@ -1032,6 +968,142 @@ const MessagesPage: React.FC = () => {
     setShowPaymentRequestDialog(true);
   };
 
+  const handleOpenProductMention = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login required',
+        description: 'Please log in to mention a product.',
+      });
+      navigate('/login');
+      return;
+    }
+    setShowProductMentionDialog(true);
+  };
+
+  const handleSendProductMention = async () => {
+    if (!selectedThread) {
+      toast({
+        title: 'Unable to mention product',
+        description: 'Conversation not found.',
+      });
+      return;
+    }
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login required',
+        description: 'Please log in to mention a product.',
+      });
+      navigate('/login');
+      return;
+    }
+
+    const receiverIdValue = Number(selectedThread.id);
+    if (!Number.isFinite(receiverIdValue)) {
+      toast({
+        title: 'Unable to mention product',
+        description: 'Missing receiver information.',
+      });
+      return;
+    }
+
+    if (productMentionProductId === null) {
+      toast({
+        title: 'Select a product',
+        description: 'Please choose a product to mention.',
+      });
+      return;
+    }
+
+    const selectedProduct = myProducts.find((product) => product.id === productMentionProductId);
+    const mentionText = selectedProduct?.title
+      ? `Check this product: ${selectedProduct.title}`
+      : 'Check this product';
+
+    setIsSendingProductMention(true);
+    try {
+      const response = await sendMessage({
+        receiver_id: receiverIdValue,
+        message_text: mentionText,
+        product_id: productMentionProductId,
+      });
+      const nextConversationId = selectedThread.conversationId ?? response.conversation_id;
+
+      if (nextConversationId) {
+        try {
+          const messagesResponse = await getMessages({ conversation_id: nextConversationId, limit: 50 });
+          const otherUser = messagesResponse.conversation?.other_user;
+          const mappedMessages = mapMessageThread(messagesResponse.messages ?? [], otherUser);
+          const lastMessage = mappedMessages[mappedMessages.length - 1];
+          setThreads((prev) =>
+            prev.map((thread) =>
+              thread.id === selectedThread.id
+                ? {
+                    ...thread,
+                    messages: mappedMessages,
+                    lastMessage: lastMessage?.text || thread.lastMessage,
+                    lastTime: lastMessage?.time || thread.lastTime,
+                    conversationId: messagesResponse.conversation?.id ?? thread.conversationId ?? nextConversationId,
+                  }
+                : thread,
+            ),
+          );
+        } catch (error) {
+          const createdAt = response.message_data?.created_at;
+          const timeLabel = createdAt
+            ? new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const fallbackMessage: MessageItem = {
+            id: response.message_data?.id ? `m-${response.message_data.id}` : `m-${Date.now()}`,
+            sender: 'me',
+            text: mentionText,
+            time: timeLabel,
+            status: 'sent',
+            messageType: 'product_mention',
+            messageKind: 'product_mention',
+            productMentionData: selectedProduct
+              ? {
+                  id: selectedProduct.id,
+                  title: selectedProduct.title,
+                  price: selectedProduct.price,
+                  currency: selectedProduct.currency,
+                  imageUrl: normalizeImageUrl(selectedProduct.image_thumbnail_url) || undefined,
+                }
+              : undefined,
+          };
+          setThreads((prev) =>
+            prev.map((thread) =>
+              thread.id === selectedThread.id
+                ? {
+                    ...thread,
+                    lastMessage: fallbackMessage.text || thread.lastMessage,
+                    lastTime: fallbackMessage.time,
+                    messages: [...thread.messages, fallbackMessage],
+                    conversationId: nextConversationId,
+                  }
+                : thread,
+            ),
+          );
+        }
+      }
+
+      setShowProductMentionDialog(false);
+      toast({
+        title: 'Product mention sent',
+        description: selectedProduct?.title || 'Product shared in this conversation.',
+      });
+    } catch (error) {
+      const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+      const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+      const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+      toast({
+        title: 'Unable to send product mention',
+        description: firstError || message || 'Please try again.',
+      });
+    } finally {
+      setIsSendingProductMention(false);
+    }
+  };
+
   const handlePaymentRequest = async () => {
     if (!selectedThread?.conversationId) {
       toast({
@@ -1300,7 +1372,6 @@ const MessagesPage: React.FC = () => {
   return (
     <MainLayout showFooter={false} showFloatingButton={false} headerClassName={headerClassName}>
       <div className="relative min-h-[calc(100vh-80px)] overflow-hidden bg-black">
-        <div ref={canvasRef} className="absolute inset-0" />
         <div className="absolute inset-0 bg-black/30" />
         <div className="relative z-10 flex h-[calc(100vh-80px)] w-full overflow-hidden text-white">
           <aside className="flex w-[320px] flex-col bg-black/60">
@@ -1586,7 +1657,7 @@ const MessagesPage: React.FC = () => {
                         ref={(node) => {
                           messageRefs.current[message.id] = node;
                         }}
-                        className={cn('flex w-full max-w-[72%] flex-col gap-2 py-2', isMe ? 'ml-auto items-end' : 'items-start')}
+                        className={cn('flex w-full max-w-[280px] flex-col gap-2 py-2', isMe ? 'ml-auto items-end' : 'items-start')}
                       >
                         {isMe ? (
                           content
@@ -1654,6 +1725,78 @@ const MessagesPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
+                      </div>
+                    );
+                  }
+
+                  if ((message.messageKind === 'product_mention' || message.messageType === 'product_mention') && message.productMentionData) {
+                    const productBase = message.productMentionData;
+                    const productDetails = productMentionDetails[productBase.id];
+                    const productTitle = productDetails?.title || productBase.title;
+                    const productPrice =
+                      typeof productDetails?.price === 'number' ? productDetails.price : productBase.price;
+                    const productCurrency = productDetails?.currency || productBase.currency;
+                    const productImage = productDetails?.imageUrl || productBase.imageUrl || '/placeholder.svg';
+
+                    return (
+                      <div
+                        key={message.id}
+                        ref={(node) => {
+                          messageRefs.current[message.id] = node;
+                        }}
+                        className={cn('flex w-full max-w-[72%] flex-col gap-2 py-2', isMe ? 'ml-auto items-end' : 'items-start')}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/product/${productBase.id}`)}
+                          className={cn(
+                            'w-full text-left',
+                            isMatch && 'rounded-2xl border border-amber-300/50 bg-amber-400/10',
+                            isActiveMatch && 'rounded-2xl border border-amber-300 bg-amber-400/20 shadow-[0_0_20px_rgba(251,191,36,0.35)]',
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'group block overflow-hidden rounded-xl shadow-card transition-all duration-300 hover:shadow-card-hover',
+                              isMe ? 'bg-white/5' : 'bg-black/40',
+                            )}
+                          >
+                            <div className="relative h-28 overflow-hidden bg-muted/30">
+                              <img
+                                src={productImage}
+                                alt={productTitle}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                              <div className="absolute left-2 top-2 rounded-full bg-black/60 p-1.5 text-white">
+                                <Package className="h-3.5 w-3.5" />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 p-2.5">
+                              <div className="flex items-center justify-between gap-2">
+                                {typeof productPrice === 'number' && productCurrency ? (
+                                  <span className="inline-flex items-baseline gap-1 text-xs font-semibold text-white">
+                                    <span>{new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(productPrice)}</span>
+                                    <span className="text-[0.72em] font-medium leading-none">{productCurrency}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-semibold text-white/80">
+                                    {isMe ? 'Product mentioned' : 'Product mention'}
+                                  </span>
+                                )}
+                                <span className="text-[11px] text-white/60">{message.time}</span>
+                              </div>
+                              <div className="line-clamp-2 text-xs font-medium leading-tight text-white/95">{productTitle}</div>
+                              {message.text ? <div className="text-[11px] text-white/70">{message.text}</div> : null}
+                              <div className="flex items-center justify-between text-[11px] text-white/50">
+                                <span>Open product details</span>
+                                <span className="flex items-center gap-1">
+                                  {statusIcon}
+                                  <span className="capitalize">{messageStatus}</span>
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
                       </div>
                     );
                   }
@@ -1835,6 +1978,17 @@ const MessagesPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
+                        handleOpenProductMention();
+                        setAttachOpen(false);
+                      }}
+                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                    >
+                      <Package className="h-4 w-4" />
+                      Mention product
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         handleOpenPaymentRequest();
                         setAttachOpen(false);
                       }}
@@ -1959,6 +2113,83 @@ const MessagesPage: React.FC = () => {
                 disabled={isTransferring || !transferAmount || !transferCurrency}
               >
                 {isTransferring ? 'Transferring...' : 'Transfer'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showProductMentionDialog} onOpenChange={setShowProductMentionDialog}>
+          <DialogContent className="bg-background sm:rounded-lg">
+            <DialogHeader>
+              <DialogTitle>Mention Product</DialogTitle>
+              <DialogDescription>
+                Share one of your listings with {selectedThread?.name || 'this user'}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Product</Label>
+                <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                  {isLoadingProducts ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                      Loading your products...
+                    </div>
+                  ) : myProducts.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-3 text-sm text-white/70">
+                      No products available to mention.
+                    </div>
+                  ) : (
+                    myProducts.map((product) => {
+                      const isSelected = productMentionProductId === product.id;
+                      const imageUrl = normalizeImageUrl(product.image_thumbnail_url) || '/placeholder.svg';
+                      return (
+                        <label
+                          key={product.id}
+                          className={cn(
+                            'flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 transition',
+                            isSelected ? 'border-emerald-400/60 bg-emerald-500/10' : 'border-white/10 bg-white/5',
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="product-mention-product"
+                            checked={isSelected}
+                            onChange={() => setProductMentionProductId(product.id)}
+                            className="h-4 w-4 accent-emerald-500"
+                          />
+                          <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 overflow-hidden rounded-lg bg-white/5">
+                              <img src={imageUrl} alt={product.title} className="h-full w-full object-cover" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-white">{product.title}</div>
+                              <div className="text-xs text-white/60">
+                                {formatCurrency(product.price, product.currency || 'CNY')}
+                              </div>
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowProductMentionDialog(false)}
+                disabled={isSendingProductMention}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSendProductMention}
+                disabled={isSendingProductMention || myProducts.length === 0 || productMentionProductId === null}
+              >
+                {isSendingProductMention ? 'Sending...' : 'Send Product Mention'}
               </Button>
             </DialogFooter>
           </DialogContent>

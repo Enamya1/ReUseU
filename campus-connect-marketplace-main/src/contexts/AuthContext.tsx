@@ -516,6 +516,7 @@ type CreateTagResponseBody = {
 type SendMessageInput = {
   receiver_id: number;
   message_text: string;
+  product_id?: number;
 };
 
 type SendMessageResponseBody = {
@@ -526,6 +527,9 @@ type SendMessageResponseBody = {
     sender_id?: number;
     receiver_id?: number;
     message_text?: string;
+    message_type?: string;
+    message_kind?: string;
+    product_id?: number | null;
     created_at?: string;
     status?: string;
   };
@@ -690,14 +694,30 @@ type MessageThreadItem = {
   sender_username?: string;
   message_text?: string;
   message_type?: string;
+  message_kind?: string;
+  payment_request_status?: string | null;
   transfer_data?: Record<string, unknown>;
+  product?: {
+    id?: number;
+    seller_id?: number;
+    title?: string;
+    price?: number;
+    currency?: string;
+    image_thumbnail_url?: string | null;
+    cover_image_url?: string | null;
+    image_url?: string | null;
+  };
   read_at?: string | null;
   created_at?: string;
 };
 
 type MessageThreadResponseBody = {
   message?: string;
-  conversation?: { id?: number; other_user?: { id?: number; username?: string } };
+  conversation?: {
+    id?: number;
+    current_user_wallet_id?: number | null;
+    other_user?: { id?: number; username?: string; wallet_id?: number | null };
+  };
   messages?: MessageThreadItem[];
   errors?: Record<string, string[]>;
 };
@@ -1673,10 +1693,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           "Content-Type": "application/json",
           Authorization: `${tokenType || "Bearer"} ${accessToken}`,
         },
-        body: JSON.stringify({
-          receiver_id: data.receiver_id,
-          message_text: data.message_text,
-        }),
+        body: JSON.stringify(
+          removeUndefined({
+            receiver_id: data.receiver_id,
+            message_text: data.message_text,
+            product_id: data.product_id,
+          }),
+        ),
       });
 
       const contentType = response.headers.get("content-type") || "";

@@ -20,7 +20,7 @@ const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { isAuthenticated, getProductDetail, getSimilarProducts, getMetaOptions } = useAuth();
+  const { isAuthenticated, getProductDetail, getSimilarProducts, getMetaOptions, sendMessage } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { formatSelectedCurrencyParts } = useCurrency();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -499,7 +499,7 @@ const ProductDetailPage: React.FC = () => {
     }
   };
 
-  const handleContact = () => {
+  const handleContact = async () => {
     if (!isAuthenticated) {
       toast({
         title: t('product.loginRequired'),
@@ -511,16 +511,41 @@ const ProductDetailPage: React.FC = () => {
     const receiverId = product.seller_id || product.seller?.id;
     if (!receiverId) {
       toast({
-        title: t('product.messageSent'),
-        description: t('product.messageSentDesc'),
+        title: t('product.error'),
+        description: 'Seller information is unavailable.',
       });
       return;
     }
     const receiverName = product.seller?.full_name || product.seller?.username || '';
-    const params = new URLSearchParams();
-    params.set('receiverId', String(receiverId));
-    if (receiverName) params.set('receiverName', receiverName);
-    navigate(`/messages?${params.toString()}`);
+    const mentionText = `Check this product: ${product.title}`;
+
+    try {
+      const response = await sendMessage({
+        receiver_id: receiverId,
+        message_text: mentionText,
+        product_id: product.id,
+      });
+      const params = new URLSearchParams();
+      params.set('receiverId', String(receiverId));
+      if (receiverName) params.set('receiverName', receiverName);
+      if (typeof response.conversation_id === 'number') {
+        params.set('conversationId', String(response.conversation_id));
+      }
+      navigate(`/messages?${params.toString()}`);
+      toast({
+        title: t('product.messageSent'),
+        description: `Product mention sent to ${receiverName || 'seller'}.`,
+      });
+    } catch (error) {
+      const message = (error as { message?: string; errors?: Record<string, string[]> } | undefined)?.message;
+      const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
+      const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
+      toast({
+        title: t('product.error'),
+        description: firstError || message || 'Unable to contact seller right now.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const nextImage = () => {
