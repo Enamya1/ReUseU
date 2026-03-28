@@ -1,155 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Banter Loader</title>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>momentum loader · pure white on black</title>
   <style>
-    body {
+    /* reset + full black canvas */
+    * {
       margin: 0;
-      height: 100vh;
-      background: #0f0f0f;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background: #000000;      /* solid black background */
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
     }
 
-    .banter-loader {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 72px;
-      height: 72px;
-      margin-left: -36px;
-      margin-top: -36px;
-    }
-
-    .banter-loader__box {
-      float: left;
+    /* ===== MOMENTUM LOADER – pure CSS ===== */
+    .momentum {
+      /* custom properties: size 90px, speed 0.50s, white circles */
+      --uib-size: 90px;
+      --uib-speed: 0.50s;
+      --uib-color: #ffffff;     /* pure white effect */
+      
       position: relative;
-      width: 20px;
-      height: 20px;
-      margin-right: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: var(--uib-size);
+      width: var(--uib-size);
+      animation: rotate01561 var(--uib-speed) linear infinite;
     }
 
-    .banter-loader__box:before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background: #ffffff;
+    .momentum::before,
+    .momentum::after {
+      content: '';
+      height: 25%;
+      width: 25%;
+      border-radius: 50%;
+      background-color: var(--uib-color);
     }
 
-    .banter-loader__box:nth-child(3n) {
-      margin-right: 0;
-      margin-bottom: 6px;
+    .momentum::before {
+      animation: wobble290123 calc(var(--uib-speed) * 1.25) ease-in-out infinite;
+      margin-right: 10%;
     }
 
-    .banter-loader__box:nth-child(1):before,
-    .banter-loader__box:nth-child(4):before {
-      margin-left: 26px;
+    .momentum::after {
+      animation: wobble9123 calc(var(--uib-speed) * 1.25) ease-in-out infinite;
     }
 
-    .banter-loader__box:nth-child(3):before {
-      margin-top: 52px;
+    /* keyframes – original wobble + rotation */
+    @keyframes wobble9123 {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      50% {
+        transform: translateX(calc(var(--uib-size) * 0.2)) scale(1.1);
+      }
     }
 
-    .banter-loader__box:last-child {
-      margin-bottom: 0;
+    @keyframes wobble290123 {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      50% {
+        transform: translateX(calc(var(--uib-size) * -0.2)) scale(1.1);
+      }
     }
 
-    /* ========== ANIMATIONS ========== */
-
-    @keyframes moveBox-1 {
-      0%, 100% { transform: translate(0, 0); }
-      10% { transform: translate(-26px, 0); }
-      30% { transform: translate(0, 0); }
-      40% { transform: translate(26px, 0); }
-      50% { transform: translate(26px, 26px); }
-      70% { transform: translate(26px, 0); }
-      90% { transform: translate(-26px, 0); }
+    @keyframes rotate01561 {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
     }
-
-    @keyframes moveBox-2 {
-      0%, 100% { transform: translate(0, 0); }
-      20% { transform: translate(26px, 0); }
-      50% { transform: translate(26px, 26px); }
-      80% { transform: translate(0, 26px); }
-    }
-
-    @keyframes moveBox-3 {
-      0%, 100% { transform: translate(0, 0); }
-      20% { transform: translate(-26px, 0); }
-      80% { transform: translate(-26px, -26px); }
-    }
-
-    @keyframes moveBox-4 {
-      0%, 100% { transform: translate(0, 0); }
-      25% { transform: translate(-26px, -26px); }
-      50% { transform: translate(0, -26px); }
-      75% { transform: translate(-26px, 0); }
-    }
-
-    @keyframes moveBox-5 {
-      0%, 100% { transform: translate(0, 0); }
-      40% { transform: translate(26px, 0); }
-      80% { transform: translate(26px, -26px); }
-    }
-
-    @keyframes moveBox-6 {
-      0%, 100% { transform: translate(0, 0); }
-      30% { transform: translate(-26px, 0); }
-      70% { transform: translate(0, 26px); }
-    }
-
-    @keyframes moveBox-7 {
-      0%, 100% { transform: translate(0, 0); }
-      30% { transform: translate(26px, 0); }
-      60% { transform: translate(0, -26px); }
-    }
-
-    @keyframes moveBox-8 {
-      0%, 100% { transform: translate(0, 0); }
-      30% { transform: translate(-26px, -26px); }
-      70% { transform: translate(26px, 0); }
-    }
-
-    @keyframes moveBox-9 {
-      0%, 100% { transform: translate(0, 0); }
-      30% { transform: translate(-26px, 0); }
-      60% { transform: translate(26px, 0); }
-      80% { transform: translate(0, 0); }
-    }
-
-    .banter-loader__box:nth-child(1) { animation: moveBox-1 2.5s infinite; }
-    .banter-loader__box:nth-child(2) { animation: moveBox-2 2.5s infinite; }
-    .banter-loader__box:nth-child(3) { animation: moveBox-3 2.5s infinite; }
-    .banter-loader__box:nth-child(4) { animation: moveBox-4 2.5s infinite; }
-    .banter-loader__box:nth-child(5) { animation: moveBox-5 2.5s infinite; }
-    .banter-loader__box:nth-child(6) { animation: moveBox-6 2.5s infinite; }
-    .banter-loader__box:nth-child(7) { animation: moveBox-7 2.5s infinite; }
-    .banter-loader__box:nth-child(8) { animation: moveBox-8 2.5s infinite; }
-    .banter-loader__box:nth-child(9) { animation: moveBox-9 2.5s infinite; }
-
   </style>
 </head>
-
 <body>
-
-  <div class="banter-loader">
-    <div class="banter-loader__box"></div>
-    <div class="banter-loader__box"></div>
-    <div class="banter-loader__box"></div>
-    <div class="banter-loader__box"></div>
-    <div class="banter-loader__box"></div>
-    <div class="banter-loader__box"></div>
-    <div class="banter-loader__box"></div>
-    <div class="banter-loader__box"></div>
-    <div class="banter-loader__box"></div>
-  </div>
-
+  <!-- only the loading animation – no extra elements -->
+  <div class="momentum"></div>
 </body>
 </html>
