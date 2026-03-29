@@ -43,7 +43,7 @@ export default function Login() {
           <div className="w-20 h-20 rounded-2xl bg-background/20 backdrop-blur-sm flex items-center justify-center mb-8">
             <ShoppingBag className="w-10 h-10" />
           </div>
-          <h1 className="text-4xl font-bold mb-4 text-center">CampusTrade Admin</h1>
+          <h1 className="text-5xl font-bold mb-4 text-center">校物圈</h1>
           <p className="text-lg opacity-90 text-center max-w-md">
             Manage your campus second-hand trading platform with ease. Control universities, dormitories, categories, and users all in one place.
           </p>
@@ -62,7 +62,7 @@ export default function Login() {
             <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mb-4">
               <ShoppingBag className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">CampusTrade Admin</h1>
+            <h1 className="text-3xl font-bold text-foreground">校物圈</h1>
           </div>
 
           <div className="text-center mb-8">

@@ -13,6 +13,9 @@ dist-ssr
 *.local
 
 # Environment files with sensitive data
+.env
+.env.*
+!.env.example
 .env.local
 .env.*.local
 
@@ -30,3 +33,8 @@ dist-ssr
 # SSL certificates
 *.pem
 *.key
+*.crt
+*.p12
+*.p8
+*.jks
+*.mobileprovision

@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import AMapLoader from '@amap/amap-jsapi-loader';
 import { useNavigate } from 'react-router-dom';
-import { universities } from '@/lib/dummyData';
 import { MapPin } from 'lucide-react';
 
 const AMAP_JS_KEY = import.meta.env.VITE_AMAP_JS_KEY ?? '';
@@ -29,7 +28,19 @@ type AMapNamespace = {
   Pixel: new (x: number, y: number) => unknown;
 };
 
-export function UniversityMap() {
+interface University {
+  id: number;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+interface UniversityMapProps {
+  universities: University[];
+}
+
+export function UniversityMap({ universities }: UniversityMapProps) {
   const navigate = useNavigate();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<AMapMap | null>(null);
@@ -57,7 +68,7 @@ export function UniversityMap() {
           offset: new AMap.Pixel(0, -30),
         });
         markersRef.current = universities.map((university) => {
-          const position: [number, number] = [university.lng, university.lat];
+          const position: [number, number] = [university.longitude, university.latitude];
           const marker = new AMap.Marker({ position, map: mapRef.current });
           marker.on('click', () => {
             const container = document.createElement('div');
@@ -67,17 +78,7 @@ export function UniversityMap() {
             title.textContent = university.name;
             const location = document.createElement('p');
             location.className = 'text-muted-foreground text-sm mb-2';
-            location.textContent = university.location;
-            const stats = document.createElement('div');
-            stats.className = 'flex items-center gap-4 text-xs text-muted-foreground mb-3';
-            const students = document.createElement('span');
-            students.className = 'flex items-center gap-1';
-            students.textContent = `${university.studentCount.toLocaleString()} students`;
-            const dorms = document.createElement('span');
-            dorms.className = 'flex items-center gap-1';
-            dorms.textContent = `${university.dormitoriesCount} dorms`;
-            stats.appendChild(students);
-            stats.appendChild(dorms);
+            location.textContent = university.address;
             const button = document.createElement('button');
             button.type = 'button';
             button.className =
@@ -86,7 +87,6 @@ export function UniversityMap() {
             button.addEventListener('click', () => navigate(`/university/${university.id}`));
             container.appendChild(title);
             container.appendChild(location);
-            container.appendChild(stats);
             container.appendChild(button);
             infoWindowRef.current.setContent(container);
             infoWindowRef.current.open(mapRef.current, position);

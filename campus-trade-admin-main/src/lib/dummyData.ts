@@ -345,7 +345,7 @@ export const dashboardStats = {
   activeUsers: 9823,
   totalProducts: 34520,
   totalTransactions: 8945,
-  monthlyRevenue: 125430,
+  TotalValueExchanged: 125430,
   growthRate: 12.5,
   newUsersThisMonth: 234,
   pendingReports: 18,

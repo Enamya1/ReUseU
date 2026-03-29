@@ -11,14 +11,27 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Environment files with sensitive data
 .env
 .env.*
+!.env.example
+.env.local
+.env.*.local
+
+# Vite build cache
 .vite
 coverage
 coverage-*
+
+# SSL certificates
 *.pem
 *.key
 *.crt
+*.p12
+*.p8
+*.jks
+*.mobileprovision
 
 # Editor directories and files
 .vscode/*
@@ -30,3 +43,7 @@ coverage-*
 *.njsproj
 *.sln
 *.sw?
+
+# IDE specific
+.putra/
+.qoder/

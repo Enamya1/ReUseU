@@ -91,4 +91,63 @@
   .sidebar-glow {
     box-shadow: 0 0 40px -10px hsl(174 72% 50% / 0.2);
   }
+
+  .momentum-loader {
+    --loader-size: 90px;
+    --loader-speed: 0.50s;
+    --loader-color: hsl(174 72% 50%);
+    
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--loader-size);
+    width: var(--loader-size);
+    animation: rotate-loader var(--loader-speed) linear infinite;
+  }
+
+  .momentum-loader::before,
+  .momentum-loader::after {
+    content: '';
+    height: 25%;
+    width: 25%;
+    border-radius: 50%;
+    background-color: var(--loader-color);
+  }
+
+  .momentum-loader::before {
+    animation: wobble-left calc(var(--loader-speed) * 1.25) ease-in-out infinite;
+    margin-right: 10%;
+  }
+
+  .momentum-loader::after {
+    animation: wobble-right calc(var(--loader-speed) * 1.25) ease-in-out infinite;
+  }
+
+  @keyframes wobble-right {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(calc(var(--loader-size) * 0.2)) scale(1.1);
+    }
+  }
+
+  @keyframes wobble-left {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(calc(var(--loader-size) * -0.2)) scale(1.1);
+    }
+  }
+
+  @keyframes rotate-loader {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
 }

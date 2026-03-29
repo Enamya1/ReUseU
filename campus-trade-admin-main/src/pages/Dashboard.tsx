@@ -1,32 +1,97 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/ui/stat-card';
-import { dashboardStats, users, universities } from '@/lib/dummyData';
 import { Users, ShoppingBag, DollarSign, TrendingUp, GraduationCap, AlertTriangle, Activity } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { UniversityMap } from '@/components/dashboard/UniversityMap';
+import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
 
-const chartData = [
-  { name: 'Jan', users: 1200, transactions: 400 },
-  { name: 'Feb', users: 1900, transactions: 600 },
-  { name: 'Mar', users: 2400, transactions: 800 },
-  { name: 'Apr', users: 3100, transactions: 1200 },
-  { name: 'May', users: 4200, transactions: 1600 },
-  { name: 'Jun', users: 5800, transactions: 2100 },
-  { name: 'Jul', users: 7200, transactions: 2800 },
-  { name: 'Aug', users: 8900, transactions: 3400 },
-  { name: 'Sep', users: 10200, transactions: 4100 },
-  { name: 'Oct', users: 11500, transactions: 5200 },
-  { name: 'Nov', users: 12100, transactions: 6800 },
-  { name: 'Dec', users: 12450, transactions: 8945 },
-];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
-const universityData = universities.map(u => ({
-  name: u.name.split(' ')[0],
-  students: u.studentCount,
-  dormitories: u.dormitoriesCount * 100,
-}));
+interface DashboardData {
+  stats: {
+    total_users: { value: number; change_pct: number; trend: string };
+    active_listings: { value: number; change_pct: number; trend: string };
+    total_value_exchanged: { value: number; change_pct: number; trend: string };
+    transactions: { value: number; change_pct: number; trend: string };
+    active_users: number;
+    new_users_month: number;
+  };
+  universities: Array<{ id: number; name: string; address: string; latitude: number; longitude: number }>;
+  universities_overview: Array<{ university_id: number; university_name: string; users_count: number }>;
+  chart_data: Array<{ name: string; users: number; transactions_amount: number }>;
+  recent_users: Array<{
+    id: number;
+    full_name: string;
+    email: string;
+    username: string;
+    profile_picture: string | null;
+    status: string;
+    university: string;
+    joined_at: string;
+  }>;
+}
 
 export default function Dashboard() {
+  const { admin } = useAuth();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!admin?.token) return;
+      
+      try {
+        setLoading(true);
+        const response = await fetch(`${API_BASE_URL}/api/admin/dashboard`, {
+          headers: {
+            'Authorization': `${admin.tokenType} ${admin.token}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+
+        const result = await response.json();
+        setData(result.data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [admin]);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="momentum-loader"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <p className="text-destructive">{error || 'No data available'}</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const universityChartData = data.universities_overview.map(u => ({
+    name: u.university_name.split(' ')[0],
+    students: u.users_count,
+  }));
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -40,30 +105,30 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total Users"
-            value={dashboardStats.totalUsers.toLocaleString()}
-            change={dashboardStats.growthRate}
-            trend="up"
+            value={data.stats.total_users.value.toLocaleString()}
+            change={data.stats.total_users.change_pct}
+            trend={data.stats.total_users.trend as 'up' | 'down' | 'stable'}
             icon={<Users className="w-6 h-6" />}
           />
           <StatCard
             title="Active Listings"
-            value={dashboardStats.totalProducts.toLocaleString()}
-            change={8.3}
-            trend="up"
+            value={data.stats.active_listings.value.toLocaleString()}
+            change={data.stats.active_listings.change_pct}
+            trend={data.stats.active_listings.trend as 'up' | 'down' | 'stable'}
             icon={<ShoppingBag className="w-6 h-6" />}
           />
           <StatCard
-            title="Monthly Revenue"
-            value={`$${(dashboardStats.monthlyRevenue / 1000).toFixed(1)}K`}
-            change={15.2}
-            trend="up"
+            title="Total Value Exchanged"
+            value={`$${(data.stats.total_value_exchanged.value / 1000).toFixed(1)}K`}
+            change={data.stats.total_value_exchanged.change_pct}
+            trend={data.stats.total_value_exchanged.trend as 'up' | 'down' | 'stable'}
             icon={<DollarSign className="w-6 h-6" />}
           />
           <StatCard
-            title="Transactions"
-            value={dashboardStats.totalTransactions.toLocaleString()}
-            change={22.5}
-            trend="up"
+            title="Transactions amount"
+            value={data.stats.transactions.value.toLocaleString()}
+            change={data.stats.transactions.change_pct}
+            trend={data.stats.transactions.trend as 'up' | 'down' | 'stable'}
             icon={<TrendingUp className="w-6 h-6" />}
           />
         </div>
@@ -75,12 +140,12 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-semibold text-foreground">Platform Growth</h3>
-                <p className="text-sm text-muted-foreground">Users and transactions over time</p>
+                <p className="text-sm text-muted-foreground">Users and transactions amount over time</p>
               </div>
             </div>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <AreaChart data={data.chart_data}>
                   <defs>
                     <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(174 72% 50%)" stopOpacity={0.3}/>
@@ -103,7 +168,7 @@ export default function Dashboard() {
                     }}
                   />
                   <Area type="monotone" dataKey="users" stroke="hsl(174 72% 50%)" fillOpacity={1} fill="url(#colorUsers)" />
-                  <Area type="monotone" dataKey="transactions" stroke="hsl(262 83% 58%)" fillOpacity={1} fill="url(#colorTransactions)" />
+                  <Area type="monotone" dataKey="transactions_amount" stroke="hsl(262 83% 58%)" fillOpacity={1} fill="url(#colorTransactions)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -118,17 +183,17 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Active Users</p>
-                  <p className="text-xl font-bold text-foreground">{dashboardStats.activeUsers.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-foreground">{data.stats.active_users.toLocaleString()}</p>
                 </div>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-success rounded-full"
-                  style={{ width: `${(dashboardStats.activeUsers / dashboardStats.totalUsers) * 100}%` }}
+                  style={{ width: `${(data.stats.active_users / data.stats.total_users.value) * 100}%` }}
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {((dashboardStats.activeUsers / dashboardStats.totalUsers) * 100).toFixed(1)}% of total users
+                {((data.stats.active_users / data.stats.total_users.value) * 100).toFixed(1)}% of total users
               </p>
             </div>
 
@@ -139,7 +204,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">New This Month</p>
-                  <p className="text-xl font-bold text-foreground">{dashboardStats.newUsersThisMonth}</p>
+                  <p className="text-xl font-bold text-foreground">{data.stats.new_users_month}</p>
                 </div>
               </div>
             </div>
@@ -151,7 +216,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Pending Reports</p>
-                  <p className="text-xl font-bold text-foreground">{dashboardStats.pendingReports}</p>
+                  <p className="text-xl font-bold text-foreground">0</p>
                 </div>
               </div>
             </div>
@@ -159,7 +224,7 @@ export default function Dashboard() {
         </div>
 
         {/* University Map */}
-        <UniversityMap />
+        <UniversityMap universities={data.universities} />
 
         {/* Universities Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -170,7 +235,7 @@ export default function Dashboard() {
             </div>
             <div className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={universityData}>
+                <BarChart data={universityChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18%)" />
                   <XAxis dataKey="name" stroke="hsl(215 20% 55%)" fontSize={12} />
                   <YAxis stroke="hsl(215 20% 55%)" fontSize={12} />
@@ -195,17 +260,21 @@ export default function Dashboard() {
               <h3 className="text-lg font-semibold text-foreground">Recent Users</h3>
             </div>
             <div className="space-y-4">
-              {users.slice(0, 5).map((user) => (
+              {data.recent_users.map((user) => (
                 <div key={user.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary">
-                        {user.name.split(' ').map(n => n[0]).join('')}
-                      </span>
-                    </div>
+                    {user.profile_picture ? (
+                      <img src={user.profile_picture} alt={user.full_name} className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                        <span className="text-sm font-medium text-primary">
+                          {user.full_name.split(' ').map(n => n[0]).join('')}
+                        </span>
+                      </div>
+                    )}
                     <div>
-                      <p className="text-sm font-medium text-foreground">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.universityName}</p>
+                      <p className="text-sm font-medium text-foreground">{user.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{user.university}</p>
                     </div>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
