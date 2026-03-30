@@ -28,6 +28,7 @@ import SearchResultsPage from "./pages/SearchResultsPage";
 import NotFound from "./pages/NotFound";
 import { useAuth } from "@/contexts/AuthContext";
 import AIAssistantPage from "./pages/AIAssistantPage";
+import AIVoiceCallPage from "./pages/AIVoiceCallPage";
 
 
 const queryClient = new QueryClient({
@@ -97,6 +98,7 @@ const App = () => (
                   <Route path="/messages" element={<MessagesPage />} />
                   <Route path="/search" element={<SearchResultsPage />} />
                   <Route path="/ai" element={<AIAssistantPage />} />
+                  <Route path="/ai/voice" element={<AIVoiceCallPage />} />
 
                   {/* Catch-all */}
                   <Route path="*" element={<NotFound />} />

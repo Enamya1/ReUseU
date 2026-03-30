@@ -514,7 +514,7 @@ const AIAssistantPage: React.FC = () => {
                   type="button"
                   variant="default"
                   className="rounded-full"
-                  disabled
+                  onClick={() => navigate('/ai/voice')}
                   ref={callAiBtnRef}
                 >
                   <Mic className="mr-2 h-4 w-4" />
@@ -655,7 +655,7 @@ const AIAssistantPage: React.FC = () => {
                   size="icon"
                   variant="outline"
                   className="h-11 w-11 rounded-full"
-                  disabled
+                  onClick={() => navigate('/ai/voice')}
                   aria-label="Call AI"
                 >
                   <Mic className="h-4 w-4" />
