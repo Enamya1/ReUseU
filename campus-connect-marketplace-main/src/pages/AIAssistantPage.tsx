@@ -243,6 +243,14 @@ const AIAssistantPage: React.FC = () => {
     void loadHistory();
   }, [isAuthenticated, loadHistory]);
 
+  useEffect(() => {
+    if (!activeSessionId) {
+      sessionStorage.removeItem('ai_active_session_id');
+      return;
+    }
+    sessionStorage.setItem('ai_active_session_id', activeSessionId);
+  }, [activeSessionId]);
+
   const handleOpenConversation = async (sessionId: string, title: string) => {
     if (!isAuthenticated) return;
     setActiveSessionId(sessionId);
@@ -514,7 +522,7 @@ const AIAssistantPage: React.FC = () => {
                   type="button"
                   variant="default"
                   className="rounded-full"
-                  onClick={() => navigate('/ai/voice')}
+                  onClick={() => navigate('/ai/voice', { state: { sessionId: activeSessionId } })}
                   ref={callAiBtnRef}
                 >
                   <Mic className="mr-2 h-4 w-4" />
@@ -655,7 +663,7 @@ const AIAssistantPage: React.FC = () => {
                   size="icon"
                   variant="outline"
                   className="h-11 w-11 rounded-full"
-                  onClick={() => navigate('/ai/voice')}
+                  onClick={() => navigate('/ai/voice', { state: { sessionId: activeSessionId } })}
                   aria-label="Call AI"
                 >
                   <Mic className="h-4 w-4" />

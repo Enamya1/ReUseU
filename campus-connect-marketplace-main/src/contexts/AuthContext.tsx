@@ -55,6 +55,11 @@ interface AuthContextType {
     message_type?: "text" | "voice";
     audio_duration_seconds?: number;
   }) => Promise<AiSessionMessageResponseBody>;
+  sendAiVoiceCallMessage: (data: {
+    session_id: string;
+    message: string;
+    audio_duration_seconds?: number;
+  }) => Promise<AiSessionMessageResponseBody>;
   getAiHistory: (params?: {
     page?: number;
     page_size?: number;
@@ -614,10 +619,22 @@ type AiSessionFunctionCall = {
   result_count?: number;
 };
 
+type AiSessionVoiceResponse = {
+  text?: string;
+  should_speak?: boolean;
+};
+
 type AiSessionMessageResponseBody = {
   response?: string;
+  voice_response?: AiSessionVoiceResponse;
   function_calls?: AiSessionFunctionCall[];
   products?: Array<Record<string, unknown>>;
+  should_display_products?: boolean;
+  display_payload?: {
+    type?: string;
+    count?: number;
+    products?: Array<Record<string, unknown>>;
+  };
   message?: string;
   errors?: Record<string, string[]>;
 };
@@ -1938,6 +1955,70 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           removeUndefined({
             message: data.message,
             message_type: data.message_type,
+            audio_duration_seconds: data.audio_duration_seconds,
+          }),
+        ),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const responseBody = contentType.includes("application/json")
+        ? ((await response.json()) as AiSessionMessageResponseBody)
+        : null;
+
+      if (responseBody) {
+        if (response.status === 422 && responseBody.errors) throw responseBody;
+        if (response.status === 401) throw responseBody;
+        if (response.status === 403) throw responseBody;
+        if (response.status === 404) throw responseBody;
+        if (response.status === 502) throw responseBody;
+        if (!response.ok) throw responseBody;
+        return responseBody;
+      }
+
+      if (response.status === 401) throw { message: "Unauthenticated." } as AiSessionMessageResponseBody;
+      if (response.status === 403) {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as AiSessionMessageResponseBody;
+      }
+      if (response.status === 404) {
+        throw { message: "Session not found." } as AiSessionMessageResponseBody;
+      }
+      if (response.status === 502) {
+        throw { message: "AI service unavailable." } as AiSessionMessageResponseBody;
+      }
+      return { message: "Request failed" };
+    },
+    [accessToken, tokenType, user?.role],
+  );
+
+  const sendAiVoiceCallMessage = useCallback(
+    async (data: {
+      session_id: string;
+      message: string;
+      audio_duration_seconds?: number;
+    }): Promise<AiSessionMessageResponseBody> => {
+      if (!accessToken) {
+        throw { message: "Unauthenticated." } as AiSessionMessageResponseBody;
+      }
+      if (user?.role && user.role !== "user") {
+        throw { message: "Unauthorized: Only users can access this endpoint." } as AiSessionMessageResponseBody;
+      }
+      if (!data.session_id) {
+        throw {
+          message: "Validation Error",
+          errors: { session_id: ["session_id is required."] },
+        } as AiSessionMessageResponseBody;
+      }
+
+      const response = await fetch(apiUrl(`/api/ai/sessions/${data.session_id}/voice-call`), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `${tokenType || "Bearer"} ${accessToken}`,
+        },
+        body: JSON.stringify(
+          removeUndefined({
+            message: data.message,
             audio_duration_seconds: data.audio_duration_seconds,
           }),
         ),
@@ -3402,6 +3483,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     confirmPaymentRequest,
     createAiSession,
     sendAiSessionMessage,
+    sendAiVoiceCallMessage,
     getAiHistory,
     deleteAiHistory,
     renameAiHistory,
@@ -3447,6 +3529,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     confirmPaymentRequest,
     createAiSession,
     sendAiSessionMessage,
+    sendAiVoiceCallMessage,
     getAiHistory,
     deleteAiHistory,
     renameAiHistory,
