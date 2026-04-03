@@ -3,32 +3,34 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Pages
-import HomePage from "./pages/HomePage";
-import ProductsPage from "./pages/ProductsPage";
-import LoginPage from "./pages/LoginPage";
-import SignupPage from "./pages/SignupPage";
-import ProductDetailPage from "./pages/ProductDetailPage";
-import FavoritesPage from "./pages/FavoritesPage";
-import MyListingsPage from "./pages/MyListingsPage";
-import MyListingDetailPage from "./pages/MyListingDetailPage";
-import CreateListingPage from "./pages/CreateListingPage";
-import ProfilePage from "./pages/ProfilePage";
-import WalletPage from "./pages/WalletPage";
-import NearbyPage from "./pages/NearbyPage";
-import ExchangePage from "./pages/ExchangePage";
-import OnboardingPage from "./pages/OnboardingPage";
-import SellerProfilePage from "./pages/SellerProfilePage";
-import MessagesPage from "./pages/MessagesPage";
-import SearchResultsPage from "./pages/SearchResultsPage";
-import NotFound from "./pages/NotFound";
+const HomePage = lazy(() => import("./pages/HomePage"));
+const ProductsPage = lazy(() => import("./pages/ProductsPage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const SignupPage = lazy(() => import("./pages/SignupPage"));
+const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
+const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));
+const MyListingsPage = lazy(() => import("./pages/MyListingsPage"));
+const MyListingDetailPage = lazy(() => import("./pages/MyListingDetailPage"));
+const CreateListingPage = lazy(() => import("./pages/CreateListingPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const WalletPage = lazy(() => import("./pages/WalletPage"));
+const NearbyPage = lazy(() => import("./pages/NearbyPage"));
+const ExchangePage = lazy(() => import("./pages/ExchangePage"));
+const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
+const SellerProfilePage = lazy(() => import("./pages/SellerProfilePage"));
+const MessagesPage = lazy(() => import("./pages/MessagesPage"));
+const SearchResultsPage = lazy(() => import("./pages/SearchResultsPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 import { useAuth } from "@/contexts/AuthContext";
-import AIAssistantPage from "./pages/AIAssistantPage";
-import AIVoiceCallPage from "./pages/AIVoiceCallPage";
+const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
+const AIVoiceCallPage = lazy(() => import("./pages/AIVoiceCallPage"));
 
 
 const queryClient = new QueryClient({
@@ -66,6 +68,31 @@ const OnboardingGate = () => {
   return <Outlet />;
 };
 
+const RouteSkeleton = () => (
+  <div className="min-h-screen bg-background">
+    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mb-6 space-y-3">
+        <Skeleton className="h-10 w-56" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+      </div>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+      </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    </div>
+  </div>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -75,35 +102,32 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <Routes>
-                <Route element={<OnboardingGate />}>
-                  {/* Public Routes */}
-                  <Route path="/" element={<HomeRoute />} />
-                  <Route path="/products" element={<ProductsPage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/signup" element={<SignupPage />} />
-                  <Route path="/product/:id" element={<ProductDetailPage />} />
-                  <Route path="/seller/:id" element={<SellerProfilePage />} />
-                  <Route path="/nearby" element={<NearbyPage />} />
-                  <Route path="/exchange" element={<ExchangePage />} />
-                  <Route path="/onboarding" element={<OnboardingPage />} />
-
-                  {/* Protected User Routes */}
-                  <Route path="/favorites" element={<FavoritesPage />} />
-                  <Route path="/my-listings" element={<MyListingsPage />} />
-                  <Route path="/my-listings/:id" element={<MyListingDetailPage />} />
-                  <Route path="/create-listing" element={<CreateListingPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/wallet" element={<WalletPage />} />
-                  <Route path="/messages" element={<MessagesPage />} />
-                  <Route path="/search" element={<SearchResultsPage />} />
-                  <Route path="/ai" element={<AIAssistantPage />} />
-                  <Route path="/ai/voice" element={<AIVoiceCallPage />} />
-
-                  {/* Catch-all */}
-                  <Route path="*" element={<NotFound />} />
-                </Route>
-              </Routes>
+              <Suspense fallback={<RouteSkeleton />}>
+                <Routes>
+                  <Route element={<OnboardingGate />}>
+                    <Route path="/" element={<HomeRoute />} />
+                    <Route path="/products" element={<ProductsPage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/signup" element={<SignupPage />} />
+                    <Route path="/product/:id" element={<ProductDetailPage />} />
+                    <Route path="/seller/:id" element={<SellerProfilePage />} />
+                    <Route path="/nearby" element={<NearbyPage />} />
+                    <Route path="/exchange" element={<ExchangePage />} />
+                    <Route path="/onboarding" element={<OnboardingPage />} />
+                    <Route path="/favorites" element={<FavoritesPage />} />
+                    <Route path="/my-listings" element={<MyListingsPage />} />
+                    <Route path="/my-listings/:id" element={<MyListingDetailPage />} />
+                    <Route path="/create-listing" element={<CreateListingPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/wallet" element={<WalletPage />} />
+                    <Route path="/messages" element={<MessagesPage />} />
+                    <Route path="/search" element={<SearchResultsPage />} />
+                    <Route path="/ai" element={<AIAssistantPage />} />
+                    <Route path="/ai/voice" element={<AIVoiceCallPage />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
+                </Routes>
+              </Suspense>
             </BrowserRouter>
           </TooltipProvider>
         </FavoritesProvider>

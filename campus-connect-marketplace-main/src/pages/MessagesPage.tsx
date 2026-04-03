@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
@@ -181,6 +182,7 @@ const MessagesPage: React.FC = () => {
   const [myProducts, setMyProducts] = useState<MyProductCard[]>([]);
   const [productMentionDetails, setProductMentionDetails] = useState<Record<number, ProductMentionDetail>>({});
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [isPaymentRequesting, setIsPaymentRequesting] = useState(false);
   const [isSendingProductMention, setIsSendingProductMention] = useState(false);
   const [activePaymentRequest, setActivePaymentRequest] = useState<PaymentRequestData | null>(null);
@@ -508,9 +510,13 @@ const MessagesPage: React.FC = () => {
   }, [selectedThreadId, selectedThread?.messages.length]);
 
   useEffect(() => {
-    if (!isAuthenticated || !selectedThread?.conversationId) return;
+    if (!isAuthenticated || !selectedThread?.conversationId) {
+      setIsMessagesLoading(false);
+      return;
+    }
     let cancelled = false;
     const run = async () => {
+      setIsMessagesLoading(true);
       try {
         const response = await getMessages({ conversation_id: selectedThread.conversationId, limit: 50 });
         if (cancelled) return;
@@ -540,6 +546,10 @@ const MessagesPage: React.FC = () => {
           title: 'Unable to load messages',
           description: firstError || message || 'Please try again.',
         });
+      } finally {
+        if (!cancelled) {
+          setIsMessagesLoading(false);
+        }
       }
     };
     run();
@@ -1560,7 +1570,22 @@ const MessagesPage: React.FC = () => {
             </div>
 
             <div ref={messageListRef} className="flex-1 space-y-4 overflow-y-auto bg-black/25 px-8 py-6">
-              {selectedThread && selectedThread.messages.length > 0 ? (
+              {isMessagesLoading ? (
+                Array.from({ length: 7 }).map((_, index) => (
+                  <div
+                    key={`chat-skeleton-${index}`}
+                    className={index % 3 === 0 ? 'ml-auto w-full max-w-[60%]' : 'w-full max-w-[70%]'}
+                  >
+                    <div className="mb-1 flex items-start gap-2">
+                      <Skeleton className="h-8 w-8 rounded-full bg-white/20" />
+                      <div className="w-full space-y-2">
+                        <Skeleton className="h-4 w-full rounded-md bg-white/20" />
+                        <Skeleton className="h-4 w-[72%] rounded-md bg-white/20" />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : selectedThread && selectedThread.messages.length > 0 ? (
                 selectedThread.messages.map((message, index) => {
                   const isMe = message.sender === 'me';
                   const isMatch = searchMatches.includes(index);

@@ -3,6 +3,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Mic, Send, PhoneOff, VolumeX, Clock, X, Sparkles, User, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -50,6 +51,7 @@ const AIAssistantPage: React.FC = () => {
   const [muted, setMuted] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isSessionLoading, setIsSessionLoading] = useState(false);
+  const [isChatLoading, setIsChatLoading] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const callAiBtnRef = useRef<HTMLButtonElement | null>(null);
   const endCallBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -177,6 +179,7 @@ const AIAssistantPage: React.FC = () => {
   }, [isAuthenticated, createAiSession]);
 
   const startNewChat = useCallback(async () => {
+    setIsChatLoading(false);
     setMessages([{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
     setActiveSessionId(null);
     setChatTitle(DEFAULT_CHAT_TITLE);
@@ -211,12 +214,15 @@ const AIAssistantPage: React.FC = () => {
         setActiveSessionId(firstSessionId);
         setChatTitle(firstTitle);
         if (firstSessionId) {
+          setIsChatLoading(true);
           try {
             const details = await getAiSessionMessages(firstSessionId);
             const mappedMessages = mapStoredMessages(details.messages);
             setMessages(mappedMessages.length ? mappedMessages : [{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
           } catch {
             setMessages([{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
+          } finally {
+            setIsChatLoading(false);
           }
         } else {
           setMessages([{ id: crypto.randomUUID(), role: 'ai', text: 'What are you looking for?' }]);
@@ -255,7 +261,7 @@ const AIAssistantPage: React.FC = () => {
     if (!isAuthenticated) return;
     setActiveSessionId(sessionId);
     setChatTitle(title);
-    setTyping(true);
+    setIsChatLoading(true);
     try {
       const result = await getAiSessionMessages(sessionId);
       const mapped = mapStoredMessages(result.messages);
@@ -271,7 +277,7 @@ const AIAssistantPage: React.FC = () => {
         variant: 'destructive',
       });
     } finally {
-      setTyping(false);
+      setIsChatLoading(false);
       setShowHistory(false);
     }
   };
@@ -569,7 +575,21 @@ const AIAssistantPage: React.FC = () => {
               aria-relevant="additions text"
               aria-busy={isSending || typing}
             >
-              {messages.map((m) => (
+              {isChatLoading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <div
+                    key={`ai-chat-skeleton-${index}`}
+                    className={index % 2 === 0 ? 'flex items-start gap-2' : 'flex items-start gap-2 justify-end'}
+                  >
+                    <Skeleton className="h-7 w-7 rounded-full" />
+                    <div className={index % 2 === 0 ? 'w-full max-w-[65%]' : 'order-1 w-full max-w-[58%]'}>
+                      <Skeleton className="h-4 w-full rounded-md" />
+                      <Skeleton className="mt-2 h-4 w-[78%] rounded-md" />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                messages.map((m) => (
                 <div key={m.id} className={m.role === 'ai' ? 'flex items-start gap-2' : 'flex items-start gap-2 justify-end'}>
                   {m.role === 'ai' ? (
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -618,7 +638,8 @@ const AIAssistantPage: React.FC = () => {
                     ) : null}
                   </div>
                 </div>
-              ))}
+                ))
+              )}
               {typing ? (
                 <div className="flex items-start gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
