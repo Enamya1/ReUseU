@@ -125,7 +125,7 @@ export const updateUniversitySettings = async (data: {
  */
 export const getMetaOptions = async (): Promise<MetaOptionsResponse> => {
   try {
-    const response = await apiClient.get<MetaOptionsResponse>('/api/meta/options');
+    const response = await apiClient.get<MetaOptionsResponse>('/api/user/meta/options');
     return response.data;
   } catch (error) {
     throw handleApiError(error);

@@ -20,27 +20,21 @@ import { router } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { spacing } from '../../src/theme/spacing';
-import { Product } from '../../src/types';
+import { Product, MetaCategoryOption } from '../../src/types';
 import { ProductGrid } from '../../src/components/products/ProductGrid';
 import { Chip } from '../../src/components/ui/Badge';
 import { getRecommendedProducts } from '../../src/services/productService';
 
-const categories = [
-  { id: 'all', name: 'All' },
-  { id: 'textbooks', name: 'Textbooks' },
-  { id: 'electronics', name: 'Electronics' },
-  { id: 'furniture', name: 'Furniture' },
-  { id: 'clothing', name: 'Clothing' },
-];
-
 const HEADER_EXPANDED_HEIGHT = 100;
 const HEADER_COLLAPSED_HEIGHT = 60;
+type HomeCategory = { id: 'all' | number; name: string };
 
 export default function HomeScreen() {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, getMetaOptions } = useAuth();
   const insets = useSafeAreaInsets();
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | number>('all');
+  const [categories, setCategories] = useState<HomeCategory[]>([{ id: 'all', name: 'All' }]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
@@ -97,6 +91,36 @@ export default function HomeScreen() {
     fetchProducts();
   }, [fetchProducts]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCategories = async () => {
+      try {
+        const data = await getMetaOptions();
+        if (cancelled) return;
+        const apiCategories = Array.isArray(data.categories) ? data.categories : [];
+        const mappedCategories: HomeCategory[] = [
+          { id: 'all', name: 'All' },
+          ...apiCategories
+            .filter((category): category is MetaCategoryOption => typeof category.id === 'number')
+            .map((category) => ({
+              id: category.id,
+              name: category.name || `Category ${category.id}`,
+            })),
+        ];
+        setCategories(mappedCategories);
+      } catch {
+        if (cancelled) return;
+        setCategories([{ id: 'all', name: 'All' }]);
+      }
+    };
+
+    fetchCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, [getMetaOptions]);
+
   const handleRefresh = useCallback(async () => {
     await fetchProducts(true);
   }, [fetchProducts]);
@@ -113,6 +137,11 @@ export default function HomeScreen() {
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
     { useNativeDriver: false }
   );
+
+  const filteredProducts =
+    selectedCategory === 'all'
+      ? products
+      : products.filter((product) => product.category_id === selectedCategory);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -155,7 +184,7 @@ export default function HomeScreen() {
         <FlatList
           horizontal
           data={categories}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => String(item.id)}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[styles.categoriesList, { paddingHorizontal: spacing.screenPadding }]}
           renderItem={({ item }) => (
@@ -193,7 +222,7 @@ export default function HomeScreen() {
       ) : (
         /* Products Grid */
         <ProductGrid
-          products={products}
+          products={filteredProducts}
           onProductPress={handleProductPress}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
