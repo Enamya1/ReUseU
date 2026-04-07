@@ -209,6 +209,7 @@ export const getProductEngagement = async (productId: number): Promise<ProductEn
 
 /**
  * Get my products (seller's listings)
+ * Endpoint: GET /api/user/products/cards
  */
 export const getMyProducts = async (params?: {
   page?: number;
@@ -220,6 +221,22 @@ export const getMyProducts = async (params?: {
     return {
       products: response.data.products || [],
       total: response.data.total || 0,
+    };
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Get all user products (without pagination)
+ * Endpoint: GET /api/user/products
+ */
+export const getUserProducts = async (): Promise<{ message: string; products: Product[] }> => {
+  try {
+    const response = await apiClient.get('/api/user/products');
+    return {
+      message: response.data.message || 'User products retrieved successfully',
+      products: response.data.products || [],
     };
   } catch (error) {
     throw handleApiError(error);

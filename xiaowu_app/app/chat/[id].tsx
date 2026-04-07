@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal, Keyboard } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getMessages, sendMessage, transferMoney, createPaymentRequest, confirmPaymentRequest } from '@/src/services/messageService';
+import { getUserProducts } from '@/src/services/productService';
 import { normalizeImageUrl } from '@/src/config/env';
 import type { Message } from '@/src/types';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -18,11 +19,16 @@ export default function ChatScreen() {
   const [showActions, setShowActions] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [userProducts, setUserProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('CNY');
   const [reference, setReference] = useState('');
   const [lastMessageId, setLastMessageId] = useState<number | null>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const scrollViewRef = useRef<any>(null);
 
   const loadMessages = useCallback(async (silent = false) => {
     if (!id || id === '0') return;
@@ -78,6 +84,92 @@ export default function ChatScreen() {
       setLoading(false);
     }
   }, [id]); // Remove loadMessages from dependencies
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+    };
+  }, []);
+
+  const loadUserProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      const response = await getUserProducts();
+      // Filter only available products
+      const availableProducts = response.products.filter(p => p.status === 'available');
+      setUserProducts(availableProducts);
+    } catch (error) {
+      console.error('Error loading user products:', error);
+      Alert.alert('Error', 'Failed to load your products');
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const handleProductMention = async (product: any) => {
+    setShowProductModal(false);
+    
+    const actualReceiverId = conversation?.other_user?.id || Number(receiverId);
+    if (!actualReceiverId) {
+      Alert.alert('Error', 'Cannot send message: receiver not found');
+      return;
+    }
+
+    const tempMessage: Message = {
+      id: Date.now(),
+      sender_id: user?.id || 0,
+      sender_username: user?.username,
+      message_text: `Check out this product: ${product.title}`,
+      message_type: 'product_mention',
+      status: 'sent',
+      created_at: new Date().toISOString(),
+      product: {
+        id: product.id,
+        seller_id: product.seller_id,
+        title: product.title,
+        price: product.price,
+        currency: product.currency || 'CNY',
+        image_url: product.images?.[0]?.image_url || product.image_thumbnail_url,
+      },
+    };
+
+    setMessages(prev => [...prev, tempMessage]);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+
+    try {
+      const response = await sendMessage({
+        receiver_id: actualReceiverId,
+        message_text: `Check out this product: ${product.title}`,
+        product_id: product.id,
+      });
+      
+      setMessages(prev => prev.map(m => 
+        m.id === tempMessage.id ? response.message_data : m
+      ));
+      
+      if (typeof response.message_data.id === 'number') {
+        setLastMessageId(response.message_data.id);
+      }
+      
+      if (response.conversation_id && (!id || id === '0')) {
+        router.replace({
+          pathname: `/chat/${response.conversation_id}`,
+          params: { receiverId: actualReceiverId, receiverName, productId },
+        });
+      }
+    } catch (error: any) {
+      console.error('Error sending product mention:', error);
+      Alert.alert('Error', error.message || 'Failed to send product mention');
+      setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+    }
+  };
 
   const handleSend = async () => {
     if (!inputText.trim() || sending) return;
@@ -277,23 +369,31 @@ export default function ChatScreen() {
     }
 
     if (item.message_type === 'product_mention' && item.product) {
+      console.log('Rendering product mention:', item.product);
+      const productImageUrl = item.product.image_url || item.product?.images?.[0]?.image_url;
+      
       return (
         <View style={[styles.messageContainer, styles.systemMessage]}>
           <TouchableOpacity
             style={styles.productBubble}
             onPress={() => router.push(`/product/${item.product?.id}`)}
           >
-            {item.product.image_url && (
+            {productImageUrl ? (
               <Image 
-                source={{ uri: normalizeImageUrl(item.product.image_url) }} 
+                source={{ uri: normalizeImageUrl(productImageUrl) }} 
                 style={styles.productImage}
                 resizeMode="cover"
+                onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
               />
+            ) : (
+              <View style={[styles.productImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="image-outline" size={48} color="#CCC" />
+              </View>
             )}
             <View style={styles.productInfo}>
               <Text style={styles.productTitle}>🛍️ {item.product.title}</Text>
               <Text style={styles.productPrice}>
-                {item.product.currency} {item.product.price}
+                {item.product.currency || 'CNY'} {item.product.price}
               </Text>
             </View>
           </TouchableOpacity>
@@ -331,8 +431,8 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={100}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -353,6 +453,10 @@ export default function ChatScreen() {
           <TouchableOpacity style={styles.actionItem} onPress={() => { setShowPaymentModal(true); setShowActions(false); }}>
             <Ionicons name="card-outline" size={20} color="#0066FF" />
             <Text style={styles.actionText}>Request Payment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionItem} onPress={() => { loadUserProducts(); setShowProductModal(true); setShowActions(false); }}>
+            <Ionicons name="pricetag-outline" size={20} color="#0066FF" />
+            <Text style={styles.actionText}>Mention Product</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -384,6 +488,11 @@ export default function ChatScreen() {
           placeholder="Type a message..."
           multiline
           maxLength={2000}
+          onFocus={() => {
+            setIsInputFocused(true);
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300);
+          }}
+          onBlur={() => setIsInputFocused(false)}
         />
         <TouchableOpacity
           style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
@@ -432,6 +541,49 @@ export default function ChatScreen() {
                 <Text style={styles.modalButtonPrimaryText}>Request</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showProductModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.productModalContent]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Product to Mention</Text>
+              <TouchableOpacity onPress={() => setShowProductModal(false)}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+            {loadingProducts ? (
+              <ActivityIndicator size="large" color="#0066FF" style={{ marginVertical: 20 }} />
+            ) : userProducts.length === 0 ? (
+              <View style={styles.emptyProducts}>
+                <Text style={styles.emptyProductsText}>No available products</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={userProducts}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.productItem}
+                    onPress={() => handleProductMention(item)}
+                  >
+                    {(item.images?.[0]?.image_url || item.image_thumbnail_url) && (
+                      <Image
+                        source={{ uri: normalizeImageUrl(item.images?.[0]?.image_url || item.image_thumbnail_url) }}
+                        style={styles.productItemImage}
+                      />
+                    )}
+                    <View style={styles.productItemInfo}>
+                      <Text style={styles.productItemTitle} numberOfLines={2}>{item.title}</Text>
+                      <Text style={styles.productItemPrice}>{item.currency || 'CNY'} {item.price}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                style={styles.productList}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -486,4 +638,14 @@ const styles = StyleSheet.create({
   modalButton: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', marginHorizontal: 4, backgroundColor: '#F0F0F0' },
   modalButtonPrimary: { backgroundColor: '#0066FF' },
   modalButtonPrimaryText: { color: '#FFF', fontWeight: '600' },
+  productModalContent: { width: '90%', maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  productList: { maxHeight: 400 },
+  productItem: { flexDirection: 'row', padding: 12, backgroundColor: '#F5F5F5', borderRadius: 8, marginBottom: 8 },
+  productItemImage: { width: 60, height: 60, borderRadius: 8, marginRight: 12 },
+  productItemInfo: { flex: 1, justifyContent: 'center' },
+  productItemTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
+  productItemPrice: { fontSize: 14, color: '#0066FF', fontWeight: 'bold' },
+  emptyProducts: { padding: 40, alignItems: 'center' },
+  emptyProductsText: { fontSize: 14, color: '#999' },
 });
