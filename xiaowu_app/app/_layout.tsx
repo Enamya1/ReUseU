@@ -147,10 +147,9 @@ function RootStack() {
             }} 
           />
           <Stack.Screen 
-            name="ai" 
+            name="chat/[id]" 
             options={{ 
-              headerShown: true,
-              title: 'AI Assistant',
+              headerShown: false,
             }} 
           />
           <Stack.Screen 

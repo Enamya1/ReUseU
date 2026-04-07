@@ -187,13 +187,27 @@ export interface Message {
   id: number | string;
   conversation_id?: number;
   sender_id: number;
-  receiver_id: number;
+  sender_username?: string;
+  receiver_id?: number;
+  message_text?: string;
   content?: string;
-  message_type?: 'text' | 'image' | 'file' | 'voice';
+  message_type?: 'text' | 'payment_request' | 'payment_confirmation' | 'transfer' | 'product_mention';
+  message_kind?: 'normal' | 'payment_request_unconfirmed' | 'payment_request_confirmed' | 'transfer' | 'product_mention';
+  payment_request_status?: 'pending' | 'paid' | null;
+  transfer_data?: any;
+  product?: {
+    id: number;
+    seller_id: number;
+    title: string;
+    price: number;
+    currency: string;
+    image_url?: string;
+  };
   image_url?: string;
   file_url?: string;
   audio_url?: string;
   audio_duration_seconds?: number;
+  read_at?: string;
   status?: 'sent' | 'delivered' | 'read';
   created_at: string;
 }
@@ -212,16 +226,12 @@ export interface Conversation {
 }
 
 export interface MessageContact {
-  id?: number;
   conversation_id?: number;
-  sender_id?: number;
-  sender_username?: string;
+  message_id?: number;
+  sender_name?: string;
   sender_profile_picture?: string;
-  product_id?: number;
-  notification_type?: string;
-  notification_text?: string;
-  notification_count?: number;
-  created_at?: string;
+  last_message?: string;
+  message_time?: string;
 }
 
 // ============================================

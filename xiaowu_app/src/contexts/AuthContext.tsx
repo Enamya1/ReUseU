@@ -7,7 +7,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import type { User, SignupData, University, Dormitory, MetaOptionsResponse, Product } from '../types';
 import * as authService from '../services/authService';
 import * as productService from '../services/productService';
-import { getAccessToken } from '../services/api';
+import { getAccessToken, apiClient, apiClientPy } from '../services/api';
 
 /**
  * Derive a basic user object from email (matching web platform)
@@ -46,6 +46,18 @@ interface AuthContextType {
   getRecommendedProducts: (params?: { page?: number; page_size?: number; random_count?: number; lookback_days?: number }) => Promise<{ products: Product[]; total: number }>;
   getSimilarProducts: (productId: number, params?: { page?: number; page_size?: number }) => Promise<{ products: Product[]; total: number }>;
   getProductDetail: (productId: number) => Promise<Product>;
+  getProductForEdit: (productId: number) => Promise<Product>;
+  updateProduct: (productId: number, data: any) => Promise<Product>;
+  markProductSold: (productId: number) => Promise<void>;
+  getProductEngagement: (productId: number) => Promise<any>;
+  createAiSession: (data?: { title?: string | null }) => Promise<any>;
+  sendAiSessionMessage: (data: { session_id: string; message: string; message_type?: 'text' | 'voice'; audio_duration_seconds?: number }) => Promise<any>;
+  sendAiVoiceCallMessage: (data: { session_id: string; message: string; audio_duration_seconds?: number }) => Promise<any>;
+  getAiHistory: (params?: { page?: number; page_size?: number; include_messages?: boolean }) => Promise<any>;
+  getAiSessionMessages: (sessionId: string) => Promise<any>;
+  deleteAiHistory: (sessionId: string) => Promise<void>;
+  renameAiHistory: (sessionId: string, title: string) => Promise<any>;
+  getRecommendedExchangeProducts: (params?: { page?: number; page_size?: number }) => Promise<any>;
   refreshBalance: (nextBalance?: number | null) => Promise<number | null>;
   refreshUser: () => Promise<void>;
 }
@@ -210,6 +222,61 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return null;
   }, []);
 
+  const getProductForEdit = useCallback(async (productId: number) => {
+    return productService.getProductForEdit(productId);
+  }, []);
+
+  const updateProduct = useCallback(async (productId: number, data: any) => {
+    return productService.updateProduct(productId, data);
+  }, []);
+
+  const markProductSold = useCallback(async (productId: number) => {
+    return productService.markProductSold(productId);
+  }, []);
+
+  const getProductEngagement = useCallback(async (productId: number) => {
+    return productService.getProductEngagement(productId);
+  }, []);
+
+  const createAiSession = useCallback(async (data?: { title?: string | null }) => {
+    const response = await apiClient.post('/api/ai/sessions', data || {});
+    return response.data;
+  }, []);
+
+  const sendAiSessionMessage = useCallback(async (data: { session_id: string; message: string; message_type?: 'text' | 'voice'; audio_duration_seconds?: number }) => {
+    const response = await apiClient.post(`/api/ai/sessions/${data.session_id}/messages`, { message: data.message, message_type: data.message_type || 'text', audio_duration_seconds: data.audio_duration_seconds });
+    return response.data;
+  }, []);
+
+  const sendAiVoiceCallMessage = useCallback(async (data: { session_id: string; message: string; audio_duration_seconds?: number }) => {
+    const response = await apiClient.post(`/api/ai/sessions/${data.session_id}/voice-call`, data);
+    return response.data;
+  }, []);
+
+  const getAiHistory = useCallback(async (params?: { page?: number; page_size?: number; include_messages?: boolean }) => {
+    const response = await apiClient.get('/api/ai/history', { params });
+    return response.data;
+  }, []);
+
+  const getAiSessionMessages = useCallback(async (sessionId: string) => {
+    const response = await apiClient.get(`/api/ai/sessions/${sessionId}/messages`);
+    return response.data;
+  }, []);
+
+  const deleteAiHistory = useCallback(async (sessionId: string) => {
+    await apiClient.delete(`/api/ai/history/${sessionId}`);
+  }, []);
+
+  const renameAiHistory = useCallback(async (sessionId: string, title: string) => {
+    const response = await apiClient.patch(`/api/ai/history/${sessionId}/rename`, { title });
+    return response.data;
+  }, []);
+
+  const getRecommendedExchangeProducts = useCallback(async (params?: { page?: number; page_size?: number }) => {
+    const response = await apiClientPy.get('/py/api/user/recommendations/exchange-products', { params });
+    return response.data;
+  }, []);
+
   const refreshUser = useCallback(async () => {
     // Note: We don't have a GET profile endpoint
     // User data is updated through specific endpoints
@@ -236,6 +303,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     getRecommendedProducts,
     getSimilarProducts,
     getProductDetail,
+    getProductForEdit,
+    updateProduct,
+    markProductSold,
+    getProductEngagement,
+    createAiSession,
+    sendAiSessionMessage,
+    sendAiVoiceCallMessage,
+    getAiHistory,
+    getAiSessionMessages,
+    deleteAiHistory,
+    renameAiHistory,
+    getRecommendedExchangeProducts,
     refreshBalance,
     refreshUser,
   };

@@ -1,6 +1,6 @@
 /**
  * Home Screen
- * Main product browsing screen with collapsing header animation
+ * Main product browsing screen with animated expandable search
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
@@ -12,8 +12,8 @@ import {
   FlatList,
   ActivityIndicator,
   Animated,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -23,10 +23,10 @@ import { spacing } from '../../src/theme/spacing';
 import { Product, MetaCategoryOption } from '../../src/types';
 import { ProductGrid } from '../../src/components/products/ProductGrid';
 import { Chip } from '../../src/components/ui/Badge';
-import { getRecommendedProducts } from '../../src/services/productService';
+import { getRecommendedProducts, searchProducts } from '../../src/services/productService';
 
-const HEADER_EXPANDED_HEIGHT = 100;
-const HEADER_COLLAPSED_HEIGHT = 60;
+const HEADER_EXPANDED_HEIGHT = 140;
+const HEADER_COLLAPSED_HEIGHT = 80;
 type HomeCategory = { id: 'all' | number; name: string };
 
 export default function HomeScreen() {
@@ -39,11 +39,15 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
-  // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
+  const searchWidth = useRef(new Animated.Value(44)).current;
+  const searchOpacity = useRef(new Animated.Value(0)).current;
+  const searchInputRef = useRef<TextInput>(null);
   
-  // Header animations - only collapse after scrolling past threshold
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 20, 80],
     outputRange: [1, 1, 0],
@@ -60,7 +64,6 @@ export default function HomeScreen() {
     extrapolate: 'clamp',
   });
 
-  // Fetch recommended products
   const fetchProducts = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
       setIsRefreshing(true);
@@ -86,7 +89,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Initial fetch
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
@@ -129,8 +131,75 @@ export default function HomeScreen() {
     router.push(`/product/${product.id}`);
   };
 
-  const handleSearchPress = () => {
-    router.push('/search');
+  const handleSearchIconPress = () => {
+    setSearchExpanded(true);
+    Animated.parallel([
+      Animated.spring(searchWidth, {
+        toValue: 300,
+        useNativeDriver: false,
+        tension: 50,
+        friction: 7,
+      }),
+      Animated.timing(searchOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      searchInputRef.current?.focus();
+    });
+  };
+
+  const handleSearchClose = () => {
+    setSearchExpanded(false);
+    setSearchQuery('');
+    Keyboard.dismiss();
+    Animated.parallel([
+      Animated.spring(searchWidth, {
+        toValue: 44,
+        useNativeDriver: false,
+        tension: 50,
+        friction: 7,
+      }),
+      Animated.timing(searchOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: false,
+      }),
+    ]).start();
+    if (searchQuery) {
+      fetchProducts();
+    }
+  };
+
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      fetchProducts();
+      return;
+    }
+
+    setIsSearching(true);
+    setError(null);
+
+    try {
+      const response = await searchProducts({
+        q: query.trim(),
+        page: 1,
+        page_size: 20,
+      });
+      setProducts(response.products);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Search failed';
+      setError(errorMessage);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [fetchProducts]);
+
+  const handleSearchSubmit = () => {
+    if (searchQuery.trim()) {
+      handleSearch(searchQuery);
+    }
   };
 
   const handleScroll = Animated.event(
@@ -145,13 +214,13 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Animated Header */}
       <Animated.View 
         style={[
           styles.header, 
           { 
             paddingTop: insets.top,
             height: headerHeight,
+            backgroundColor: colors.background,
           }
         ]}
       >
@@ -167,19 +236,35 @@ export default function HomeScreen() {
           </Text>
         </Animated.View>
         
-        {/* Search Bar - Always visible */}
-        <TouchableOpacity
-          style={[styles.searchBar, { backgroundColor: colors.surfaceSecondary }]}
-          onPress={handleSearchPress}
-        >
-          <Text style={styles.searchIcon}>🔍</Text>
-          <Text style={[styles.searchPlaceholder, { color: colors.textTertiary }]}>
-            Search products...
-          </Text>
-        </TouchableOpacity>
+        <Animated.View style={[styles.searchContainer, { width: searchWidth }]}>
+          {!searchExpanded ? (
+            <TouchableOpacity
+              style={[styles.searchIconButton, { backgroundColor: colors.surfaceSecondary }]}
+              onPress={handleSearchIconPress}
+            >
+              <Text style={[styles.searchIconText, { color: colors.text }]}>🔍</Text>
+            </TouchableOpacity>
+          ) : (
+            <Animated.View style={[styles.searchBarExpanded, { backgroundColor: colors.surfaceSecondary, opacity: searchOpacity }]}>
+              <Text style={[styles.searchIconText, { color: colors.text }]}>🔍</Text>
+              <TextInput
+                ref={searchInputRef}
+                style={[styles.searchInput, { color: colors.text }]}
+                placeholder="Search products..."
+                placeholderTextColor={colors.textTertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={handleSearchSubmit}
+                returnKeyType="search"
+              />
+              <TouchableOpacity onPress={handleSearchClose} style={styles.closeButton}>
+                <Text style={[styles.closeIcon, { color: colors.textSecondary }]}>✕</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+        </Animated.View>
       </Animated.View>
 
-      {/* Categories */}
       <View style={styles.categoriesSection}>
         <FlatList
           horizontal
@@ -198,12 +283,11 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Loading State */}
-      {isLoading ? (
+      {isLoading || isSearching ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading products...
+            {isSearching ? 'Searching...' : 'Loading products...'}
           </Text>
         </View>
       ) : error ? (
@@ -220,13 +304,12 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        /* Products Grid */
         <ProductGrid
           products={filteredProducts}
           onProductPress={handleProductPress}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
-          emptyMessage="No products available"
+          emptyMessage={searchQuery ? `No results for "${searchQuery}"` : "No products available"}
           onScroll={handleScroll}
         />
       )}
@@ -252,31 +335,50 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: spacing.md,
   },
-  searchBar: {
+  searchContainer: {
+    height: 44,
+    marginTop: spacing.sm,
+  },
+  searchIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchIconText: {
+    fontSize: 18,
+  },
+  searchBarExpanded: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     height: 44,
-    borderRadius: spacing.sm,
+    borderRadius: 22,
     paddingHorizontal: spacing.md,
   },
-  searchIcon: {
-    fontSize: 18,
+
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    marginLeft: spacing.sm,
     marginRight: spacing.sm,
   },
-  searchPlaceholder: {
-    fontSize: 16,
+  closeButton: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeIcon: {
+    fontSize: 18,
+    fontWeight: '600',
   },
   categoriesList: {
     paddingBottom: spacing.sm,
   },
   categoriesSection: {
     marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    paddingHorizontal: spacing.screenPadding,
-    marginBottom: spacing.sm,
   },
   loadingContainer: {
     flex: 1,

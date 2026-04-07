@@ -126,10 +126,10 @@ export default function ProductDetailScreen() {
   const handleMessagePress = () => {
     if (product?.seller) {
       router.push({
-        pathname: '/messages',
+        pathname: `/chat/0`,
         params: {
           receiverId: product.seller.id,
-          receiverName: product.seller.full_name,
+          receiverName: product.seller.full_name || product.seller.username,
           productId: product.id,
         },
       });

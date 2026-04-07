@@ -3,7 +3,7 @@
  * Handles all product-related API calls
  */
 
-import { apiClient, apiPyClient, handleApiError } from './api';
+import { apiClient, apiClientPy, handleApiError } from './api';
 import type { 
   Product, 
   ProductImage,
@@ -29,17 +29,13 @@ export const getRecommendedProducts = async (params?: {
   page_size: number;
   random_count: number;
 }> => {
-  try {
-    const response = await apiPyClient.get('/py/api/user/recommendations/products', { params });
-    return {
-      products: response.data.products || [],
-      page: response.data.page || 1,
-      page_size: response.data.page_size || 10,
-      random_count: response.data.random_count || 3,
-    };
-  } catch (error) {
-    throw handleApiError(error);
-  }
+  const response = await apiClientPy.get('/py/api/user/recommendations/products', { params });
+  return {
+    products: response.data.products || [],
+    page: response.data.page || 1,
+    page_size: response.data.page_size || 10,
+    random_count: response.data.random_count || 3,
+  };
 };
 
 /**
@@ -58,14 +54,14 @@ export const getProductDetail = async (productId: number): Promise<Product> => {
 };
 
 /**
- * Get similar products
+ * Get similar products (Python API)
  */
 export const getSimilarProducts = async (
   productId: number,
   params?: { page?: number; page_size?: number }
 ): Promise<{ products: Product[]; total: number }> => {
   try {
-    const response = await apiClient.get(`/api/products/${productId}/similar`, { params });
+    const response = await apiClientPy.get(`/py/api/user/products/${productId}/similar`, { params });
     return {
       products: response.data.products || [],
       total: response.data.total || 0,
@@ -88,7 +84,7 @@ export const getNearbyProducts = async (params: {
   location_q?: string;
 }): Promise<{ products: Product[]; total: number }> => {
   try {
-    const response = await apiClient.get('/api/products/nearby', { params });
+    const response = await apiClient.get('/api/user/nearby', { params });
     return {
       products: response.data.products || [],
       total: response.data.total || 0,
@@ -103,8 +99,8 @@ export const getNearbyProducts = async (params: {
  */
 export const createProduct = async (data: CreateProductInput): Promise<Product> => {
   try {
-    const response = await apiClient.post('/api/products', data);
-    return response.data;
+    const response = await apiClient.post('/api/user/products', data);
+    return response.data.product;
   } catch (error) {
     throw handleApiError(error);
   }
@@ -115,8 +111,8 @@ export const createProduct = async (data: CreateProductInput): Promise<Product> 
  */
 export const createExchangeProduct = async (data: CreateProductInput): Promise<Product> => {
   try {
-    const response = await apiClient.post('/api/products/exchange', data);
-    return response.data;
+    const response = await apiClient.post('/api/exchange-products', data);
+    return response.data.product;
   } catch (error) {
     throw handleApiError(error);
   }
@@ -127,8 +123,8 @@ export const createExchangeProduct = async (data: CreateProductInput): Promise<P
  */
 export const updateProduct = async (productId: number, data: UpdateProductInput): Promise<Product> => {
   try {
-    const response = await apiClient.put(`/api/products/${productId}`, data);
-    return response.data;
+    const response = await apiClient.patch(`/api/user/products/${productId}`, data);
+    return response.data.product;
   } catch (error) {
     throw handleApiError(error);
   }
@@ -139,8 +135,8 @@ export const updateProduct = async (productId: number, data: UpdateProductInput)
  */
 export const getProductForEdit = async (productId: number): Promise<Product> => {
   try {
-    const response = await apiClient.get(`/api/products/${productId}/edit`);
-    return response.data;
+    const response = await apiClient.get(`/api/user/products/${productId}/edit`);
+    return response.data.product;
   } catch (error) {
     throw handleApiError(error);
   }
@@ -151,7 +147,7 @@ export const getProductForEdit = async (productId: number): Promise<Product> => 
  */
 export const markProductSold = async (productId: number): Promise<void> => {
   try {
-    await apiClient.post(`/api/products/${productId}/sold`);
+    await apiClient.patch(`/api/user/products/${productId}/mark-sold`);
   } catch (error) {
     throw handleApiError(error);
   }
@@ -204,7 +200,7 @@ export const updateProductImages = async (
  */
 export const getProductEngagement = async (productId: number): Promise<ProductEngagement> => {
   try {
-    const response = await apiClient.get(`/api/products/${productId}/engagement`);
+    const response = await apiClient.get(`/api/user/products/${productId}/engagement`);
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -220,7 +216,7 @@ export const getMyProducts = async (params?: {
   status?: string;
 }): Promise<{ products: Product[]; total: number }> => {
   try {
-    const response = await apiClient.get('/api/user/products', { params });
+    const response = await apiClient.get('/api/user/products/cards', { params });
     return {
       products: response.data.products || [],
       total: response.data.total || 0,
@@ -242,7 +238,7 @@ export const getSellerProfile = async (
   total: number;
 }> => {
   try {
-    const response = await apiClient.get(`/api/sellers/${sellerId}`, { params });
+    const response = await apiClient.get(`/api/user/sellers/${sellerId}`, { params });
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -257,7 +253,7 @@ export const getProductSearchSuggestions = async (params: {
   suggestions_limit?: number;
 }): Promise<{ suggestions: string[] }> => {
   try {
-    const response = await apiClient.get('/api/products/search/suggestions', { params });
+    const response = await apiClient.get('/api/user/search/products/suggestions', { params });
     return {
       suggestions: response.data.suggestions || [],
     };
@@ -275,7 +271,7 @@ export const searchProducts = async (params: {
   page_size?: number;
 }): Promise<{ products: Product[]; total: number }> => {
   try {
-    const response = await apiClient.get('/api/products/search', { params });
+    const response = await apiClient.get('/api/user/search/products', { params });
     return {
       products: response.data.products || [],
       total: response.data.total || 0,
@@ -302,7 +298,7 @@ export const visualSearchProducts = async (imageUri: string, topK?: number): Pro
     } as unknown as Blob);
 
     const response = await apiClient.post<{ products: Product[] }>(
-      '/api/products/search/visual',
+      '/api/user/search/visual',
       formData,
       {
         headers: {
@@ -345,9 +341,14 @@ export const getExchangeProducts = async (params?: {
  */
 export const createTag = async (name: string): Promise<{ id: number; name: string }> => {
   try {
-    const response = await apiClient.post('/api/tags', { name });
-    return response.data;
+    const response = await apiClient.post('/api/user/tags', { name });
+    return response.data.tag;
   } catch (error) {
     throw handleApiError(error);
   }
 };
+
+/**
+ * Get product by ID (alias for getProductDetail)
+ */
+export const getProductById = getProductDetail;

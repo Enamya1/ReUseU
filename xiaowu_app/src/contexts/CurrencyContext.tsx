@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem } from '../utils/storage';
 import { appConfig } from '../config';
 
 // Currency exchange rates (base: CNY)
@@ -55,7 +55,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
   useEffect(() => {
     const loadCurrency = async () => {
       try {
-        const saved = await AsyncStorage.getItem(SELECTED_CURRENCY_KEY);
+        const saved = await getItem(SELECTED_CURRENCY_KEY);
         if (saved && appConfig.supportedCurrencies.includes(saved)) {
           setSelectedCurrencyState(saved);
         }
@@ -69,7 +69,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
   const setSelectedCurrency = useCallback(async (currency: string) => {
     setSelectedCurrencyState(currency);
     try {
-      await AsyncStorage.setItem(SELECTED_CURRENCY_KEY, currency);
+      await setItem(SELECTED_CURRENCY_KEY, currency);
     } catch {
       // Ignore storage errors
     }

@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem } from '@/src/utils/storage';
 
 const THEME_KEY = 'app_theme';
 
@@ -166,7 +166,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   useEffect(() => {
     const loadTheme = async () => {
       try {
-        const saved = await AsyncStorage.getItem(THEME_KEY) as ThemeMode | null;
+        const saved = await getItem(THEME_KEY) as ThemeMode | null;
         if (saved) {
           setThemeModeState(saved);
         }
@@ -180,7 +180,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const setThemeMode = useCallback(async (mode: ThemeMode) => {
     setThemeModeState(mode);
     try {
-      await AsyncStorage.setItem(THEME_KEY, mode);
+      await setItem(THEME_KEY, mode);
     } catch {
       // Ignore storage errors
     }

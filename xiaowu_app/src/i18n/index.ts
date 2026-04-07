@@ -5,7 +5,7 @@
 
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem } from '../utils/storage';
 
 import en from './locales/en.json';
 import zh from './locales/zh.json';
@@ -19,12 +19,11 @@ const languageDetector = {
   async: true,
   detect: async (callback: (lng: string) => void) => {
     try {
-      const savedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
+      const savedLanguage = await getItem(LANGUAGE_KEY);
       if (savedLanguage) {
         callback(savedLanguage);
         return;
       }
-      // Default to English
       callback('en');
     } catch {
       callback('en');
@@ -33,7 +32,7 @@ const languageDetector = {
   init: () => {},
   cacheUserLanguage: async (lng: string) => {
     try {
-      await AsyncStorage.setItem(LANGUAGE_KEY, lng);
+      await setItem(LANGUAGE_KEY, lng);
     } catch {
       // Ignore storage errors
     }
@@ -64,7 +63,7 @@ export default i18n;
 // Helper to change language
 export const changeLanguage = async (lng: string) => {
   await i18n.changeLanguage(lng);
-  await AsyncStorage.setItem(LANGUAGE_KEY, lng);
+  await setItem(LANGUAGE_KEY, lng);
 };
 
 // Get current language

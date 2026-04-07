@@ -1,464 +1,160 @@
-/**
- * Onboarding Screen
- * Multi-step form for completing user profile after signup
- * Matches web platform's OnboardingPage.tsx
- */
-
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { router } from 'expo-router';
-import { useTheme } from '../../src/contexts/ThemeContext';
-import { useAuth } from '../../src/contexts/AuthContext';
-import { spacing } from '../../src/theme/spacing';
-import { FormTextInput } from '../../src/components/forms/TextInput';
-import { Select } from '../../src/components/forms/Select';
-import { Button } from '../../src/components/ui/Button';
-import { useToast } from '../../src/hooks/useToast';
-import type { University, Dormitory } from '../../src/types';
-
-const TOTAL_STEPS = 3;
-
-const genderOptions = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'other', label: 'Other' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-];
-
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'zh', label: '中文' },
-  { value: 'ar', label: 'العربية' },
-];
+import { Picker } from '@react-native-picker/picker';
 
 export default function OnboardingScreen() {
-  const { colors } = useTheme();
-  const { user, updateProfile, getUniversityOptions, updateUniversitySettings } = useAuth();
-  const insets = useSafeAreaInsets();
-  const { toast } = useToast();
+  const { getUniversityOptions, updateUniversitySettings, user } = useAuth();
+  const [universities, setUniversities] = useState<any[]>([]);
+  const [dormitories, setDormitories] = useState<any[]>([]);
+  const [selectedUniversity, setSelectedUniversity] = useState<number | null>(null);
+  const [selectedDormitory, setSelectedDormitory] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(true);
 
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Form data
-  const [formData, setFormData] = useState({
-    full_name: user?.full_name || '',
-    phone_number: user?.phone_number || '',
-    student_id: user?.student_id || '',
-    date_of_birth: user?.date_of_birth || '',
-    gender: user?.gender || '',
-    language: user?.language || 'en',
-  });
-
-  // University/Dormitory
-  const [universities, setUniversities] = useState<University[]>([]);
-  const [dormitories, setDormitories] = useState<Dormitory[]>([]);
-  const [selectedUniversityId, setSelectedUniversityId] = useState<number | undefined>();
-  const [selectedDormitoryId, setSelectedDormitoryId] = useState<number | undefined>();
-
-  // Load university options
-  useEffect(() => {
-    const loadOptions = async () => {
-      try {
-        setIsLoading(true);
-        const data = await getUniversityOptions();
-        setUniversities(data.universities || []);
-        setDormitories(data.dormitories || []);
-        
-        if (data.current?.university_id) {
-          setSelectedUniversityId(data.current.university_id);
-        }
-        if (data.current?.dormitory_id) {
-          setSelectedDormitoryId(data.current.dormitory_id);
-        }
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load options. Please try again.',
-          type: 'error',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+  React.useEffect(() => {
     loadOptions();
   }, []);
 
-  // Load dormitories when university changes
-  const handleUniversityChange = async (universityId: number) => {
-    setSelectedUniversityId(universityId);
-    setSelectedDormitoryId(undefined);
-
+  const loadOptions = async () => {
     try {
-      const data = await getUniversityOptions(universityId);
-      setDormitories(data.dormitories || []);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load dormitories.',
-        type: 'error',
-      });
-    }
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const canAdvanceFromStep = (step: number): boolean => {
-    if (step === 0) {
-      return !!(formData.full_name && formData.phone_number && formData.student_id);
-    }
-    if (step === 1) {
-      return selectedDormitoryId !== undefined;
-    }
-    if (step === 2) {
-      return !!(formData.date_of_birth && formData.gender && formData.language);
-    }
-    return false;
-  };
-
-  const handleNextStep = () => {
-    if (!canAdvanceFromStep(currentStep)) {
-      toast({
-        title: 'Missing Fields',
-        description: 'Please fill in all required fields.',
-        type: 'warning',
-      });
-      return;
-    }
-    setCurrentStep(prev => Math.min(prev + 1, TOTAL_STEPS - 1));
-  };
-
-  const handlePreviousStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 0));
-  };
-
-  const handleSubmit = async () => {
-    if (!canAdvanceFromStep(currentStep) || !selectedDormitoryId) {
-      toast({
-        title: 'Missing Fields',
-        description: 'Please fill in all required fields.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      // Update profile
-      const success = await updateProfile({
-        full_name: formData.full_name,
-        phone_number: formData.phone_number,
-        student_id: formData.student_id,
-        date_of_birth: formData.date_of_birth,
-        gender: formData.gender,
-        language: formData.language,
-      });
-
-      if (!success) {
-        toast({
-          title: 'Error',
-          description: 'Failed to update profile.',
-          type: 'error',
-        });
-        return;
+      setLoadingOptions(true);
+      const response = await getUniversityOptions();
+      if (response.universities) {
+        setUniversities(response.universities);
       }
-
-      // Update university settings
-      await updateUniversitySettings({
-        university_id: selectedUniversityId!,
-        dormitory_id: selectedDormitoryId,
-      });
-
-      toast({
-        title: 'Profile Complete!',
-        description: 'Welcome to Campus Trade!',
-        type: 'success',
-      });
-
-      // Navigation is handled by AuthGuard
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save profile.',
-        type: 'error',
-      });
+      if (response.dormitories) {
+        setDormitories(response.dormitories);
+      }
+    } catch (error) {
+      console.error('Error loading options:', error);
     } finally {
-      setIsSaving(false);
+      setLoadingOptions(false);
     }
   };
 
-  const isLastStep = currentStep === TOTAL_STEPS - 1;
+  const loadDormitories = async (universityId: number) => {
+    try {
+      const response = await getUniversityOptions(universityId);
+      if (response.dormitories) {
+        setDormitories(response.dormitories);
+      }
+    } catch (error) {
+      console.error('Error loading dormitories:', error);
+    }
+  };
 
-  const universityOptions = useMemo(() => 
-    universities.map(u => ({ value: u.id, label: u.name })),
-    [universities]
-  );
+  const handleUniversityChange = (universityId: number) => {
+    setSelectedUniversity(universityId);
+    setSelectedDormitory(null);
+    loadDormitories(universityId);
+  };
 
-  const dormitoryOptions = useMemo(() => 
-    dormitories.map(d => ({ value: d.id, label: d.dormitory_name })),
-    [dormitories]
-  );
+  const handleComplete = async () => {
+    if (!selectedUniversity || !selectedDormitory) {
+      Alert.alert('Required', 'Please select both university and dormitory');
+      return;
+    }
 
-  if (isLoading) {
+    try {
+      setLoading(true);
+      await updateUniversitySettings({
+        university_id: selectedUniversity,
+        dormitory_id: selectedDormitory,
+      });
+      Alert.alert('Success', 'Profile setup completed!', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)') }
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loadingOptions) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#0066FF" />
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl },
-        ]}
-        keyboardShouldPersistTaps="handled"
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Welcome to Suki!</Text>
+        <Text style={styles.subtitle}>Let's set up your profile</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.label}>Select Your University</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={selectedUniversity}
+            onValueChange={handleUniversityChange}
+            style={styles.picker}
+          >
+            <Picker.Item label="Choose a university..." value={null} />
+            {universities.map(uni => (
+              <Picker.Item key={uni.id} label={uni.name} value={uni.id} />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      {selectedUniversity && (
+        <View style={styles.section}>
+          <Text style={styles.label}>Select Your Dormitory</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={selectedDormitory}
+              onValueChange={setSelectedDormitory}
+              style={styles.picker}
+            >
+              <Picker.Item label="Choose a dormitory..." value={null} />
+              {dormitories.map(dorm => (
+                <Picker.Item key={dorm.id} label={dorm.dormitory_name} value={dorm.id} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      )}
+
+      <TouchableOpacity 
+        style={[styles.button, (!selectedUniversity || !selectedDormitory || loading) && styles.buttonDisabled]}
+        onPress={handleComplete}
+        disabled={!selectedUniversity || !selectedDormitory || loading}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            Complete Your Profile
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Step {currentStep + 1} of {TOTAL_STEPS}
-          </Text>
-        </View>
-
-        {/* Progress Dots */}
-        <View style={styles.progressContainer}>
-          {Array.from({ length: TOTAL_STEPS }).map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.progressDot,
-                {
-                  backgroundColor: index === currentStep ? colors.primary : colors.border,
-                },
-              ]}
-            />
-          ))}
-        </View>
-
-        {/* Step Content */}
-        <View style={styles.formContainer}>
-          {/* Step 1: Personal Info */}
-          {currentStep === 0 && (
-            <View style={styles.stepContainer}>
-              <Text style={[styles.stepTitle, { color: colors.text }]}>
-                Personal Information
-              </Text>
-              <Text style={[styles.stepDescription, { color: colors.textSecondary }]}>
-                Tell us a bit about yourself
-              </Text>
-
-              <FormTextInput
-                label="Full Name"
-                placeholder="Enter your full name"
-                value={formData.full_name}
-                onChangeText={(value) => handleChange('full_name', value)}
-                required
-              />
-
-              <FormTextInput
-                label="Phone Number"
-                placeholder="Enter your phone number"
-                value={formData.phone_number}
-                onChangeText={(value) => handleChange('phone_number', value)}
-                keyboardType="phone-pad"
-                required
-              />
-
-              <FormTextInput
-                label="Student ID"
-                placeholder="Enter your student ID"
-                value={formData.student_id}
-                onChangeText={(value) => handleChange('student_id', value)}
-                required
-              />
-            </View>
-          )}
-
-          {/* Step 2: Campus Info */}
-          {currentStep === 1 && (
-            <View style={styles.stepContainer}>
-              <Text style={[styles.stepTitle, { color: colors.text }]}>
-                Campus Information
-              </Text>
-              <Text style={[styles.stepDescription, { color: colors.textSecondary }]}>
-                Where are you located?
-              </Text>
-
-              <Select
-                label="University"
-                options={universityOptions}
-                value={selectedUniversityId}
-                onChange={(value) => handleUniversityChange(value as number)}
-                placeholder="Select your university"
-                required
-              />
-
-              <Select
-                label="Dormitory"
-                options={dormitoryOptions}
-                value={selectedDormitoryId}
-                onChange={(value) => setSelectedDormitoryId(value as number)}
-                placeholder="Select your dormitory"
-                required
-              />
-            </View>
-          )}
-
-          {/* Step 3: Preferences */}
-          {currentStep === 2 && (
-            <View style={styles.stepContainer}>
-              <Text style={[styles.stepTitle, { color: colors.text }]}>
-                Preferences
-              </Text>
-              <Text style={[styles.stepDescription, { color: colors.textSecondary }]}>
-                Set your profile preferences
-              </Text>
-
-              <FormTextInput
-                label="Date of Birth"
-                placeholder="YYYY-MM-DD"
-                value={formData.date_of_birth}
-                onChangeText={(value) => handleChange('date_of_birth', value)}
-                required
-              />
-
-              <Select
-                label="Gender"
-                options={genderOptions}
-                value={formData.gender}
-                onChange={(value) => handleChange('gender', value as string)}
-                placeholder="Select gender"
-                required
-              />
-
-              <Select
-                label="Language"
-                options={languageOptions}
-                value={formData.language}
-                onChange={(value) => handleChange('language', value as string)}
-                placeholder="Select language"
-                required
-              />
-            </View>
-          )}
-        </View>
-
-        {/* Navigation Buttons */}
-        <View style={styles.buttonContainer}>
-          {currentStep > 0 && (
-            <Button
-              title="Back"
-              onPress={handlePreviousStep}
-              variant="outline"
-              style={styles.button}
-            />
-          )}
-          
-          {isLastStep ? (
-            <Button
-              title="Complete Profile"
-              onPress={handleSubmit}
-              loading={isSaving}
-              style={styles.button}
-            />
-          ) : (
-            <Button
-              title="Next"
-              onPress={handleNextStep}
-              style={styles.button}
-            />
-          )}
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        {loading ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <Text style={styles.buttonText}>Complete Setup</Text>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content: { padding: 20 },
+  header: { alignItems: 'center', marginTop: 40, marginBottom: 40 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#000', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: '#666' },
+  section: { marginBottom: 24 },
+  label: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 8 },
+  pickerContainer: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E0E0E0' },
+  picker: { height: 50 },
+  button: { 
+    backgroundColor: '#0066FF', 
+    padding: 16, 
+    borderRadius: 8, 
     alignItems: 'center',
+    marginTop: 20,
   },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.screenPadding,
-  },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: spacing.xl,
-  },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-  },
-  formContainer: {
-    flex: 1,
-  },
-  stepContainer: {
-    marginBottom: spacing.xl,
-  },
-  stepTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  stepDescription: {
-    fontSize: 14,
-    marginBottom: spacing.lg,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  button: {
-    flex: 1,
-    maxWidth: 200,
-  },
+  buttonDisabled: { backgroundColor: '#CCC' },
+  buttonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
 });
