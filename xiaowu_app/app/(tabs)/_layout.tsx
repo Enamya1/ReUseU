@@ -90,6 +90,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="ai"
+        options={{
+          title: 'AI',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: IS_SMALL_DEVICE ? 20 : 24, color }}>✨</Text>
+          ),
+        }}
+      />
     </Tabs>
   );
 }

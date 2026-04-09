@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { normalizeImageUrl } from '@/src/config/env';
-import { router, useLocalSearchParams } from 'expo-router';
 
 type Message = {
   id: string;
@@ -19,62 +20,37 @@ type Message = {
   }>;
 };
 
-export default function AIAssistantScreen() {
-  const { createAiSession, sendAiSessionMessage, getAiHistory } = useAuth();
-  const { session_id } = useLocalSearchParams<{ session_id?: string }>();
+export default function AIChatScreen() {
+  const { session_id } = useLocalSearchParams<{ session_id: string }>();
+  const { sendAiSessionMessage, getAiSessionMessages } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     if (session_id) {
-      loadExistingSession(session_id);
-    } else {
-      initSession();
+      loadMessages();
     }
   }, [session_id]);
 
-  const loadExistingSession = async (sid: string) => {
+  const loadMessages = async () => {
     try {
       setLoading(true);
-      setSessionId(sid);
-      const response = await getAiHistory({ page: 1, page_size: 1 });
-      const session = response.history?.find((s: any) => s.session_id === sid);
-      if (session?.messages) {
-        const loadedMessages: Message[] = session.messages.map((m: any, idx: number) => ({
-          id: `${m.timestamp || idx}`,
-          role: m.role,
-          content: m.content,
-          timestamp: new Date(m.timestamp || Date.now()),
-          products: m.products ? m.products.map((p: any) => ({
-            id: p.id,
-            title: p.title || '',
-            price: p.price || 0,
-            currency: p.currency || 'CNY',
-            image: normalizeImageUrl(p.image_thumbnail_url || p.image_url || p.image) || '',
-          })) : undefined,
+      const response = await getAiSessionMessages(session_id);
+      if (response.messages) {
+        const formatted = response.messages.map((m: any) => ({
+          id: m.id?.toString() || Math.random().toString(),
+          role: m.message_type === 'user' ? 'user' : 'assistant',
+          content: m.content || '',
+          timestamp: new Date(m.created_at || Date.now()),
+          products: m.products || undefined,
         }));
-        setMessages(loadedMessages);
+        setMessages(formatted);
       }
     } catch (error) {
-      console.error('Error loading session:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const initSession = async () => {
-    try {
-      setLoading(true);
-      const response = await createAiSession();
-      if (response.session_id) {
-        setSessionId(response.session_id);
-      }
-    } catch (error) {
-      console.error('Error initializing session:', error);
+      console.error('Error loading messages:', error);
     } finally {
       setLoading(false);
     }
@@ -96,17 +72,8 @@ export default function AIAssistantScreen() {
     setSending(true);
 
     try {
-      let currentSessionId = sessionId;
-      if (!currentSessionId) {
-        const response = await createAiSession();
-        currentSessionId = response.session_id || null;
-        setSessionId(currentSessionId);
-      }
-
-      if (!currentSessionId) throw new Error('Failed to create session');
-
       const response = await sendAiSessionMessage({
-        session_id: currentSessionId,
+        session_id,
         message: messageText,
         message_type: 'text',
       });
@@ -128,19 +95,14 @@ export default function AIAssistantScreen() {
       setMessages(prev => [...prev, assistantMessage]);
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (error: any) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Service unavailable',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      Alert.alert('Error', error.message || 'Failed to send message');
+      setMessages(prev => prev.filter(m => m.id !== userMessage.id));
     } finally {
       setSending(false);
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => (
+  const renderMessage = useCallback(({ item }: { item: Message }) => (
     <View style={[styles.messageRow, item.role === 'user' ? styles.userRow : styles.assistantRow]}>
       <View style={[styles.bubble, item.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
         <Text style={[styles.messageText, item.role === 'user' ? styles.userText : styles.assistantText]}>
@@ -165,12 +127,12 @@ export default function AIAssistantScreen() {
         )}
       </View>
     </View>
-  );
+  ), []);
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" color="#0066FF" />
       </View>
     );
   }
@@ -179,16 +141,14 @@ export default function AIAssistantScreen() {
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={100}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerText}>AI Chat</Text>
-        <TouchableOpacity onPress={() => router.push('/chat-ai')} style={styles.historyButton}>
-          <Text style={styles.historyIcon}>☰</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>AI Chat</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <FlatList
@@ -200,7 +160,8 @@ export default function AIAssistantScreen() {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>Ask me anything</Text>
+            <Ionicons name="chatbubbles-outline" size={64} color="#CCC" />
+            <Text style={styles.emptyText}>Start a conversation</Text>
           </View>
         }
       />
@@ -211,9 +172,8 @@ export default function AIAssistantScreen() {
           value={input}
           onChangeText={setInput}
           placeholder="Type a message..."
-          placeholderTextColor="#999"
           multiline
-          maxLength={1000}
+          maxLength={5000}
         />
         <TouchableOpacity 
           style={[styles.sendButton, (!input.trim() || sending) && styles.sendButtonDisabled]} 
@@ -223,7 +183,7 @@ export default function AIAssistantScreen() {
           {sending ? (
             <ActivityIndicator size="small" color="#FFF" />
           ) : (
-            <Text style={styles.sendIcon}>→</Text>
+            <Ionicons name="send" size={20} color="#FFF" />
           )}
         </TouchableOpacity>
       </View>
@@ -232,35 +192,31 @@ export default function AIAssistantScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#CCCCCC' },
-  backButton: { padding: 8 },
-  backIcon: { fontSize: 24, color: '#000' },
-  headerText: { flex: 1, fontSize: 18, fontWeight: '600', color: '#000', textAlign: 'center' },
-  historyButton: { padding: 8 },
-  historyIcon: { fontSize: 24, color: '#000' },
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
+  backBtn: { padding: 8 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', textAlign: 'center' },
   messageList: { padding: 16, flexGrow: 1 },
   messageRow: { marginBottom: 16 },
   userRow: { alignItems: 'flex-end' },
   assistantRow: { alignItems: 'flex-start' },
   bubble: { maxWidth: '75%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20 },
-  userBubble: { backgroundColor: '#000' },
-  assistantBubble: { backgroundColor: '#F5F5F5' },
+  userBubble: { backgroundColor: '#0066FF' },
+  assistantBubble: { backgroundColor: '#FFF', elevation: 1 },
   messageText: { fontSize: 15, lineHeight: 20 },
   userText: { color: '#FFF' },
   assistantText: { color: '#000' },
   productsContainer: { marginTop: 12, gap: 8 },
-  productCard: { flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 8, padding: 8, gap: 8, borderWidth: 1, borderColor: '#CCCCCC' },
+  productCard: { flexDirection: 'row', backgroundColor: '#F5F5F5', borderRadius: 8, padding: 8, gap: 8 },
   productImage: { width: 60, height: 60, borderRadius: 4 },
   productInfo: { flex: 1, justifyContent: 'center' },
-  productTitle: { fontSize: 13, fontWeight: '600', color: '#000', marginBottom: 4 },
-  productPrice: { fontSize: 12, color: '#333', fontWeight: '600' },
-  inputContainer: { flexDirection: 'row', padding: 12, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#CCCCCC', alignItems: 'center' },
-  input: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, maxHeight: 100, fontSize: 15, color: '#000' },
-  sendButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  sendButtonDisabled: { backgroundColor: '#CCCCCC' },
-  sendIcon: { fontSize: 20, color: '#FFF' },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
-  emptyText: { fontSize: 16, color: '#999' },
+  productTitle: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  productPrice: { fontSize: 12, color: '#0066FF', fontWeight: '600' },
+  inputContainer: { flexDirection: 'row', padding: 12, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E0E0E0', alignItems: 'center' },
+  input: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, maxHeight: 100, fontSize: 15 },
+  sendButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0066FF', justifyContent: 'center', alignItems: 'center' },
+  sendButtonDisabled: { backgroundColor: '#CCC' },
+  empty: { alignItems: 'center', paddingTop: 100 },
+  emptyText: { marginTop: 16, fontSize: 16, color: '#999' },
 });

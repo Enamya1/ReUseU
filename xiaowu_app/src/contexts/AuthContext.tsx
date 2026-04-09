@@ -255,7 +255,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const getAiHistory = useCallback(async (params?: { page?: number; page_size?: number; include_messages?: boolean }) => {
     const response = await apiClient.get('/api/ai/history', { params });
-    return response.data;
+    return {
+      history: response.data.history || [],
+      total: response.data.total || 0,
+      page: response.data.page || 1,
+      page_size: response.data.page_size || 20,
+      total_pages: response.data.total_pages || 1,
+    };
   }, []);
 
   const getAiSessionMessages = useCallback(async (sessionId: string) => {

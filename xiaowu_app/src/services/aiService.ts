@@ -48,9 +48,9 @@ export const getAiHistory = async (params?: {
   include_messages?: boolean;
 }): Promise<{ sessions: AiSession[]; total: number }> => {
   try {
-    const response = await apiClient.get('/api/ai/sessions', { params });
+    const response = await apiClient.get('/api/ai/history', { params });
     return {
-      sessions: response.data.sessions || [],
+      sessions: response.data.history || [],
       total: response.data.total || 0,
     };
   } catch (error) {
