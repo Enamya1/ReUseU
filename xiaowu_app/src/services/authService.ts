@@ -93,7 +93,7 @@ export const updateUniversitySettings = async (data: {
   university_id: number; 
   dormitory_id: number 
 }): Promise<void> => {
-  await apiClient.put('/api/user/settings/university', data);
+  await apiClient.patch('/api/user/settings/university', data);
 };
 
 /**
@@ -110,7 +110,7 @@ export const getMetaOptions = async (): Promise<MetaOptionsResponse> => {
 export const getDormitoriesByUniversity = async (): Promise<{
   dormitories: Dormitory[];
 }> => {
-  const response = await apiClient.get('/api/user/dormitories');
+  const response = await apiClient.get('/api/user/meta/dormitories/by-university');
   return response.data;
 };
 

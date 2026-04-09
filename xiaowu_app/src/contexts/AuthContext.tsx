@@ -50,6 +50,7 @@ interface AuthContextType {
   updateProduct: (productId: number, data: any) => Promise<Product>;
   markProductSold: (productId: number) => Promise<void>;
   getProductEngagement: (productId: number) => Promise<any>;
+  createTag: (data: { name: string }) => Promise<{ message?: string; tag: { id: number; name: string } }>;
   createAiSession: (data?: { title?: string | null }) => Promise<any>;
   sendAiSessionMessage: (data: { session_id: string; message: string; message_type?: 'text' | 'voice'; audio_duration_seconds?: number }) => Promise<any>;
   sendAiVoiceCallMessage: (data: { session_id: string; message: string; audio_duration_seconds?: number }) => Promise<any>;
@@ -238,6 +239,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return productService.getProductEngagement(productId);
   }, []);
 
+  const createTag = useCallback(async (data: { name: string }) => {
+    const tag = await productService.createTag(data.name);
+    return { message: 'Tag created successfully', tag };
+  }, []);
+
   const createAiSession = useCallback(async (data?: { title?: string | null }) => {
     const response = await apiClient.post('/api/ai/sessions', data || {});
     return response.data;
@@ -313,6 +319,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateProduct,
     markProductSold,
     getProductEngagement,
+    createTag,
     createAiSession,
     sendAiSessionMessage,
     sendAiVoiceCallMessage,
