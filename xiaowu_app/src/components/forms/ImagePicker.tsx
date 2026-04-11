@@ -12,6 +12,9 @@ import {
   Image,
   ScrollView,
   ViewStyle,
+  ActionSheetIOS,
+  Platform,
+  Alert,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -38,6 +41,37 @@ export const FormImagePicker: React.FC<ImagePickerProps> = ({
 }) => {
   const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
+
+  const showImageOptions = () => {
+    if (images.length >= maxImages || disabled) return;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Take Photo', 'Choose from Gallery'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            takePhoto();
+          } else if (buttonIndex === 2) {
+            pickImage();
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        'Add Photo',
+        'Choose an option',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Take Photo', onPress: takePhoto },
+          { text: 'Choose from Gallery', onPress: pickImage },
+        ],
+        { cancelable: true }
+      );
+    }
+  };
 
   const pickImage = async () => {
     if (images.length >= maxImages || disabled) return;
@@ -131,7 +165,7 @@ export const FormImagePicker: React.FC<ImagePickerProps> = ({
               },
               disabled && { opacity: 0.5 },
             ]}
-            onPress={pickImage}
+            onPress={showImageOptions}
             disabled={disabled || isLoading}
           >
             <Text style={styles.addIcon}>+</Text>
@@ -141,19 +175,6 @@ export const FormImagePicker: React.FC<ImagePickerProps> = ({
           </TouchableOpacity>
         )}
       </ScrollView>
-
-      {images.length < maxImages && (
-        <TouchableOpacity
-          style={[styles.cameraButton, { borderColor: colors.border }]}
-          onPress={takePhoto}
-          disabled={disabled || isLoading}
-        >
-          <Text style={styles.cameraIcon}>📷</Text>
-          <Text style={[styles.cameraText, { color: colors.text }]}>
-            Take Photo
-          </Text>
-        </TouchableOpacity>
-      )}
 
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
         {images.length} / {maxImages} images

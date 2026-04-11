@@ -3,12 +3,14 @@
  * Bottom tab navigation for main app sections
  */
 
-import React, { useEffect, useRef } from 'react';
-import { Text, Dimensions, View, Animated, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Text, Dimensions, View, Animated, StyleSheet, Image, TouchableOpacity, GestureResponderEvent } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { usePathname } from 'expo-router';
+import { SellDropdown } from '../../src/components/SellDropdown';
+import * as Haptics from 'expo-haptics';
 
 // Import custom icons
 const icons = {
@@ -65,39 +67,65 @@ function TabBarIndicator() {
 export default function TabLayout() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const [showSellDropdown, setShowSellDropdown] = useState(false);
+  const tabBarHeight = 64 + insets.bottom;
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSellPressIn = () => {
+    longPressTimer.current = setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setShowSellDropdown(true);
+    }, 300);
+  };
+
+  const handleSellPressOut = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+    };
+  }, []);
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.text,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 64 + insets.bottom,
-          paddingBottom: insets.bottom + 8,
-          paddingTop: 6,
-          elevation: 0,
-          shadowColor: 'transparent',
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '450',
-          marginTop: 4,
-          letterSpacing: -0.01,
-        },
-        tabBarItemStyle: {
-          paddingVertical: 6,
-        },
-        tabBarBackground: () => (
-          <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <TabBarIndicator />
-          </View>
-        ),
-      }}
-    >
+    <>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colors.text,
+          tabBarInactiveTintColor: colors.textSecondary,
+          tabBarStyle: {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            borderTopWidth: 1,
+            height: tabBarHeight,
+            paddingBottom: insets.bottom + 8,
+            paddingTop: 6,
+            elevation: 0,
+            shadowColor: 'transparent',
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '450',
+            marginTop: 4,
+            letterSpacing: -0.01,
+          },
+          tabBarItemStyle: {
+            paddingVertical: 6,
+          },
+          tabBarBackground: () => (
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+              <TabBarIndicator />
+            </View>
+          ),
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
@@ -135,6 +163,16 @@ export default function TabLayout() {
               resizeMode="contain"
             />
           ),
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              {...props}
+              onPressIn={handleSellPressIn}
+              onPressOut={handleSellPressOut}
+              onPress={(e) => {
+                e.preventDefault();
+              }}
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -170,6 +208,13 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    
+    <SellDropdown
+      visible={showSellDropdown}
+      onClose={() => setShowSellDropdown(false)}
+      tabBarHeight={tabBarHeight}
+    />
+    </>
   );
 }
 

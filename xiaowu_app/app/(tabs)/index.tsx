@@ -14,6 +14,7 @@ import {
   Animated,
   TextInput,
   Keyboard,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -26,7 +27,7 @@ import { ExchangeProductGrid } from '../../src/components/products/ExchangeProdu
 import { Chip } from '../../src/components/ui/Badge';
 import { getRecommendedProducts, searchProducts } from '../../src/services/productService';
 
-const HEADER_EXPANDED_HEIGHT = 140;
+const HEADER_EXPANDED_HEIGHT = 100;
 const HEADER_COLLAPSED_HEIGHT = 80;
 type HomeCategory = { id: 'all' | number; name: string };
 
@@ -40,26 +41,14 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [searchExpanded, setSearchExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
-  const searchWidth = useRef(new Animated.Value(44)).current;
-  const searchOpacity = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
   
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 20, 80],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
-  });
-  const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, 20, 80],
-    outputRange: [0, 0, -20],
-    extrapolate: 'clamp',
-  });
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 80],
     outputRange: [HEADER_EXPANDED_HEIGHT, HEADER_COLLAPSED_HEIGHT],
@@ -133,44 +122,21 @@ export default function HomeScreen() {
     router.push(`/product/${product.id}`);
   };
 
-  const handleSearchIconPress = () => {
-    setSearchExpanded(true);
-    Animated.parallel([
-      Animated.spring(searchWidth, {
-        toValue: 300,
-        useNativeDriver: false,
-        tension: 50,
-        friction: 7,
-      }),
-      Animated.timing(searchOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: false,
-      }),
-    ]).start(() => {
-      searchInputRef.current?.focus();
-    });
+  const handleImageSearch = () => {
+    // TODO: Implement image search functionality
+    console.log('Image search pressed');
   };
 
-  const handleSearchClose = () => {
-    setSearchExpanded(false);
-    setSearchQuery('');
-    Keyboard.dismiss();
-    Animated.parallel([
-      Animated.spring(searchWidth, {
-        toValue: 44,
-        useNativeDriver: false,
-        tension: 50,
-        friction: 7,
-      }),
-      Animated.timing(searchOpacity, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: false,
-      }),
-    ]).start();
-    if (searchQuery) {
-      fetchProducts();
+  const handleSearchExpand = () => {
+    setIsSearchExpanded(true);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  };
+
+  const handleSearchCollapse = () => {
+    if (!searchQuery.trim()) {
+      setIsSearchExpanded(false);
     }
   };
 
@@ -220,127 +186,145 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Animated.View 
-        style={[
-          styles.header, 
-          { 
-            paddingTop: insets.top,
-            height: headerHeight,
-            backgroundColor: colors.background,
+      <TouchableOpacity 
+        style={StyleSheet.absoluteFill} 
+        activeOpacity={1}
+        onPress={() => {
+          if (isSearchExpanded) {
+            Keyboard.dismiss();
+            handleSearchCollapse();
           }
-        ]}
+        }}
+        disabled={!isSearchExpanded}
       >
-        <View style={styles.headerTop}>
-          <Animated.View style={{
-            opacity: headerOpacity,
-            transform: [{ translateY: headerTranslateY }],
-            flex: 1,
-          }}>
-            <Text style={[styles.greeting, { color: colors.textSecondary }]}>
-              Hello, {user?.full_name || user?.username || 'there'}
-            </Text>
-            <Text style={[styles.title, { color: colors.text }]}>
-              {showExchange ? 'Exchange Items' : 'Discover Items'}
-            </Text>
+        <View pointerEvents="box-none" style={{ flex: 1 }}>
+          <Animated.View 
+            style={[
+              styles.header, 
+              { 
+                paddingTop: insets.top,
+                height: headerHeight,
+                backgroundColor: colors.background,
+              }
+            ]}
+          >
+            <View style={styles.searchRow}>
+              {!isSearchExpanded && (
+                <Text style={styles.logoText}>ReUseU</Text>
+              )}
+              
+              {isSearchExpanded ? (
+                <View style={styles.searchBar}>
+                  <Image 
+                    source={require('../../assets/images/icons/search.png')} 
+                    style={styles.searchIcon}
+                  />
+                  <TextInput
+                    ref={searchInputRef}
+                    style={styles.searchInput}
+                    placeholder="Search anything..."
+                    placeholderTextColor="#6b6b6b"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    onSubmitEditing={handleSearchSubmit}
+                    onBlur={handleSearchCollapse}
+                    returnKeyType="search"
+                  />
+                </View>
+              ) : (
+                <View style={styles.collapsedActions}>
+                  <TouchableOpacity
+                    style={styles.iconBtn}
+                    onPress={handleSearchExpand}
+                    activeOpacity={0.7}
+                  >
+                    <Image 
+                      source={require('../../assets/images/icons/search.png')} 
+                      style={styles.iconBtnImage}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.iconBtn}
+                    onPress={handleImageSearch}
+                    activeOpacity={0.7}
+                  >
+                    <Image 
+                      source={require('../../assets/images/icons/camera.png')} 
+                      style={styles.iconBtnImage}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.iconBtn}
+                    onPress={() => router.push('/ai/assistant')}
+                    activeOpacity={0.7}
+                  >
+                    <Image 
+                      source={require('../../assets/images/icons/ai.png')} 
+                      style={styles.iconBtnImage}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </Animated.View>
-          <TouchableOpacity
-            style={[styles.aiBtn, { backgroundColor: colors.surfaceSecondary }]}
-            onPress={() => router.push('/ai/assistant')}
-          >
-            <Text style={[styles.aiBtnText, { color: colors.text }]}>✨</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.exchangeBtn, { backgroundColor: showExchange ? colors.primary : colors.surfaceSecondary }]}
-            onPress={() => setShowExchange(!showExchange)}
-          >
-            <Text style={[styles.exchangeIcon, { color: showExchange ? '#FFF' : colors.text }]}>🔄</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <Animated.View style={[styles.searchContainer, { width: searchWidth }]}>
-          {!searchExpanded ? (
-            <TouchableOpacity
-              style={[styles.searchIconButton, { backgroundColor: colors.surfaceSecondary }]}
-              onPress={handleSearchIconPress}
-            >
-              <Text style={[styles.searchIconText, { color: colors.text }]}>🔍</Text>
-            </TouchableOpacity>
-          ) : (
-            <Animated.View style={[styles.searchBarExpanded, { backgroundColor: colors.surfaceSecondary, opacity: searchOpacity }]}>
-              <Text style={[styles.searchIconText, { color: colors.text }]}>🔍</Text>
-              <TextInput
-                ref={searchInputRef}
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search products..."
-                placeholderTextColor={colors.textTertiary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={handleSearchSubmit}
-                returnKeyType="search"
-              />
-              <TouchableOpacity onPress={handleSearchClose} style={styles.closeButton}>
-                <Text style={[styles.closeIcon, { color: colors.textSecondary }]}>✕</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-        </Animated.View>
-      </Animated.View>
 
-      <View style={styles.categoriesSection}>
-        <FlatList
-          horizontal
-          data={categories}
-          keyExtractor={(item) => String(item.id)}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.categoriesList, { paddingHorizontal: spacing.screenPadding }]}
-          renderItem={({ item }) => (
-            <Chip
-              label={item.name}
-              selected={selectedCategory === item.id}
-              onPress={() => setSelectedCategory(item.id)}
-              style={{ marginRight: spacing.sm }}
+          <View style={styles.categoriesSection}>
+            <FlatList
+              horizontal
+              data={categories}
+              keyExtractor={(item) => String(item.id)}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.categoriesList, { paddingHorizontal: spacing.screenPadding }]}
+              renderItem={({ item }) => (
+                <Chip
+                  label={item.name}
+                  selected={selectedCategory === item.id}
+                  onPress={() => setSelectedCategory(item.id)}
+                  style={{ marginRight: spacing.sm }}
+                />
+              )}
+            />
+          </View>
+
+          {isLoading || isSearching ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                {isSearching ? 'Searching...' : 'Loading products...'}
+              </Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorIcon}>⚠️</Text>
+              <Text style={[styles.errorText, { color: colors.textSecondary }]}>
+                {error}
+              </Text>
+              <TouchableOpacity
+                style={[styles.retryButton, { backgroundColor: colors.primary }]}
+                onPress={() => fetchProducts()}
+              >
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : showExchange ? (
+            <ExchangeProductGrid
+              onProductPress={handleExchangeProductPress}
+              onRefresh={handleRefresh}
+              isRefreshing={isRefreshing}
+              onScroll={handleScroll}
+            />
+          ) : (
+            <ProductGrid
+              products={filteredProducts}
+              onProductPress={handleProductPress}
+              onRefresh={handleRefresh}
+              isRefreshing={isRefreshing}
+              emptyMessage={searchQuery ? `No results for "${searchQuery}"` : "No products available"}
+              onScroll={handleScroll}
             />
           )}
-        />
-      </View>
-
-      {isLoading || isSearching ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            {isSearching ? 'Searching...' : 'Loading products...'}
-          </Text>
         </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-            {error}
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={() => fetchProducts()}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : showExchange ? (
-        <ExchangeProductGrid
-          onProductPress={handleExchangeProductPress}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-          onScroll={handleScroll}
-        />
-      ) : (
-        <ProductGrid
-          products={filteredProducts}
-          onProductPress={handleProductPress}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-          emptyMessage={searchQuery ? `No results for "${searchQuery}"` : "No products available"}
-          onScroll={handleScroll}
-        />
-      )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -352,83 +336,67 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.screenPadding,
     paddingBottom: spacing.md,
+    justifyContent: 'flex-end',
     overflow: 'hidden',
   },
-  headerTop: {
+  searchRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  exchangeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
+    justifyContent: 'space-between',
+    gap: 4,
   },
-  aiBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-    marginRight: spacing.sm,
-  },
-  aiBtnText: {
-    fontSize: 20,
-  },
-  exchangeIcon: {
-    fontSize: 20,
-  },
-  greeting: {
-    fontSize: 14,
-    marginBottom: spacing.xs,
-  },
-  title: {
-    fontSize: 28,
+  logoText: {
+    fontSize: 24,
     fontWeight: '700',
-    marginBottom: spacing.md,
+    color: '#111',
+    letterSpacing: -0.5,
   },
-  searchContainer: {
-    height: 44,
-    marginTop: spacing.sm,
-  },
-  searchIconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  collapsedActions: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 42,
+    borderRadius: 21,
+    paddingHorizontal: 14,
+    backgroundColor: '#f5f5f5',
+  },
+  searchIcon: {
+    width: 18,
+    height: 18,
+    marginRight: 8,
+    opacity: 0.9,
   },
   searchIconText: {
-    fontSize: 18,
+    fontSize: 16,
+    marginRight: 8,
+    opacity: 0.9,
   },
-  searchBarExpanded: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 44,
-    borderRadius: 22,
-    paddingHorizontal: spacing.md,
-  },
-
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    marginLeft: spacing.sm,
-    marginRight: spacing.sm,
+    fontSize: 15,
+    fontWeight: '400',
+    paddingVertical: 10,
+    color: '#000',
   },
-  closeButton: {
-    width: 28,
-    height: 28,
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  closeIcon: {
+  iconBtnImage: {
+    width: 20,
+    height: 20,
+  },
+  iconBtnText: {
     fontSize: 18,
-    fontWeight: '600',
   },
   categoriesList: {
     paddingBottom: spacing.sm,

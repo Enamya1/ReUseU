@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -11,8 +11,10 @@ type Step = 'type' | 'details' | 'media' | 'tags' | 'review';
 
 export default function CreateScreen() {
   const { user, getMetaOptions, getDormitoriesByUniversity, createTag } = useAuth();
-  const [step, setStep] = useState<Step>('type');
-  const [listingType, setListingType] = useState<'sell' | 'exchange'>('sell');
+  const params = useLocalSearchParams();
+  const initialType = params.type as 'sell' | 'exchange' | undefined;
+  const [step, setStep] = useState<Step>(initialType ? 'details' : 'type');
+  const [listingType, setListingType] = useState<'sell' | 'exchange'>(initialType || 'sell');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');

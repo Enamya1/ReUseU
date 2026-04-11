@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>minimal · vertical · animate from ☰</title>
+  <style>
+    /* black & white · vertical layout · animation originates from trigger center */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
+
+    body {
+      background: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      font-weight: 400;
+    }
+
+    .dropdown-prototype {
+      position: relative;
+      display: inline-block;
+    }
+
+    /* main trigger — ☰ only */
+    .trigger-btn {
+      background: white;
+      border: 1.5px solid black;
+      color: black;
+      padding: 0.9rem 1.6rem;
+      font-size: 1.4rem;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      min-width: 70px;
+      text-transform: uppercase;
+      user-select: none;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .trigger-btn:hover {
+      background: black;
+      color: white;
+    }
+
+    /* container for the two circles — vertical stack, positioned above trigger */
+    .circular-menu {
+      position: absolute;
+      bottom: 100%;               /* appear above trigger */
+      left: 50%;
+      transform: translateX(-50%);
+      margin-bottom: 12px;        /* gap between circles and trigger */
+      
+      display: flex;
+      flex-direction: column;     /* vertical stack */
+      align-items: center;
+      gap: 0.8rem;
+      
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s;
+      z-index: 20;
+      
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+    }
+
+    .circular-menu.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* circular buttons — black background, custom images */
+    .circle-btn {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: black;
+      border: 2px solid black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.1s;
+      user-select: none;
+      padding: 0;
+      outline: none;
+      box-shadow: none;
+    }
+
+    .circle-btn:active {
+      transform: scale(0.96);
+    }
+
+    .circle-btn img {
+      width: 60%;
+      height: 60%;
+      object-fit: contain;
+      display: block;
+      filter: brightness(0) invert(1); /* white icons on black bg */
+    }
+
+    /* animation: both buttons start from trigger center (below) and move up */
+    .circular-menu.show .circle-btn {
+      animation: riseFromCenter 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+
+    /* both buttons start 65px lower (simulating trigger center) */
+    #circleCheck, #circleCross {
+      --start-y: 65px;            /* pushes them down to overlap trigger */
+    }
+
+    @keyframes riseFromCenter {
+      0% {
+        transform: translateY(var(--start-y, 65px)) scale(0.15);
+        opacity: 0;
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+    }
+
+    .footnote {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 0.7rem;
+      letter-spacing: 0.5px;
+      color: #222;
+      border-top: 1px dashed #aaa;
+      padding-top: 16px;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .demo-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button {
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+<div class="demo-wrapper">
+  <div class="dropdown-prototype">
+    <!-- main trigger -->
+    <button class="trigger-btn" id="mainTrigger">☰</button>
+
+    <!-- vertical circular menu with image placeholders -->
+    <div class="circular-menu" id="circularMenu">
+      <!-- 
+        Replace the src below with your own icon paths.
+        Top: check, Bottom: cross
+      -->
+      <button class="circle-btn" id="circleCheck" aria-label="confirm">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z'/%3E%3C/svg%3E" alt="check">
+      </button>
+      <button class="circle-btn" id="circleCross" aria-label="cancel">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z'/%3E%3C/svg%3E" alt="cross">
+      </button>
+    </div>
+  </div>
+  <div class="footnote">vertical · animate from ☰ upward · b/w</div>
+</div>
+
+<script>
+  (function() {
+    const trigger = document.getElementById('mainTrigger');
+    const menu = document.getElementById('circularMenu');
+    const checkBtn = document.getElementById('circleCheck');
+    const crossBtn = document.getElementById('circleCross');
+
+    function toggleMenu(show) {
+      if (typeof show === 'boolean') {
+        show ? menu.classList.add('show') : menu.classList.remove('show');
+      } else {
+        menu.classList.toggle('show');
+      }
+    }
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMenu();
+    });
+
+    document.addEventListener('click', (e) => {
+      const proto = document.querySelector('.dropdown-prototype');
+      if (!proto.contains(e.target)) {
+        menu.classList.remove('show');
+      }
+    });
+
+    menu.addEventListener('click', (e) => e.stopPropagation());
+
+    function onIconSelect(label, btnElement) {
+      console.log(`[icon] ${label} selected`);
+      menu.classList.remove('show');
+    }
+
+    checkBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onIconSelect('check', checkBtn);
+    });
+
+    crossBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onIconSelect('cross', crossBtn);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && menu.classList.contains('show')) {
+        menu.classList.remove('show');
+        trigger.focus();
+      }
+    });
+
+    trigger.addEventListener('mousedown', (e) => e.preventDefault());
+  })();
+</script>
+</body>
+</html>

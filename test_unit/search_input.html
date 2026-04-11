@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>minimal · black/white · search + cam · ai</title>
+  <!-- Font Awesome 6 (free) for clean icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* RESET + BASE — strictly monochrome, minimal */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #ffffff;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+      color: #111;
+    }
+
+    /* prototype card — clean, only black/white/gray */
+    .prototype-section {
+      max-width: 580px;
+      width: 100%;
+      background: #fff;
+      border: 1.5px solid #000;
+      border-radius: 28px;
+      padding: 28px 24px 24px 24px;
+      box-shadow: 0 8px 0 rgba(0,0,0,0.05);
+      transition: box-shadow 0.2s ease;
+    }
+
+    /* subtle label — minimal, sans serif */
+    .section-label {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #2a2a2a;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #d4d4d4;
+      padding-bottom: 8px;
+    }
+
+    /* ----- SEARCH BAR : pure black/white geometry ----- */
+    .search-wrapper {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      background: #fff;
+      border: 2px solid #111;
+      border-radius: 60px;        /* pill shape, clean */
+      padding: 2px 2px 2px 18px;  /* left padding for input breathing */
+      transition: border 0.15s;
+    }
+
+    .search-wrapper:focus-within {
+      border-color: #000;
+      background: #fafafa;
+      box-shadow: 0 0 0 1px #00000020;
+    }
+
+    /* main input — invisible borders, minimal */
+    .search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 18px;
+      font-weight: 400;
+      padding: 14px 6px 14px 2px;
+      color: #000;
+      min-width: 0;
+      font-family: inherit;
+    }
+
+    .search-input::placeholder {
+      color: #6b6b6b;
+      font-weight: 350;
+      opacity: 0.8;
+    }
+
+    /* button group — two side actions */
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 6px;
+    }
+
+    /* minimalist icon button — black/white */
+    .icon-btn {
+      background: transparent;
+      border: none;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #111;
+      font-size: 24px;
+      transition: background 0.15s, transform 0.1s;
+      outline: 1px solid transparent;
+      outline-offset: 2px;
+      /* no extra borders — pure minimalism */
+    }
+
+    /* camera & AI share same style, only hover states differ */
+    .icon-btn i {
+      font-size: 22px;
+      color: #111;
+      transition: color 0.1s;
+    }
+
+    /* hover: subtle gray, no colors */
+    .icon-btn:hover {
+      background: #eaeaea;
+    }
+
+    .icon-btn:active {
+      background: #d0d0d0;
+      transform: scale(0.96);
+    }
+
+    /* focus-visible for keyboard (accessibility) */
+    .icon-btn:focus-visible {
+      outline: 2px solid #000;
+      outline-offset: 2px;
+    }
+
+    /* small status area — black/white feedback */
+    .search-status {
+      margin-top: 16px;
+      font-size: 14px;
+      font-weight: 400;
+      color: #2b2b2b;
+      min-height: 24px;
+      border-left: 2px solid #aaa;
+      padding-left: 14px;
+      transition: color 0.2s;
+      letter-spacing: -0.01em;
+    }
+
+    /* micro interaction — status changes to pure black when active */
+    .status-muted {
+      color: #4a4a4a;
+    }
+
+    /* optional tiny hint */
+    .hint-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #555;
+    }
+
+    .hint-row span {
+      border-bottom: 1px dotted #888;
+    }
+
+    /* no extra colors — pure b&w */
+    .fa-camera, .fa-robot {
+      filter: none;
+    }
+
+    /* keep everything sharp */
+    button, input {
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body>
+<div class="prototype-section">
+  <div class="section-label">
+    <i class="fas fa-search" style="margin-right: 8px; font-size: 12px; opacity: 0.7;"></i> 
+    SEARCH · CAM · AI
+  </div>
+
+  <!-- main search component: input + two side buttons -->
+  <div class="search-wrapper">
+    <input 
+      type="text" 
+      class="search-input" 
+      placeholder="Search anything..." 
+      aria-label="Search input"
+      id="searchInput"
+      autocomplete="off"
+    >
+    
+    <div class="action-group">
+      <!-- camera search button -->
+      <button class="icon-btn" id="cameraBtn" aria-label="Camera search">
+        <i class="fas fa-camera"></i>
+      </button>
+      
+      <!-- AI search button -->
+      <button class="icon-btn" id="aiBtn" aria-label="AI search">
+        <i class="fas fa-robot"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- live status: shows which action was triggered (minimal feedback) -->
+  <div class="search-status" id="statusMessage">
+    ⚫ ready
+  </div>
+
+  <!-- subtle extra note — only black/white -->
+  <div class="hint-row">
+    <span>⚬ camera search  ⚬  AI assist</span>
+  </div>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // elements
+    const searchInput = document.getElementById('searchInput');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const aiBtn = document.getElementById('aiBtn');
+    const statusEl = document.getElementById('statusMessage');
+
+    // helper to update status with minimal monochrome style
+    function setStatus(text, isTemporary = true) {
+      if (!statusEl) return;
+      statusEl.textContent = text;
+      statusEl.style.color = '#111';
+      statusEl.style.fontWeight = '450';
+      
+      // subtle reset after 2.5s if temporary (but keep last action)
+      if (isTemporary) {
+        clearTimeout(window._statusTimeout);
+        window._statusTimeout = setTimeout(() => {
+          if (statusEl) {
+            const currentQuery = searchInput.value.trim();
+            if (currentQuery.length > 0) {
+              statusEl.textContent = `⚫ search query: "${currentQuery.substring(0, 30)}${currentQuery.length > 30 ? '…' : ''}"`;
+            } else {
+              statusEl.textContent = '⚫ ready';
+            }
+            statusEl.style.fontWeight = '400';
+            statusEl.style.color = '#2b2b2b';
+          }
+        }, 2600);
+      }
+    }
+
+    // update status when input changes (reflect query)
+    function updateStatusFromInput() {
+      const query = searchInput.value.trim();
+      if (query.length > 0) {
+        statusEl.textContent = `⚫ search: "${query.substring(0, 35)}${query.length > 35 ? '…' : ''}"`;
+        statusEl.style.fontWeight = '400';
+        statusEl.style.color = '#1e1e1e';
+      } else {
+        statusEl.textContent = '⚫ ready';
+        statusEl.style.fontWeight = '400';
+        statusEl.style.color = '#2b2b2b';
+      }
+    }
+
+    // listen to input changes
+    searchInput.addEventListener('input', updateStatusFromInput);
+
+    // ----- CAMERA SEARCH (prototype action) -----
+    cameraBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const query = searchInput.value.trim();
+      const cameraMessage = query 
+        ? `📷 camera search · "${query}" (visual lookup)` 
+        : `📷 camera search — open camera to capture`;
+      
+      setStatus(cameraMessage, true);
+      
+      // In a real prototype, you would trigger camera / visual search.
+      // For demo: slight haptic feedback (console + subtle animation)
+      console.log(`[CAMERA SEARCH] query: ${query || '(empty, would open camera)'}`);
+      
+      // micro interaction: highlight border
+      const wrapper = document.querySelector('.search-wrapper');
+      wrapper.style.borderColor = '#222';
+      wrapper.style.transition = 'border 0.1s';
+      setTimeout(() => wrapper.style.borderColor = '#111', 120);
+    });
+
+    // ----- AI SEARCH (prototype action) -----
+    aiBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const query = searchInput.value.trim();
+      const aiMessage = query 
+        ? `🤖 AI search · "${query}" (smart assist)` 
+        : `🤖 AI search — ask anything, AI will help`;
+      
+      setStatus(aiMessage, true);
+      
+      console.log(`[AI SEARCH] query: ${query || '(empty, AI ready)'}`);
+      
+      // subtle border pulse
+      const wrapper = document.querySelector('.search-wrapper');
+      wrapper.style.borderColor = '#333';
+      setTimeout(() => wrapper.style.borderColor = '#111', 120);
+    });
+
+    // also support keyboard: Enter key in input triggers "AI search" as a convenience (but can be changed)
+    // This is just for better prototype flow — you can choose camera or AI.
+    // I'll map Enter to AI (since AI is common for smart search), but we keep both explicit.
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // trigger AI search on Enter (feels natural for smart search)
+        aiBtn.click();
+        // also give a tiny animation
+        aiBtn.style.transform = 'scale(0.96)';
+        setTimeout(() => aiBtn.style.transform = '', 100);
+      }
+    });
+
+    // initial status based on input (if any)
+    updateStatusFromInput();
+
+    // tiny extra: double-click on status clears input? not needed, but we keep clean.
+    // Ensure buttons are clearly minimal and accessible.
+    
+    // Make camera button long press? no needed. Prototype ready.
+
+    // Additional: if user clicks on wrapper? Not needed.
+
+    // clean timeout on page unload just in case
+    window.addEventListener('beforeunload', function() {
+      clearTimeout(window._statusTimeout);
+    });
+
+    // Optional: focus input on page load for instant demo (but not forced)
+    // setTimeout(() => searchInput.focus(), 100);  // can be uncommented, but we want minimal distraction.
+    // I'll focus gently after a tiny delay — makes it feel like a real app section.
+    setTimeout(() => {
+      searchInput.focus();
+    }, 200);
+  })();
+</script>
+
+<!-- note: everything is black/white, no colors, minimal and functional -->
+</body>
+</html>
