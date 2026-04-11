@@ -94,7 +94,7 @@ export default function ProfileScreen() {
       }
 
       if (favoritesRes.status === 'fulfilled') {
-        setFavoritesCount(favoritesRes.value.products?.length || 0);
+        setFavoritesCount(favoritesRes.value.total || favoritesRes.value.products?.length || 0);
       }
 
       if (notificationsRes.status === 'fulfilled') {

@@ -23,6 +23,7 @@ import { Badge } from '../../src/components/ui/Badge';
 import { Divider } from '../../src/components/ui/Divider';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { getProductDetail } from '../../src/services/productService';
+import { toggleFavorite } from '../../src/services/favoritesService';
 import { useToast } from '../../src/hooks/useToast';
 import { LoadingFullPage } from '../../src/components/ui/Loading';
 
@@ -113,8 +114,20 @@ export default function ProductDetailScreen() {
     fetchProduct();
   }, [id]);
 
-  const handleFavoritePress = () => {
-    setIsFavorite(!isFavorite);
+  const handleFavoritePress = async () => {
+    if (!product) return;
+    
+    try {
+      await toggleFavorite(product.id, isFavorite);
+      setIsFavorite(!isFavorite);
+      toast({ 
+        title: isFavorite ? 'Removed from favorites' : 'Added to favorites', 
+        type: 'success' 
+      });
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast({ title: 'Failed to update favorite', type: 'error' });
+    }
   };
 
   const handleSellerPress = () => {

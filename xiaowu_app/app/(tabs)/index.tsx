@@ -26,6 +26,7 @@ import { ProductGrid } from '../../src/components/products/ProductGrid';
 import { ExchangeProductGrid } from '../../src/components/products/ExchangeProductGrid';
 import { Chip } from '../../src/components/ui/Badge';
 import { getRecommendedProducts, searchProducts } from '../../src/services/productService';
+import { toggleFavorite } from '../../src/services/favoritesService';
 
 const HEADER_EXPANDED_HEIGHT = 100;
 const HEADER_COLLAPSED_HEIGHT = 80;
@@ -45,6 +46,7 @@ export default function HomeScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
@@ -184,6 +186,22 @@ export default function HomeScreen() {
     router.push(`/exchange-product/${item.exchange_product?.id || item.product?.id}`);
   };
 
+  const handleFavoritePress = async (product: Product) => {
+    const isFavorite = favoriteIds.includes(String(product.id));
+    
+    try {
+      await toggleFavorite(product.id, isFavorite);
+      
+      if (isFavorite) {
+        setFavoriteIds(prev => prev.filter(id => id !== String(product.id)));
+      } else {
+        setFavoriteIds(prev => [...prev, String(product.id)]);
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TouchableOpacity 
@@ -317,6 +335,8 @@ export default function HomeScreen() {
             <ProductGrid
               products={filteredProducts}
               onProductPress={handleProductPress}
+              onFavoritePress={handleFavoritePress}
+              favoriteIds={favoriteIds}
               onRefresh={handleRefresh}
               isRefreshing={isRefreshing}
               emptyMessage={searchQuery ? `No results for "${searchQuery}"` : "No products available"}

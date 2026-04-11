@@ -35,6 +35,8 @@ interface ProductGridProps {
   style?: ViewStyle;
   emptyMessage?: string;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  hideSeller?: boolean;
+  hideLocation?: boolean;
 }
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
@@ -52,6 +54,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   style,
   emptyMessage = 'No products found',
   onScroll,
+  hideSeller = false,
+  hideLocation = false,
 }) => {
   const { colors } = useTheme();
 
@@ -62,6 +66,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       onSellerPress={() => onSellerPress?.(item)}
       onFavoritePress={() => onFavoritePress?.(item)}
       isFavorite={favoriteIds.includes(String(item.id))}
+      hideSeller={hideSeller}
+      hideLocation={hideLocation}
     />
   );
 

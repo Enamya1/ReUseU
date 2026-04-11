@@ -25,6 +25,7 @@ import { spacing } from '../src/theme/spacing';
 import { Product } from '../src/types';
 import { ProductCard } from '../src/components/products/ProductCard';
 import { searchProducts, visualSearchProducts } from '../src/services/productService';
+import { toggleFavorite } from '../src/services/favoritesService';
 
 interface VisualSearchProduct extends Product {
   visual_similarity_score?: number;
@@ -39,6 +40,7 @@ export default function SearchScreen() {
   const [searchType, setSearchType] = useState<'text' | 'visual'>('text');
   const [resultCount, setResultCount] = useState(0);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   const handleTextSearch = async (query: string) => {
     if (!query.trim()) {
@@ -158,11 +160,29 @@ export default function SearchScreen() {
     router.push(`/product/${product.id}`);
   };
 
+  const handleFavoritePress = async (product: Product) => {
+    const isFavorite = favoriteIds.includes(String(product.id));
+    
+    try {
+      await toggleFavorite(product.id, isFavorite);
+      
+      if (isFavorite) {
+        setFavoriteIds(prev => prev.filter(id => id !== String(product.id)));
+      } else {
+        setFavoriteIds(prev => [...prev, String(product.id)]);
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
+
   const renderProduct = ({ item }: { item: VisualSearchProduct }) => (
     <View style={styles.productWrapper}>
       <ProductCard
         product={item}
         onPress={() => handleProductPress(item)}
+        onFavoritePress={() => handleFavoritePress(item)}
+        isFavorite={favoriteIds.includes(String(item.id))}
       />
       {searchType === 'visual' && item.visual_similarity_score !== undefined && (
         <View style={[styles.similarityBadge, { backgroundColor: colors.primary }]}>

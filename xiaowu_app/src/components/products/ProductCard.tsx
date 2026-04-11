@@ -30,6 +30,8 @@ interface ProductCardProps {
   isFavorite?: boolean;
   variant?: 'default' | 'compact' | 'horizontal';
   style?: ViewStyle;
+  hideSeller?: boolean;
+  hideLocation?: boolean;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -40,13 +42,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isFavorite = false,
   variant = 'default',
   style,
+  hideSeller = false,
+  hideLocation = false,
 }) => {
   const { colors, isDark } = useTheme();
   const themeShadows = isDark ? shadows.dark : shadows.light;
 
   const formatPrice = (price: number | undefined): string => {
-    if (price === undefined || price === null || typeof price !== 'number') return '¥0.00';
-    return `¥${Number(price).toFixed(2)}`;
+    if (price === undefined || price === null) {
+      console.warn('ProductCard - Price is undefined or null');
+      return '¥0.00';
+    }
+    
+    // Handle string prices (convert to number)
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    
+    if (isNaN(numPrice)) {
+      console.warn('ProductCard - Price is NaN:', price);
+      return '¥0.00';
+    }
+    
+    return `¥${numPrice.toFixed(2)}`;
   };
 
   const formatTime = (dateStr: string): string => {
@@ -61,16 +77,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return `${days}d ago`;
   };
 
-  const rawImageUrl = product.image_thumbnail_url || product.images?.[0]?.image_url;
+  const rawImageUrl = product.image_thumbnail_url || product.images?.[0]?.image_thumbnail_url || product.images?.[0]?.image_url;
   const mainImage = normalizeImageUrl(rawImageUrl);
   const sellerAvatar = normalizeImageUrl(product.seller?.profile_picture);
   
-  // Debug log for image URLs
-  if (__DEV__ && rawImageUrl) {
-    console.log('ProductCard image:', {
-      raw: rawImageUrl,
-      normalized: mainImage,
-    });
+  // Debug log for product data
+  if (__DEV__) {
+    console.log('ProductCard - Product ID:', product.id);
+    console.log('ProductCard - Title:', product.title);
+    console.log('ProductCard - Price:', product.price);
+    console.log('ProductCard - image_thumbnail_url:', product.image_thumbnail_url);
+    console.log('ProductCard - images array:', product.images);
+    console.log('ProductCard - rawImageUrl:', rawImageUrl);
+    console.log('ProductCard - mainImage (normalized):', mainImage);
+    console.log('ProductCard - seller:', product.seller);
+    console.log('ProductCard - dormitory:', product.dormitory);
+    console.log('ProductCard - condition_level:', product.condition_level);
   }
 
   if (variant === 'horizontal') {
@@ -206,26 +228,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {formatPrice(product.price)}
         </Text>
 
-        {/* Seller Info */}
-        <TouchableOpacity
-          style={styles.sellerRow}
-          onPress={onSellerPress}
-        >
-          <Avatar
-            source={sellerAvatar ? { uri: sellerAvatar } : undefined}
-            name={product.seller?.username}
-            size="xs"
-          />
-          <Text style={[styles.sellerName, { color: colors.textSecondary }]}>
-            {product.seller?.username || 'Unknown'}
-          </Text>
-          <Text style={[styles.timeAgo, { color: colors.textTertiary }]}>
-            • {formatTime(product.created_at)}
-          </Text>
-        </TouchableOpacity>
+        {/* Seller Info - Only show if not hidden */}
+        {!hideSeller && (
+          <TouchableOpacity
+            style={styles.sellerRow}
+            onPress={onSellerPress}
+          >
+            <Avatar
+              source={sellerAvatar ? { uri: sellerAvatar } : undefined}
+              name={product.seller?.username}
+              size="xs"
+            />
+            <Text style={[styles.sellerName, { color: colors.textSecondary }]}>
+              {product.seller?.username || 'Unknown'}
+            </Text>
+            <Text style={[styles.timeAgo, { color: colors.textTertiary }]}>
+              • {formatTime(product.created_at)}
+            </Text>
+          </TouchableOpacity>
+        )}
 
-        {/* Location */}
-        {(() => {
+        {/* Location - Only show if not hidden */}
+        {!hideLocation && (() => {
           const dorm = product.dormitory;
           if (dorm && 'dormitory_name' in dorm && dorm.dormitory_name) {
             return (
