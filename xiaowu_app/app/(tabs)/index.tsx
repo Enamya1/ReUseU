@@ -244,6 +244,12 @@ export default function HomeScreen() {
             </Text>
           </Animated.View>
           <TouchableOpacity
+            style={[styles.aiBtn, { backgroundColor: colors.surfaceSecondary }]}
+            onPress={() => router.push('/ai/assistant')}
+          >
+            <Text style={[styles.aiBtnText, { color: colors.text }]}>✨</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.exchangeBtn, { backgroundColor: showExchange ? colors.primary : colors.surfaceSecondary }]}
             onPress={() => setShowExchange(!showExchange)}
           >
@@ -360,6 +366,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
+  },
+  aiBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    marginRight: spacing.sm,
+  },
+  aiBtnText: {
+    fontSize: 20,
   },
   exchangeIcon: {
     fontSize: 20,

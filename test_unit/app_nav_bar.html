@@ -1,89 +1,283 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mobile Navbar Prototype</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>nav bar · minimal b/w</title>
+  <!-- Font Awesome for icons (clean, free) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* minimal global reset — only what the nav bar needs */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-<!-- Icons -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    body {
+      background: #f2f2f2;  /* light grey to see the white bar clearly */
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      color: #000000;
+    }
 
-<style>
-  body {
-    margin: 0;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: linear-gradient(135deg, #a855f7, #9333ea);
-    font-family: Arial, sans-serif;
-  }
+    /* simple wrapper to present the nav bar — can be removed if you only need the bar */
+    .nav-demo-container {
+      width: 100%;
+      max-width: 400px;
+      background: #ffffff;
+      border-radius: 32px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
 
-  .phone {
-    width: 320px;
-    height: 600px;
-    background: #f5f5f5;
-    border-radius: 30px;
-    padding: 20px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-  }
+    /* ----- bottom navigation bar (pure black/white, sliding indicator) ----- */
+    .nav-bar {
+      background: #ffffff;
+      padding: 10px 16px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      border-top: 1px solid #e0e0e0;
+      position: relative;
+    }
 
-  .nav {
-    background: #0f0f1a;
-    border-radius: 30px;
-    padding: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
+    .nav-items {
+      display: flex;
+      width: 100%;
+      justify-content: space-around;
+      align-items: center;
+      position: relative;
+    }
 
-  .nav-item {
-    color: #aaa;
-    font-size: 18px;
-    width: 40px;
-    text-align: center;
-    cursor: pointer;
-    transition: 0.3s;
-  }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      padding: 6px 0 4px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+      color: #222222;
+      font-size: 12px;
+      font-weight: 450;
+      letter-spacing: -0.01em;
+      flex: 1;
+      max-width: 80px;
+      border-radius: 30px;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
 
-  .nav-item:hover {
-    color: white;
-  }
+    .nav-item i {
+      font-size: 22px;
+      margin-bottom: 4px;
+      transition: transform 0.2s ease, opacity 0.2s;
+      color: #111111;
+    }
 
-  .active {
-    background: white;
-    color: black;
-    padding: 8px 14px;
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
-  }
+    .nav-label {
+      font-size: 11px;
+      font-weight: 450;
+      opacity: 0.75;
+      transition: opacity 0.2s, font-weight 0.2s;
+    }
 
-  .active i {
-    font-size: 14px;
-  }
+    .nav-item.active {
+      color: #000000;
+    }
 
-</style>
+    .nav-item.active .nav-label {
+      opacity: 1;
+      font-weight: 540;
+    }
+
+    .nav-item.active i {
+      opacity: 1;
+      transform: scale(1.02);
+    }
+
+    .nav-item:active {
+      transform: scale(0.94);
+    }
+
+    /* sliding indicator (animated underline) */
+    .nav-indicator {
+      position: absolute;
+      bottom: 8px;
+      height: 3px;
+      background: #000000;
+      border-radius: 3px;
+      transition: left 0.35s cubic-bezier(0.2, 0.9, 0.4, 1), width 0.35s cubic-bezier(0.2, 0.9, 0.4, 1);
+      will-change: left, width;
+      pointer-events: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    .nav-indicator::after {
+      content: '';
+      position: absolute;
+      right: -2px;
+      top: -2px;
+      width: 6px;
+      height: 6px;
+      background: #000;
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .nav-bar.animating .nav-indicator::after {
+      opacity: 0.15;
+    }
+
+    /* optional hover (desktop) */
+    @media (hover: hover) {
+      .nav-item:hover {
+        background: rgba(0, 0, 0, 0.02);
+      }
+      .nav-item:hover i {
+        transform: translateY(-1px);
+      }
+    }
+
+    /* tiny spacer / just for presentation — can be removed */
+    .demo-spacer {
+      padding: 8px 0;
+      text-align: center;
+      font-size: 11px;
+      color: #666;
+      background: #ffffff;
+      border-bottom: 1px solid #eaeaea;
+    }
+  </style>
 </head>
-
 <body>
-
-<div class="phone">
-  
-  <div class="nav">
-    <div class="active"><i class="fas fa-home"></i> Home</div>
-    <div class="nav-item"><i class="fas fa-search"></i>test </div>
-    <div class="nav-item"><i class="fas fa-percent"></i></div>
-    <div class="nav-item"><i class="fas fa-shopping-cart"></i></div>
-    <div class="nav-item"><i class="fas fa-user"></i></div>
+<div class="nav-demo-container">
+  <!-- only the navigation bar — pure minimal -->
+  <div class="nav-bar" id="navBar">
+    <div class="nav-items" id="navItemsContainer">
+      <!-- Home (active by default) -->
+      <button class="nav-item active" data-nav="home" id="navHome">
+        <i class="fas fa-home"></i>
+        <span class="nav-label">Home</span>
+      </button>
+      <!-- Search -->
+      <button class="nav-item" data-nav="search">
+        <i class="fas fa-search"></i>
+        <span class="nav-label">Search</span>
+      </button>
+      <!-- Notifications -->
+      <button class="nav-item" data-nav="notifications">
+        <i class="far fa-bell"></i>
+        <span class="nav-label">Activity</span>
+      </button>
+      <!-- Profile -->
+      <button class="nav-item" data-nav="profile">
+        <i class="far fa-user"></i>
+        <span class="nav-label">Profile</span>
+      </button>
+    </div>
+    <!-- sliding underline indicator -->
+    <div class="nav-indicator" id="navIndicator"></div>
   </div>
-
 </div>
 
+<script>
+  (function() {
+    "use strict";
+
+    const navBar = document.getElementById('navBar');
+    const navItems = document.querySelectorAll('.nav-item');
+    const indicator = document.getElementById('navIndicator');
+    const navItemsContainer = document.getElementById('navItemsContainer');
+
+    function setActiveItem(activeElement) {
+      navItems.forEach(item => item.classList.remove('active'));
+      activeElement.classList.add('active');
+      updateIndicator(activeElement);
+    }
+
+    function updateIndicator(targetElement) {
+      if (!targetElement) return;
+      
+      const containerRect = navItemsContainer.getBoundingClientRect();
+      const itemRect = targetElement.getBoundingClientRect();
+      
+      const leftOffset = itemRect.left - containerRect.left;
+      const itemWidth = itemRect.width;
+      
+      indicator.style.left = `${leftOffset}px`;
+      indicator.style.width = `${itemWidth}px`;
+      
+      navBar.classList.add('animating');
+      setTimeout(() => navBar.classList.remove('animating'), 300);
+    }
+
+    function initializeIndicator() {
+      const activeItem = document.querySelector('.nav-item.active');
+      if (activeItem) {
+        updateIndicator(activeItem);
+      } else {
+        const firstItem = navItems[0];
+        if (firstItem) {
+          firstItem.classList.add('active');
+          updateIndicator(firstItem);
+        }
+      }
+    }
+
+    // Click listeners
+    navItems.forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.stopPropagation();
+        setActiveItem(this);
+      });
+    });
+
+    // Recalculate on resize / orientation change
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const active = document.querySelector('.nav-item.active');
+        if (active) updateIndicator(active);
+        else initializeIndicator();
+      }, 60);
+    });
+
+    // Ensure indicator is correct after load / font icons
+    window.addEventListener('load', initializeIndicator);
+    if (document.readyState === 'complete') {
+      initializeIndicator();
+    } else {
+      window.addEventListener('DOMContentLoaded', initializeIndicator);
+    }
+
+    // Double-check after a slight delay (icons may shift)
+    setTimeout(() => {
+      const active = document.querySelector('.nav-item.active');
+      if (active) updateIndicator(active);
+    }, 100);
+
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        const active = document.querySelector('.nav-item.active');
+        if (active) updateIndicator(active);
+      }, 30);
+    });
+
+    // Fallback if indicator width is zero
+    if (!indicator.style.width || indicator.style.width === '0px') {
+      initializeIndicator();
+    }
+  })();
+</script>
 </body>
 </html>

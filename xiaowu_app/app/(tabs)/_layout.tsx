@@ -3,14 +3,64 @@
  * Bottom tab navigation for main app sections
  */
 
-import React from 'react';
-import { Text, Platform, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Text, Dimensions, View, Animated, StyleSheet, Image } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/contexts/ThemeContext';
+import { usePathname } from 'expo-router';
+
+// Import custom icons
+const icons = {
+  home: require('../../assets/images/icons/home.png'),
+  nearby: require('../../assets/images/icons/nearby.png'),
+  sell: require('../../assets/images/icons/sell.png'),
+  chat: require('../../assets/images/icons/chat.png'),
+  profile: require('../../assets/images/icons/profile.png'),
+  ai: require('../../assets/images/icons/ai.png'),
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_SMALL_DEVICE = SCREEN_WIDTH < 375;
+
+function TabBarIndicator() {
+  const pathname = usePathname();
+  const { colors } = useTheme();
+  const indicatorAnim = useRef(new Animated.Value(0)).current;
+  const tabWidth = SCREEN_WIDTH / 5; // Changed from 6 to 5 tabs
+
+  const getTabIndex = (path: string) => {
+    if (path === '/' || path === '/index') return 0;
+    if (path.includes('nearby')) return 1;
+    if (path.includes('create')) return 2;
+    if (path.includes('messages')) return 3;
+    if (path.includes('profile')) return 4;
+    return 0;
+  };
+
+  useEffect(() => {
+    const index = getTabIndex(pathname);
+    Animated.spring(indicatorAnim, {
+      toValue: index * tabWidth,
+      useNativeDriver: true,
+      tension: 68,
+      friction: 12,
+    }).start();
+  }, [pathname]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.indicator,
+        {
+          backgroundColor: colors.text,
+          width: tabWidth,
+          transform: [{ translateX: indicatorAnim }],
+        },
+      ]}
+    />
+  );
+}
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -20,29 +70,32 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
-          borderTopWidth: 0.5,
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: 8,
-          elevation: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
+          borderTopWidth: 1,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom + 8,
+          paddingTop: 6,
+          elevation: 0,
+          shadowColor: 'transparent',
         },
         tabBarLabelStyle: {
-          fontSize: IS_SMALL_DEVICE ? 10 : 11,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '450',
           marginTop: 4,
+          letterSpacing: -0.01,
         },
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: 6,
         },
+        tabBarBackground: () => (
+          <View style={{ flex: 1, backgroundColor: colors.background }}>
+            <TabBarIndicator />
+          </View>
+        ),
       }}
     >
       <Tabs.Screen
@@ -50,7 +103,11 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: IS_SMALL_DEVICE ? 20 : 24, color }}>🏠</Text>
+            <Image 
+              source={icons.home}
+              style={{ width: 24, height: 24, tintColor: color }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
@@ -59,7 +116,11 @@ export default function TabLayout() {
         options={{
           title: 'Nearby',
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: IS_SMALL_DEVICE ? 20 : 24, color }}>📍</Text>
+            <Image 
+              source={icons.nearby}
+              style={{ width: 24, height: 24, tintColor: color }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
@@ -68,7 +129,11 @@ export default function TabLayout() {
         options={{
           title: 'Sell',
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: IS_SMALL_DEVICE ? 20 : 24, color }}>➕</Text>
+            <Image 
+              source={icons.sell}
+              style={{ width: 24, height: 24, tintColor: color }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
@@ -77,7 +142,11 @@ export default function TabLayout() {
         options={{
           title: 'Messages',
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: IS_SMALL_DEVICE ? 20 : 24, color }}>💬</Text>
+            <Image 
+              source={icons.chat}
+              style={{ width: 24, height: 24, tintColor: color }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
@@ -86,19 +155,29 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: IS_SMALL_DEVICE ? 20 : 24, color }}>👤</Text>
+            <Image 
+              source={icons.profile}
+              style={{ width: 24, height: 24, tintColor: color }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="ai"
         options={{
-          title: 'AI',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: IS_SMALL_DEVICE ? 20 : 24, color }}>✨</Text>
-          ),
+          href: null,
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  indicator: {
+    position: 'absolute',
+    bottom: 8,
+    height: 3,
+    borderRadius: 3,
+  },
+});
