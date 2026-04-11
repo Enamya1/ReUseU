@@ -3,11 +3,12 @@
  * User's favorite products
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -15,33 +16,43 @@ import { useTheme } from '../src/contexts/ThemeContext';
 import { spacing } from '../src/theme/spacing';
 import { Product } from '../src/types';
 import { ProductGrid } from '../src/components/products/ProductGrid';
-
-// Mock data
-const mockFavorites: Product[] = [
-  {
-    id: 1,
-    seller_id: 1,
-    dormitory_id: 1,
-    category_id: 1,
-    condition_level_id: 1,
-    title: 'Calculus Textbook',
-    description: 'Good condition',
-    price: 45,
-    status: 'available',
-    created_at: new Date().toISOString(),
-    images: [],
-    tags: [],
-  },
-];
+import { getFavorites } from '../src/services/favoritesService';
 
 export default function FavoritesScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const [favorites] = useState<Product[]>(mockFavorites);
+  const [favorites, setFavorites] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadFavorites();
+  }, []);
+
+  const loadFavorites = async () => {
+    try {
+      setLoading(true);
+      const response = await getFavorites();
+      setFavorites(response.products);
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleProductPress = (product: Product) => {
     router.push(`/product/${product.id}`);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -57,5 +68,10 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

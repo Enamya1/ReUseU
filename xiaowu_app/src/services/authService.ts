@@ -115,10 +115,18 @@ export const getDormitoriesByUniversity = async (): Promise<{
 };
 
 /**
+ * Get user language preference
+ */
+export const getLanguage = async (): Promise<string> => {
+  const response = await apiClient.get<{ message: string; language: string }>('/api/user/settings/language');
+  return response.data.language;
+};
+
+/**
  * Update user language preference
  */
 export const updateLanguage = async (language: string): Promise<void> => {
-  await apiClient.put('/api/user/settings/language', { language });
+  await apiClient.patch('/api/user/settings', { language });
 };
 
 /**

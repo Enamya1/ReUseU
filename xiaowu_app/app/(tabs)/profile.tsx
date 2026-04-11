@@ -3,13 +3,14 @@
  * User profile and settings
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -19,6 +20,11 @@ import { spacing } from '../../src/theme/spacing';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Button } from '../../src/components/ui/Button';
 import { Divider } from '../../src/components/ui/Divider';
+import { getWallets } from '../../src/services/walletService';
+import { getLanguage, updateLanguage } from '../../src/services/authService';
+import { getMyProducts } from '../../src/services/productService';
+import { getFavorites } from '../../src/services/favoritesService';
+import { getMessageNotifications } from '../../src/services/messageService';
 
 interface MenuItemProps {
   icon: string;
@@ -47,10 +53,89 @@ export default function ProfileScreen() {
   const { colors } = useTheme();
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const [walletBalance, setWalletBalance] = useState<string>('0.00');
+  const [currency, setCurrency] = useState<string>('CNY');
+  const [language, setLanguage] = useState<string>('English');
+  const [listingsCount, setListingsCount] = useState<number>(0);
+  const [favoritesCount, setFavoritesCount] = useState<number>(0);
+  const [notificationsCount, setNotificationsCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadProfileData();
+    }
+  }, [user]);
+
+  const loadProfileData = async () => {
+    try {
+      setLoading(true);
+      const [walletsRes, langRes, listingsRes, favoritesRes, notificationsRes] = await Promise.allSettled([
+        getWallets(),
+        getLanguage(),
+        getMyProducts({ page: 1, page_size: 1 }),
+        getFavorites(),
+        getMessageNotifications({ limit: 1 }),
+      ]);
+
+      if (walletsRes.status === 'fulfilled' && walletsRes.value.length > 0) {
+        const primaryWallet = walletsRes.value[0];
+        setWalletBalance(primaryWallet.balance || '0.00');
+        setCurrency(primaryWallet.currency || 'CNY');
+      }
+
+      if (langRes.status === 'fulfilled') {
+        const langMap: Record<string, string> = { en: 'English', zh: '中文', ar: 'العربية' };
+        setLanguage(langMap[langRes.value] || 'English');
+      }
+
+      if (listingsRes.status === 'fulfilled') {
+        setListingsCount(listingsRes.value.total || 0);
+      }
+
+      if (favoritesRes.status === 'fulfilled') {
+        setFavoritesCount(favoritesRes.value.products?.length || 0);
+      }
+
+      if (notificationsRes.status === 'fulfilled') {
+        setNotificationsCount(notificationsRes.value.total || 0);
+      }
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
     router.replace('/(auth)/login');
+  };
+
+  const handleLanguagePress = async () => {
+    const languageMap: Record<string, { next: string; code: string }> = {
+      'English': { next: '中文', code: 'zh' },
+      '中文': { next: 'العربية', code: 'ar' },
+      'العربية': { next: 'English', code: 'en' },
+    };
+    
+    const current = languageMap[language];
+    if (current) {
+      try {
+        await updateLanguage(current.code);
+        setLanguage(current.next);
+      } catch (error) {
+        console.error('Error updating language:', error);
+      }
+    }
+  };
+
+  const handleNotificationPress = () => {
+    console.log('Notification settings pressed');
+  };
+
+  const handleCurrencyPress = () => {
+    console.log('Currency settings pressed');
   };
 
   return (
@@ -88,57 +173,71 @@ export default function ProfileScreen() {
       </View>
 
       {/* Menu Sections */}
-      <View style={styles.menuSection}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          Account
-        </Text>
-        <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
-          <MenuItem
-            icon="📦"
-            label="My Listings"
-            onPress={() => router.push('/my-listings')}
-          />
-          <Divider />
-          <MenuItem
-            icon="❤️"
-            label="Favorites"
-            onPress={() => router.push('/favorites')}
-          />
-          <Divider />
-          <MenuItem
-            icon="💳"
-            label="Wallet"
-            onPress={() => router.push('/wallet')}
-          />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
-      </View>
+      ) : (
+        <>
+          <View style={styles.menuSection}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              Account
+            </Text>
+            <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
+              <MenuItem
+                icon="📦"
+                label="My Listings"
+                onPress={() => router.push('/my-listings')}
+                rightElement={<Text style={{ color: colors.textSecondary }}>{listingsCount}</Text>}
+              />
+              <Divider />
+              <MenuItem
+                icon="❤️"
+                label="Favorites"
+                onPress={() => router.push('/favorites')}
+                rightElement={<Text style={{ color: colors.textSecondary }}>{favoritesCount}</Text>}
+              />
+              <Divider />
+              <MenuItem
+                icon="💳"
+                label="Wallet"
+                onPress={() => router.push('/wallet')}
+                rightElement={<Text style={{ color: colors.textSecondary }}>{currency} {walletBalance}</Text>}
+              />
+            </View>
+          </View>
+        </>
+      )}
 
-      <View style={styles.menuSection}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          Settings
-        </Text>
-        <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
-          <MenuItem
-            icon="🌐"
-            label="Language"
-            onPress={() => {}}
-            rightElement={<Text style={{ color: colors.textSecondary }}>English</Text>}
-          />
-          <Divider />
-          <MenuItem
-            icon="💱"
-            label="Currency"
-            onPress={() => {}}
-            rightElement={<Text style={{ color: colors.textSecondary }}>CNY</Text>}
-          />
-          <Divider />
-          <MenuItem
-            icon="🔔"
-            label="Notifications"
-            onPress={() => {}}
-          />
+      {!loading && (
+        <View style={styles.menuSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            Settings
+          </Text>
+          <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
+            <MenuItem
+              icon="🌐"
+              label="Language"
+              onPress={handleLanguagePress}
+              rightElement={<Text style={{ color: colors.textSecondary }}>{language}</Text>}
+            />
+            <Divider />
+            <MenuItem
+              icon="💱"
+              label="Currency"
+              onPress={handleCurrencyPress}
+              rightElement={<Text style={{ color: colors.textSecondary }}>{currency}</Text>}
+            />
+            <Divider />
+            <MenuItem
+              icon="🔔"
+              label="Notifications"
+              onPress={handleNotificationPress}
+              rightElement={notificationsCount > 0 ? <Text style={{ color: colors.destructive }}>{notificationsCount}</Text> : undefined}
+            />
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.menuSection}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
@@ -257,5 +356,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     marginTop: spacing.lg,
+  },
+  loadingContainer: {
+    padding: spacing.lg,
+    alignItems: 'center',
   },
 });

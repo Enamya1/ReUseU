@@ -4,7 +4,25 @@
  */
 
 import { apiClient, handleApiError } from './api';
-import type { Wallet, Transaction } from '../types';
+import type { Wallet, Transaction, WalletStatusHistory } from '../types';
+
+/**
+ * Create a new wallet
+ */
+export const createWallet = async (data?: {
+  wallet_type_id?: number;
+  name?: string;
+  description?: string;
+  currency?: string;
+  initial_balance?: number;
+}): Promise<Wallet> => {
+  try {
+    const response = await apiClient.post('/api/wallets', data || {});
+    return response.data.wallet;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
 
 /**
  * Get all user wallets
@@ -24,7 +42,7 @@ export const getWallets = async (): Promise<Wallet[]> => {
 export const getWallet = async (walletId: number): Promise<Wallet> => {
   try {
     const response = await apiClient.get(`/api/wallets/${walletId}`);
-    return response.data;
+    return response.data.wallet;
   } catch (error) {
     throw handleApiError(error);
   }
@@ -34,15 +52,18 @@ export const getWallet = async (walletId: number): Promise<Wallet> => {
  * Get wallet transactions
  */
 export const getTransactions = async (walletId: number, params?: {
-  page?: number;
-  page_size?: number;
+  status?: string;
+  direction?: string;
   type?: string;
-}): Promise<{ transactions: Transaction[]; total: number }> => {
+  from?: string;
+  to?: string;
+  limit?: number;
+}): Promise<{ transactions: Transaction[]; total?: number }> => {
   try {
     const response = await apiClient.get(`/api/wallets/${walletId}/transactions`, { params });
     return {
       transactions: response.data.transactions || [],
-      total: response.data.total || 0,
+      total: response.data.total,
     };
   } catch (error) {
     throw handleApiError(error);
@@ -52,12 +73,14 @@ export const getTransactions = async (walletId: number, params?: {
 /**
  * Top up wallet
  */
-export const topUpWallet = async (walletId: number, amount: number): Promise<{ 
-  transaction: Transaction;
-  payment_url?: string;
-}> => {
+export const topUpWallet = async (walletId: number, data: {
+  amount: number;
+  type?: string;
+  reference?: string;
+  metadata?: any;
+}): Promise<{ wallet: Wallet; ledger_id: string }> => {
   try {
-    const response = await apiClient.post(`/api/wallets/${walletId}/top-up`, { amount });
+    const response = await apiClient.post(`/api/wallets/${walletId}/top-up`, data);
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -67,25 +90,14 @@ export const topUpWallet = async (walletId: number, amount: number): Promise<{
 /**
  * Withdraw from wallet
  */
-export const withdrawFromWallet = async (walletId: number, amount: number): Promise<Transaction> => {
-  try {
-    const response = await apiClient.post(`/api/wallets/${walletId}/withdraw`, { amount });
-    return response.data;
-  } catch (error) {
-    throw handleApiError(error);
-  }
-};
-
-/**
- * Transfer to another user
- */
-export const transferToUser = async (walletId: number, params: {
-  receiver_id: number;
+export const withdrawFromWallet = async (walletId: number, data: {
   amount: number;
-  description?: string;
-}): Promise<Transaction> => {
+  type?: string;
+  reference?: string;
+  metadata?: any;
+}): Promise<{ wallet: Wallet; ledger_id: string }> => {
   try {
-    const response = await apiClient.post(`/api/wallets/${walletId}/transfer`, params);
+    const response = await apiClient.post(`/api/wallets/${walletId}/withdraw`, data);
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -93,11 +105,113 @@ export const transferToUser = async (walletId: number, params: {
 };
 
 /**
- * Get wallet balance
+ * Transfer between wallets
  */
-export const getWalletBalance = async (walletId: number): Promise<{ balance: number; currency: string }> => {
+export const transferBetweenWallets = async (data: {
+  from_wallet_id: number;
+  to_wallet_id: number;
+  amount: number;
+  reference?: string;
+  metadata?: any;
+}): Promise<{ atomic_transaction_id: string; debit_ledger_id: string; credit_ledger_id: string }> => {
   try {
-    const response = await apiClient.get(`/api/wallets/${walletId}/balance`);
+    const response = await apiClient.post('/api/wallets/transfer', data);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Get wallet status history
+ */
+export const getWalletStatusHistory = async (walletId: number): Promise<WalletStatusHistory[]> => {
+  try {
+    const response = await apiClient.get(`/api/wallets/${walletId}/status-history`);
+    return response.data.history || [];
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Request wallet freeze/unfreeze
+ */
+export const requestWalletStatusChange = async (walletId: number, data: {
+  action: 'freeze' | 'unfreeze';
+  reason?: string;
+}): Promise<{ request_id: number }> => {
+  try {
+    const response = await apiClient.post(`/api/wallets/${walletId}/status-requests`, data);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Close wallet
+ */
+export const closeWallet = async (walletId: number, reason?: string): Promise<Wallet> => {
+  try {
+    const response = await apiClient.post(`/api/wallets/${walletId}/close`, { reason });
+    return response.data.wallet;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Open wallet
+ */
+export const openWallet = async (walletId: number, reason?: string): Promise<Wallet> => {
+  try {
+    const response = await apiClient.post(`/api/wallets/${walletId}/open`, { reason });
+    return response.data.wallet;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Create atomic transaction
+ */
+export const createAtomicTransaction = async (data: {
+  steps: Array<{
+    step_type: string;
+    from_wallet_id?: number;
+    to_wallet_id?: number;
+    amount: number;
+    currency: string;
+  }>;
+  metadata?: any;
+}): Promise<any> => {
+  try {
+    const response = await apiClient.post('/api/atomic-transactions', data);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Get atomic transaction
+ */
+export const getAtomicTransaction = async (atomicId: string): Promise<any> => {
+  try {
+    const response = await apiClient.get(`/api/atomic-transactions/${atomicId}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Verify atomic transaction
+ */
+export const verifyAtomicTransaction = async (atomicId: string): Promise<any> => {
+  try {
+    const response = await apiClient.get(`/api/atomic-transactions/${atomicId}/verify`);
     return response.data;
   } catch (error) {
     throw handleApiError(error);

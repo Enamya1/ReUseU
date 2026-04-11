@@ -10,3 +10,4 @@ export * from './messageService';
 export * from './walletService';
 export * from './aiService';
 export * from './favoritesService';
+export * from './notificationService';

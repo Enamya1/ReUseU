@@ -44,8 +44,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const { colors, isDark } = useTheme();
   const themeShadows = isDark ? shadows.dark : shadows.light;
 
-  const formatPrice = (price: number): string => {
-    return `¥${price.toFixed(2)}`;
+  const formatPrice = (price: number | undefined): string => {
+    if (price === undefined || price === null || typeof price !== 'number') return '¥0.00';
+    return `¥${Number(price).toFixed(2)}`;
   };
 
   const formatTime = (dateStr: string): string => {

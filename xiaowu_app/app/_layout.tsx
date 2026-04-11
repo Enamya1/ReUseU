@@ -147,6 +147,13 @@ function RootStack() {
             }} 
           />
           <Stack.Screen 
+            name="exchange-product/[id]" 
+            options={{ 
+              headerShown: true,
+              title: 'Exchange Details',
+            }} 
+          />
+          <Stack.Screen 
             name="chat/[id]" 
             options={{ 
               headerShown: false,

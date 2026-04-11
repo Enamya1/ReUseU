@@ -22,6 +22,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { spacing } from '../../src/theme/spacing';
 import { Product, MetaCategoryOption } from '../../src/types';
 import { ProductGrid } from '../../src/components/products/ProductGrid';
+import { ExchangeProductGrid } from '../../src/components/products/ExchangeProductGrid';
 import { Chip } from '../../src/components/ui/Badge';
 import { getRecommendedProducts, searchProducts } from '../../src/services/productService';
 
@@ -42,6 +43,7 @@ export default function HomeScreen() {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [showExchange, setShowExchange] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const searchWidth = useRef(new Animated.Value(44)).current;
@@ -212,6 +214,10 @@ export default function HomeScreen() {
       ? products
       : products.filter((product) => product.category_id === selectedCategory);
 
+  const handleExchangeProductPress = (item: any) => {
+    router.push(`/exchange-product/${item.exchange_product?.id || item.product?.id}`);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Animated.View 
@@ -224,17 +230,26 @@ export default function HomeScreen() {
           }
         ]}
       >
-        <Animated.View style={{
-          opacity: headerOpacity,
-          transform: [{ translateY: headerTranslateY }],
-        }}>
-          <Text style={[styles.greeting, { color: colors.textSecondary }]}>
-            Hello, {user?.full_name || user?.username || 'there'}
-          </Text>
-          <Text style={[styles.title, { color: colors.text }]}>
-            Discover Items
-          </Text>
-        </Animated.View>
+        <View style={styles.headerTop}>
+          <Animated.View style={{
+            opacity: headerOpacity,
+            transform: [{ translateY: headerTranslateY }],
+            flex: 1,
+          }}>
+            <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+              Hello, {user?.full_name || user?.username || 'there'}
+            </Text>
+            <Text style={[styles.title, { color: colors.text }]}>
+              {showExchange ? 'Exchange Items' : 'Discover Items'}
+            </Text>
+          </Animated.View>
+          <TouchableOpacity
+            style={[styles.exchangeBtn, { backgroundColor: showExchange ? colors.primary : colors.surfaceSecondary }]}
+            onPress={() => setShowExchange(!showExchange)}
+          >
+            <Text style={[styles.exchangeIcon, { color: showExchange ? '#FFF' : colors.text }]}>🔄</Text>
+          </TouchableOpacity>
+        </View>
         
         <Animated.View style={[styles.searchContainer, { width: searchWidth }]}>
           {!searchExpanded ? (
@@ -303,6 +318,13 @@ export default function HomeScreen() {
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
+      ) : showExchange ? (
+        <ExchangeProductGrid
+          onProductPress={handleExchangeProductPress}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+          onScroll={handleScroll}
+        />
       ) : (
         <ProductGrid
           products={filteredProducts}
@@ -325,6 +347,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.screenPadding,
     paddingBottom: spacing.md,
     overflow: 'hidden',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  exchangeBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  exchangeIcon: {
+    fontSize: 20,
   },
   greeting: {
     fontSize: 14,
