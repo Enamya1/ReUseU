@@ -41,6 +41,15 @@ export const useImagePicker = () => {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        
+        // Validate file type
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+        const extension = asset.uri.split('.').pop()?.toLowerCase();
+        if (extension && !allowedExtensions.includes(extension)) {
+          Alert.alert('Invalid File Type', 'Please select a JPG, PNG, or WebP image.');
+          return null;
+        }
+        
         return {
           uri: asset.uri,
           width: asset.width,
@@ -70,16 +79,31 @@ export const useImagePicker = () => {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.6,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        // Resize camera images to standard resolution the AI service expects
+        maxWidth: 800,
+        maxHeight: 800,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        return {
-          uri: asset.uri,
+        
+        // Camera photos always use jpg extension to avoid HEIC issues
+        const uri = asset.uri;
+        
+        console.log('[Camera] Photo captured:', {
+          uri: uri,
           width: asset.width,
           height: asset.height,
-          type: asset.type,
+          type: asset.type
+        });
+        
+        return {
+          uri: uri,
+          width: asset.width,
+          height: asset.height,
+          type: 'image/jpeg',
         };
       }
       return null;

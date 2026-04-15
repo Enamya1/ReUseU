@@ -18,7 +18,7 @@ import { useTheme } from '../src/contexts/ThemeContext';
 import { spacing } from '../src/theme/spacing';
 import { Product } from '../src/types';
 import { ProductGrid } from '../src/components/products/ProductGrid';
-import { visualSearch } from '../src/services/visualSearchService';
+import { productsApi } from '../src/services/api';
 
 export default function VisualSearchResultsScreen() {
   const { colors } = useTheme();
@@ -46,27 +46,37 @@ export default function VisualSearchResultsScreen() {
       setLoading(true);
       setError(null);
 
-      const filename = imageUri.split('/').pop() || 'search.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      // Fix for camera images - always use jpg extension for backend validation
+      let filename = imageUri.split('/').pop() || 'search.jpg';
+      
+      // Force jpg extension for all camera images to avoid HEIC issues
+      filename = filename.replace(/\.(heic|png|webp)$/i, '.jpg');
+      
+      const formData = new FormData();
+      formData.append('image', {
+        uri: imageUri,
+        name: filename,
+        type: 'image/jpeg',
+      } as any);
+      formData.append('top_k', '12');
 
-      const response = await visualSearch({
-        image: {
-          uri: imageUri,
-          name: filename,
-          type,
-        },
-        top_k: 12,
-      });
-
+      const response = await productsApi.visualSearch(formData);
+      
       setProducts(response.products);
       setSearchInfo({
         model_name: response.query.model_name,
         embedding_dim: response.query.embedding_dim,
         count: response.count,
       });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Visual search failed';
+    } catch (err: any) {      
+      let errorMessage = err instanceof Error ? err.message : 'Visual search failed';
+      
+      // Handle specific AI service unavailable case
+      if (err.message?.includes('AI visual search service unavailable')) {
+        // This is a backend AI service issue - camera images fail while gallery works
+        errorMessage = 'AI service currently unavailable for camera photos. Please use a saved image from your gallery instead.';
+      }
+      
       setError(errorMessage);
     } finally {
       setLoading(false);

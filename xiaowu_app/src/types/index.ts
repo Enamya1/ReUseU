@@ -124,6 +124,7 @@ export interface Product {
   target_product_category_id?: number | null;
   target_product_condition_id?: number | null;
   expiration_date?: string | null;
+  visual_similarity_score?: number;
 }
 
 // ============================================

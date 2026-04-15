@@ -3,7 +3,7 @@
  * Handles image-based product search
  */
 
-import { apiRequest } from './api';
+import { productsApi } from './api';
 import { Product } from '../types';
 
 export interface VisualSearchRequest {
@@ -35,7 +35,7 @@ export const visualSearch = async (
 ): Promise<VisualSearchResponse> => {
   const formData = new FormData();
   
-  // Append the image file
+  // Correct FormData format for Laravel backend
   formData.append('image', {
     uri: request.image.uri,
     name: request.image.name,
@@ -47,14 +47,6 @@ export const visualSearch = async (
     formData.append('top_k', String(request.top_k));
   }
 
-  const response = await apiRequest<VisualSearchResponse>({
-    endpoint: '/api/user/search/visual',
-    method: 'POST',
-    body: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-
-  return response;
+  // Use the existing working implementation from productsApi
+  return await productsApi.visualSearch(formData);
 };
