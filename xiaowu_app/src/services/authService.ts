@@ -4,12 +4,13 @@
  */
 
 import { apiClient, storeTokens, clearTokens } from './api';
-import type { 
-  User, 
-  LoginCredentials, 
-  SignupData, 
-  AuthResponse, 
-  University, 
+import { normalizeImageUrl } from '../config/env';
+import type {
+  User,
+  LoginCredentials,
+  SignupData,
+  AuthResponse,
+  University,
   Dormitory,
   MetaOptionsResponse,
   MetaCategoryOption,
@@ -59,18 +60,68 @@ export const signup = async (data: SignupData): Promise<AuthResponse> => {
 
 /**
  * Logout and clear tokens
+ * Note: Should also call backend to invalidate token
  */
 export const logout = async (): Promise<void> => {
-  await clearTokens();
+  try {
+    // Try to notify backend to invalidate token
+    await apiClient.post('/api/user/logout');
+  } catch (error) {
+    console.error('Backend logout failed:', error);
+  } finally {
+    // Always clear local tokens
+    await clearTokens();
+  }
+};
+
+/**
+ * Get current user profile
+ * Endpoint: GET /api/user/me
+ * Auth: auth:sanctum
+ */
+export const getCurrentUser = async (): Promise<User> => {
+  const response = await apiClient.get<{ message: string; user: User }>('/api/user/me');
+  const user = response.data.user;
+  
+  // Normalize profile picture URL if present
+  if (user.profile_picture) {
+    user.profile_picture = normalizeImageUrl(user.profile_picture) || user.profile_picture;
+  }
+  
+  return user;
 };
 
 /**
  * Update user profile
  * Note: Uses PATCH method matching web platform
  */
-export const updateProfile = async (data: Partial<User> & { profile_picture?: string }): Promise<User> => {
-  const response = await apiClient.patch<{ message: string; user: User }>('/api/user/settings', data);
-  return response.data.user;
+export const updateProfile = async (data: Partial<User> & { profile_picture?: any }): Promise<User> => {
+  // Handle file upload for profile picture
+  if (data.profile_picture && typeof data.profile_picture === 'object') {
+    // If it's FormData, send it directly
+    const response = await apiClient.patch<{ message: string; user: User }>(
+      '/api/user/settings',
+      data.profile_picture,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    const user = response.data.user;
+    if (user.profile_picture) {
+      user.profile_picture = normalizeImageUrl(user.profile_picture) || user.profile_picture;
+    }
+    return user;
+  } else {
+    // JSON update
+    const response = await apiClient.patch<{ message: string; user: User }>('/api/user/settings', data);
+    const user = response.data.user;
+    if (user.profile_picture) {
+      user.profile_picture = normalizeImageUrl(user.profile_picture) || user.profile_picture;
+    }
+    return user;
+  }
 };
 
 /**
@@ -89,9 +140,9 @@ export const getUniversityOptions = async (universityId?: number): Promise<{
 /**
  * Update university settings
  */
-export const updateUniversitySettings = async (data: { 
-  university_id: number; 
-  dormitory_id: number 
+export const updateUniversitySettings = async (data: {
+  university_id: number;
+  dormitory_id: number
 }): Promise<void> => {
   await apiClient.patch('/api/user/settings/university', data);
 };
@@ -138,15 +189,15 @@ export const uploadProfilePicture = async (imageUri: string): Promise<string> =>
   const match = /\.(\w+)$/.exec(filename);
   const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-  formData.append('file', {
+  formData.append('profile_picture', {
     uri: imageUri,
     name: filename,
     type,
   } as unknown as Blob);
 
-  const response = await apiClient.post<{ profile_picture: string }>(
-    '/api/user/settings/profile-picture',
-    formData,
+  const response = await apiClient.patch<{ message: string; user: User }>(
+    '/api/user/settings',
+    formData as any,
     {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -154,6 +205,7 @@ export const uploadProfilePicture = async (imageUri: string): Promise<string> =>
     }
   );
 
-  return response.data.profile_picture;
+  const profilePicture = response.data.user?.profile_picture;
+  return profilePicture ? (normalizeImageUrl(profilePicture) || profilePicture) : '';
 };
 

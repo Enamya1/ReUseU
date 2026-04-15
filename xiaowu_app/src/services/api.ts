@@ -55,6 +55,13 @@ export const handleApiError = (error: any): Error => {
   if (error.response) {
     const data: any = error.response.data;
     if (data?.message) {
+      // If there are validation errors, include them in the message
+      if (data?.errors) {
+        const errorMessages = Object.entries(data.errors)
+          .map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`)
+          .join('; ');
+        return new Error(`${data.message}: ${errorMessages}`);
+      }
       return new Error(data.message);
     }
     if (data?.errors) {

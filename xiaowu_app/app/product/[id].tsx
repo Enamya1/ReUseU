@@ -10,6 +10,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Share,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +27,7 @@ import { getProductDetail } from '../../src/services/productService';
 import { toggleFavorite } from '../../src/services/favoritesService';
 import { useToast } from '../../src/hooks/useToast';
 import { LoadingFullPage } from '../../src/components/ui/Loading';
+import { shareProduct } from '../../src/utils/share';
 
 // Mock product data for fallback
 const mockProduct: Product = {
@@ -146,6 +148,26 @@ export default function ProductDetailScreen() {
           productId: product.id,
         },
       });
+    }
+  };
+
+  const handleSharePress = async () => {
+    if (!product) return;
+    
+    try {
+      await shareProduct({ product });
+      toast({ title: 'Product shared!', type: 'success' });
+    } catch (error) {
+      console.error('Share error:', error);
+      // Fallback to basic share
+      try {
+        await Share.share({
+          message: `Check out ${product.title} - ¥${product.price}`,
+          title: product.title,
+        });
+      } catch (fallbackError) {
+        toast({ title: 'Failed to share product', type: 'error' });
+      }
     }
   };
 
@@ -271,6 +293,12 @@ export default function ProductDetailScreen() {
             {isFavorite ? '❤️' : '🤍'}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.shareButton}
+          onPress={handleSharePress}
+        >
+          <Text style={{ fontSize: 24 }}>📤</Text>
+        </TouchableOpacity>
         <Button
           title="Message Seller"
           onPress={handleMessagePress}
@@ -348,6 +376,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   favoriteButton: {
+    padding: spacing.sm,
+    marginRight: spacing.sm,
+  },
+  shareButton: {
     padding: spacing.sm,
     marginRight: spacing.md,
   },

@@ -25,6 +25,8 @@ import { Product, MetaCategoryOption } from '../../src/types';
 import { ProductGrid } from '../../src/components/products/ProductGrid';
 import { ExchangeProductGrid } from '../../src/components/products/ExchangeProductGrid';
 import { Chip } from '../../src/components/ui/Badge';
+import { ImagePickerModal } from '../../src/components/ui/ImagePickerModal';
+import { useImagePicker } from '../../src/hooks/useImagePicker';
 import { getRecommendedProducts, searchProducts } from '../../src/services/productService';
 import { toggleFavorite } from '../../src/services/favoritesService';
 
@@ -47,6 +49,8 @@ export default function HomeScreen() {
   const [showExchange, setShowExchange] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const { pickImage, takePhoto, isLoading: imageLoading } = useImagePicker();
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
@@ -125,8 +129,27 @@ export default function HomeScreen() {
   };
 
   const handleImageSearch = () => {
-    // TODO: Implement image search functionality
-    console.log('Image search pressed');
+    setShowImagePicker(true);
+  };
+
+  const handleCameraSelect = async () => {
+    const result = await takePhoto();
+    if (result) {
+      router.push({
+        pathname: '/visual-search-results',
+        params: { imageUri: result.uri },
+      });
+    }
+  };
+
+  const handleGallerySelect = async () => {
+    const result = await pickImage();
+    if (result) {
+      router.push({
+        pathname: '/visual-search-results',
+        params: { imageUri: result.uri },
+      });
+    }
   };
 
   const handleSearchExpand = () => {
@@ -345,6 +368,14 @@ export default function HomeScreen() {
           )}
         </View>
       </TouchableOpacity>
+
+      {/* Image Picker Modal */}
+      <ImagePickerModal
+        visible={showImagePicker}
+        onClose={() => setShowImagePicker(false)}
+        onCamera={handleCameraSelect}
+        onGallery={handleGallerySelect}
+      />
     </View>
   );
 }

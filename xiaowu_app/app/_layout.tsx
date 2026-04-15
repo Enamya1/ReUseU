@@ -126,25 +126,39 @@ function RootStack() {
               title: 'Wallet',
             }} 
           />
-          <Stack.Screen 
-            name="my-listings" 
-            options={{ 
+          <Stack.Screen
+            name="my-listings"
+            options={{
               headerShown: true,
               title: 'My Listings',
-            }} 
+            }}
           />
-          <Stack.Screen 
-            name="search" 
-            options={{ 
+          <Stack.Screen
+            name="my-listing-detail/[id]"
+            options={{
+              headerShown: true,
+              title: 'Edit Listing',
+            }}
+          />
+          <Stack.Screen
+            name="search"
+            options={{
               headerShown: false,
-            }} 
+            }}
           />
-          <Stack.Screen 
-            name="exchange" 
-            options={{ 
+          <Stack.Screen
+            name="products"
+            options={{
+              headerShown: true,
+              title: 'All Products',
+            }}
+          />
+          <Stack.Screen
+            name="exchange"
+            options={{
               headerShown: true,
               title: 'Exchange',
-            }} 
+            }}
           />
           <Stack.Screen 
             name="exchange-product/[id]" 
@@ -153,18 +167,59 @@ function RootStack() {
               title: 'Exchange Details',
             }} 
           />
-          <Stack.Screen 
-            name="chat/[id]" 
-            options={{ 
+          <Stack.Screen
+            name="chat/[id]"
+            options={{
               headerShown: false,
-            }} 
+            }}
           />
-          <Stack.Screen 
-            name="modal" 
-            options={{ 
+          <Stack.Screen
+            name="ai/assistant"
+            options={{
+              headerShown: true,
+              title: 'AI Assistant',
+            }}
+          />
+          <Stack.Screen
+            name="ai/chat/[session_id]"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="ai/history"
+            options={{
+              headerShown: true,
+              title: 'AI Chat History',
+            }}
+          />
+          <Stack.Screen
+            name="ai/voice"
+            options={{
+              headerShown: true,
+              title: 'AI Voice Call',
+            }}
+          />
+          <Stack.Screen
+            name="chat-ai/index"
+            options={{
+              headerShown: true,
+              title: 'AI Chat',
+            }}
+          />
+          <Stack.Screen
+            name="admin/index"
+            options={{
+              headerShown: true,
+              title: 'Admin Panel',
+            }}
+          />
+          <Stack.Screen
+            name="modal"
+            options={{
               presentation: 'modal',
               title: 'Modal',
-            }} 
+            }}
           />
         </Stack>
       </AuthGuard>

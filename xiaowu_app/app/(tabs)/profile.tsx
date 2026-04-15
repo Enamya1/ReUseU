@@ -20,8 +20,10 @@ import { spacing } from '../../src/theme/spacing';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Button } from '../../src/components/ui/Button';
 import { Divider } from '../../src/components/ui/Divider';
+import { ImagePickerModal } from '../../src/components/ui/ImagePickerModal';
+import { useImagePicker } from '../../src/hooks/useImagePicker';
 import { getWallets } from '../../src/services/walletService';
-import { getLanguage, updateLanguage } from '../../src/services/authService';
+import { getLanguage, updateLanguage, uploadProfilePicture } from '../../src/services/authService';
 import { getMyProducts } from '../../src/services/productService';
 import { getFavorites } from '../../src/services/favoritesService';
 import { getMessageNotifications } from '../../src/services/messageService';
@@ -60,6 +62,9 @@ export default function ProfileScreen() {
   const [favoritesCount, setFavoritesCount] = useState<number>(0);
   const [notificationsCount, setNotificationsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [profileImageUri, setProfileImageUri] = useState<string | null>(null);
+  const { pickImage, takePhoto, isLoading: imageLoading } = useImagePicker();
 
   useEffect(() => {
     if (user) {
@@ -112,30 +117,46 @@ export default function ProfileScreen() {
     router.replace('/(auth)/login');
   };
 
-  const handleLanguagePress = async () => {
-    const languageMap: Record<string, { next: string; code: string }> = {
-      'English': { next: '中文', code: 'zh' },
-      '中文': { next: 'العربية', code: 'ar' },
-      'العربية': { next: 'English', code: 'en' },
-    };
-    
-    const current = languageMap[language];
-    if (current) {
-      try {
-        await updateLanguage(current.code);
-        setLanguage(current.next);
-      } catch (error) {
-        console.error('Error updating language:', error);
-      }
+  const handleAvatarPress = () => {
+    setShowImagePicker(true);
+  };
+
+  const handleCameraSelect = async () => {
+    const result = await takePhoto();
+    if (result) {
+      setProfileImageUri(result.uri);
+      await uploadProfilePictureHandler(result.uri);
     }
   };
 
+  const handleGallerySelect = async () => {
+    const result = await pickImage();
+    if (result) {
+      setProfileImageUri(result.uri);
+      await uploadProfilePictureHandler(result.uri);
+    }
+  };
+
+  const uploadProfilePictureHandler = async (uri: string) => {
+    try {
+      await uploadProfilePicture(uri);
+      // Refresh user data
+      await loadProfileData();
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+    }
+  };
+
+  const handleLanguagePress = () => {
+    router.push('/language-settings');
+  };
+
   const handleNotificationPress = () => {
-    console.log('Notification settings pressed');
+    router.push('/notifications');
   };
 
   const handleCurrencyPress = () => {
-    console.log('Currency settings pressed');
+    router.push('/currency-settings');
   };
 
   return (
@@ -152,11 +173,16 @@ export default function ProfileScreen() {
 
       {/* Profile Card */}
       <View style={[styles.profileCard, { backgroundColor: colors.card }]}>
-        <Avatar
-          source={user?.profile_picture ? { uri: user.profile_picture } : undefined}
-          name={user?.full_name || user?.username}
-          size="xl"
-        />
+        <TouchableOpacity onPress={handleAvatarPress} disabled={imageLoading}>
+          <Avatar
+            source={profileImageUri ? { uri: profileImageUri } : user?.profile_picture ? { uri: user.profile_picture } : undefined}
+            name={user?.full_name || user?.username}
+            size="xl"
+          />
+          <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
+            <Text style={styles.cameraIconText}>📷</Text>
+          </View>
+        </TouchableOpacity>
         <Text style={[styles.userName, { color: colors.text }]}>
           {user?.full_name || 'Guest User'}
         </Text>
@@ -280,6 +306,14 @@ export default function ProfileScreen() {
       <Text style={[styles.version, { color: colors.textTertiary }]}>
         Version 1.0.0
       </Text>
+
+      {/* Image Picker Modal */}
+      <ImagePickerModal
+        visible={showImagePicker}
+        onClose={() => setShowImagePicker(false)}
+        onCamera={handleCameraSelect}
+        onGallery={handleGallerySelect}
+      />
     </ScrollView>
   );
 }
@@ -360,5 +394,18 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: spacing.lg,
     alignItems: 'center',
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraIconText: {
+    fontSize: 16,
   },
 });
