@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>Chat UI · Black & White</title>
+  <title>Chat UI · Borderless Messages</title>
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <!-- Google Fonts -->
@@ -17,7 +17,7 @@
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #ffffff;        /* pure white background */
+      background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -26,25 +26,42 @@
       margin: 0;
     }
 
-    /* Mobile frame — black & white only */
+    *:focus, *:active {
+      outline: none !important;
+    }
+
+    button, div[role="button"], .pay-btn, .attach-btn, .send-btn, .back-btn {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    input, textarea, .input-field {
+      outline: none;
+    }
+
+    input:focus, .input-field:focus {
+      outline: none;
+    }
+
+    /* Mobile frame */
     .phone-mock {
       max-width: 400px;
       width: 100%;
       background: #ffffff;
       border-radius: 32px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
       overflow: hidden;
       display: flex;
       flex-direction: column;
       height: 780px;
-      border: 1.5px solid #000000;  /* black border */
+      border: 1.5px solid #000000; /* outer border stays for definition */
     }
 
     /* Header */
     .chat-header {
       padding: 16px 16px 12px 16px;
       background: #ffffff;
-      border-bottom: 1.5px solid #000000;
+      border-bottom: 1px solid #e0e0e0; /* subtle divider instead of black */
       display: flex;
       align-items: center;
       gap: 12px;
@@ -61,6 +78,7 @@
       color: #000000;
       font-size: 20px;
       cursor: default;
+      border: none;
     }
 
     .header-info {
@@ -73,8 +91,7 @@
     .avatar {
       width: 40px;
       height: 40px;
-      background: #ffffff;
-      border: 1.5px solid #000000;
+      background: #f5f5f5;
       border-radius: 40px;
       display: flex;
       align-items: center;
@@ -94,7 +111,7 @@
     .title p {
       font-size: 13px;
       color: #000000;
-      opacity: 0.7;
+      opacity: 0.6;
       margin-top: 2px;
     }
 
@@ -115,19 +132,18 @@
       width: 100%;
     }
 
-    /* Type label — always visible */
     .type-label {
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.5px;
       text-transform: uppercase;
       color: #000000;
-      margin-bottom: 5px;
+      opacity: 0.5;
+      margin-bottom: 4px;
       margin-left: 6px;
       display: flex;
       align-items: center;
       gap: 6px;
-      border-bottom: 1px dashed #00000020;
       padding-bottom: 2px;
     }
 
@@ -136,7 +152,6 @@
       color: #000000;
     }
 
-    /* Bubble wrapper */
     .bubble-wrapper {
       display: flex;
       align-items: flex-end;
@@ -157,19 +172,21 @@
       align-items: center;
     }
 
+    /* Bubbles — NO BORDERS */
     .bubble {
       padding: 12px 14px;
       border-radius: 20px;
-      background: #ffffff;
+      background: #f2f2f2;
       color: #000000;
       font-size: 15px;
       line-height: 1.45;
       word-break: break-word;
-      border: 1.5px solid #000000;
+      border: none;
+      box-shadow: none;
     }
 
     .incoming .bubble {
-      background: #ffffff;
+      background: #f2f2f2;
       border-bottom-left-radius: 6px;
     }
 
@@ -177,14 +194,13 @@
       background: #000000;
       color: #ffffff;
       border-bottom-right-radius: 6px;
-      border: 1.5px solid #000000;
+      border: none;
     }
 
-    /* Timestamp */
     .timestamp {
       font-size: 11px;
       color: #000000;
-      opacity: 0.65;
+      opacity: 0.5;
       margin-top: 4px;
       margin-left: 8px;
       display: flex;
@@ -201,23 +217,17 @@
     .system .timestamp {
       justify-content: center;
       color: #000000;
-      opacity: 0.7;
+      opacity: 0.5;
     }
 
-    /* Cards — black/white only */
+    /* Cards — NO BORDERS */
     .payment-card, .product-card, .transfer-card {
-      background: #ffffff;
+      background: #f2f2f2;
       border-radius: 16px;
       padding: 0;
       overflow: hidden;
       width: 260px;
-      border: 1.5px solid #000000;
-    }
-
-    .incoming .payment-card,
-    .incoming .product-card,
-    .incoming .transfer-card {
-      background: #ffffff;
+      border: none;
       box-shadow: none;
     }
 
@@ -225,22 +235,22 @@
       padding: 12px 14px 8px;
       font-weight: 700;
       font-size: 15px;
-      border-bottom: 1.5px solid #000000;
+      border-bottom: none;
       display: flex;
       align-items: center;
       gap: 6px;
       color: #000000;
-      background: #ffffff;
+      background: transparent;
     }
 
     .card-body {
       padding: 14px;
-      background: #ffffff;
+      background: transparent;
     }
 
     .description {
       color: #000000;
-      opacity: 0.8;
+      opacity: 0.7;
       font-size: 14px;
       margin-bottom: 8px;
     }
@@ -256,13 +266,13 @@
       font-size: 14px;
       font-weight: 500;
       color: #000000;
-      opacity: 0.7;
+      opacity: 0.6;
     }
 
     .pay-btn {
       background: #000000;
       color: #ffffff;
-      border: 1.5px solid #000000;
+      border: none;
       border-radius: 30px;
       padding: 12px 16px;
       font-weight: 700;
@@ -271,6 +281,13 @@
       text-align: center;
       cursor: default;
       transition: none;
+      outline: none;
+      box-shadow: none;
+    }
+
+    .pay-btn:focus, .pay-btn:active {
+      outline: none;
+      box-shadow: none;
     }
 
     .paid-badge {
@@ -286,8 +303,7 @@
     }
 
     .product-img-placeholder {
-      background: #ffffff;
-      border-bottom: 1.5px solid #000000;
+      background: #e5e5e5;
       height: 120px;
       display: flex;
       align-items: center;
@@ -298,7 +314,7 @@
 
     .product-info {
       padding: 12px 14px;
-      background: #ffffff;
+      background: transparent;
     }
 
     .product-name {
@@ -314,8 +330,7 @@
     }
 
     .transfer-icon {
-      background: #ffffff;
-      border: 1.5px solid #000000;
+      background: #e5e5e5;
       width: 44px;
       height: 44px;
       border-radius: 44px;
@@ -326,10 +341,9 @@
       font-size: 20px;
     }
 
-    /* System bubble (paid status) */
     .system-bubble {
-      background: #ffffff;
-      border: 1.5px solid #000000;
+      background: #f2f2f2;
+      border: none;
       padding: 8px 16px;
       border-radius: 40px;
       font-size: 14px;
@@ -341,7 +355,7 @@
     .message-input-bar {
       padding: 12px 16px;
       background: #ffffff;
-      border-top: 1.5px solid #000000;
+      border-top: 1px solid #e0e0e0;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -349,31 +363,43 @@
 
     .input-field {
       flex: 1;
-      background: #ffffff;
-      border: 1.5px solid #000000;
+      background: #f2f2f2;
+      border: none;
       border-radius: 30px;
       padding: 12px 18px;
       font-size: 15px;
       color: #000000;
+      outline: none;
+    }
+
+    .input-field:focus {
+      outline: none;
     }
 
     .input-field::placeholder {
       color: #000000;
-      opacity: 0.5;
+      opacity: 0.4;
     }
 
     .attach-btn, .send-btn {
       width: 44px;
       height: 44px;
       border-radius: 44px;
-      background: #ffffff;
-      border: 1.5px solid #000000;
+      background: #f2f2f2;
+      border: none;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #000000;
       font-size: 20px;
       cursor: default;
+      outline: none;
+    }
+
+    .attach-btn:focus, .send-btn:focus,
+    .attach-btn:active, .send-btn:active {
+      outline: none;
+      box-shadow: none;
     }
 
     /* Prototype note */
@@ -383,11 +409,10 @@
       font-size: 12px;
       color: #000000;
       text-align: center;
-      border-bottom: 1.5px solid #000000;
+      border-bottom: 1px solid #e0e0e0;
       font-weight: 500;
     }
 
-    /* Ensure pure black/white */
     i, svg {
       color: inherit;
     }
@@ -395,13 +420,18 @@
     .outgoing .bubble i {
       color: #ffffff;
     }
+
+    button {
+      background: none;
+      border: none;
+    }
   </style>
 </head>
 <body>
 <div class="phone-mock">
   
   <div class="prototype-note">
-    <i class="fas fa-tag" style="margin-right: 6px;"></i> All message types are labeled · #000 / #FFF
+    <i class="fas fa-tag" style="margin-right: 6px;"></i> All message borders removed · #000 / #FFF
   </div>
 
   <!-- Header -->
@@ -415,7 +445,7 @@
       </div>
       <div class="title">
         <h2>NoodlePay</h2>
-        <p><i class="fas fa-circle" style="font-size: 8px; color: #000000; margin-right: 4px;"></i>Online · Payments</p>
+        <p><i class="fas fa-circle" style="font-size: 8px; color: #34c759; margin-right: 4px;"></i>Online · Payments</p>
       </div>
     </div>
     <div style="width: 32px;"></div>
@@ -445,7 +475,7 @@
         <i class="fas fa-credit-card"></i> PAYMENT REQUEST · PENDING
       </div>
       <div class="bubble-wrapper">
-        <div class="bubble" style="padding: 0; background: transparent; border: none;">
+        <div class="bubble" style="padding: 0; background: transparent;">
           <div class="payment-card">
             <div class="card-header">
               <i class="fas fa-receipt"></i> Payment Request
@@ -471,7 +501,7 @@
         <i class="fas fa-check-circle"></i> PAID STATUS
       </div>
       <div class="system-bubble">
-        <i class="fas fa-check-circle" style="margin-right: 6px;"></i> Paid ✔ · 120.00 CNY
+        <i class="fas fa-check-circle" style="margin-right: 6px; color: #34c759;"></i> Paid ✔ · 120.00 CNY
       </div>
       <div class="timestamp">
         <i class="far fa-clock"></i> 13:55
@@ -484,7 +514,7 @@
         <i class="fas fa-credit-card"></i> PAYMENT REQUEST
       </div>
       <div class="bubble-wrapper">
-        <div class="bubble" style="padding: 0; background: transparent; border: none;">
+        <div class="bubble" style="padding: 0; background: transparent;">
           <div class="payment-card">
             <div class="card-header">
               <i class="fas fa-receipt"></i> Payment Request
@@ -510,7 +540,7 @@
         <i class="fas fa-check-double"></i> PAID CONFIRMATION
       </div>
       <div class="system-bubble">
-        <i class="fas fa-check-circle"></i> Paid ✔ · 120.00 CNY
+        <i class="fas fa-check-circle" style="color: #34c759;"></i> Paid ✔ · 120.00 CNY
       </div>
       <div class="timestamp">
         <i class="far fa-clock"></i> 13:55
@@ -523,7 +553,7 @@
         <i class="fas fa-tag"></i> PRODUCT CARD
       </div>
       <div class="bubble-wrapper">
-        <div class="bubble" style="padding: 0; background: transparent; border: none;">
+        <div class="bubble" style="padding: 0; background: transparent;">
           <div class="product-card">
             <div class="product-img-placeholder">
               <i class="fas fa-image" style="font-size: 42px;"></i>
@@ -552,8 +582,8 @@
         <i class="fas fa-exchange-alt"></i> MONEY TRANSFER
       </div>
       <div class="bubble-wrapper">
-        <div class="bubble" style="padding: 0; background: transparent; border: none;">
-          <div class="transfer-card" style="background: #ffffff; border-radius: 20px; padding: 14px; width: 260px; border: 1.5px solid #000000;">
+        <div class="bubble" style="padding: 0; background: transparent;">
+          <div class="transfer-card" style="background: #f2f2f2; border-radius: 20px; padding: 14px; width: 260px;">
             <div class="transfer-row">
               <div class="transfer-icon">
                 <i class="fas fa-arrow-right"></i>
@@ -564,8 +594,8 @@
                 <div style="font-weight: 700; font-size: 20px;">120.00 <small style="font-weight: 500;">CNY</small></div>
               </div>
             </div>
-            <div style="margin-top: 12px; color: #000000; opacity: 0.7; font-size: 13px; border-top: 1.5px dashed #000000; padding-top: 10px;">
-              <i class="far fa-check-circle" style="color: #000000;"></i> Completed
+            <div style="margin-top: 12px; color: #000000; opacity: 0.6; font-size: 13px; border-top: 1px solid #d0d0d0; padding-top: 10px;">
+              <i class="far fa-check-circle" style="color: #34c759;"></i> Completed
             </div>
           </div>
         </div>

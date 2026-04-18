@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { spacing } from '../src/theme/spacing';
 import { Button } from '../src/components/ui/Button';
+import { Card } from '../src/components/ui/Card';
+import { Badge } from '../src/components/ui/Badge';
 import { Divider } from '../src/components/ui/Divider';
 import { getWallets, getTransactions, topUpWallet, withdrawFromWallet, createWallet, transferBetweenWallets, getWalletStatusHistory } from '../src/services/walletService';
 
@@ -39,13 +41,20 @@ export default function WalletScreen() {
   const [toWalletId, setToWalletId] = useState('');
   const [processing, setProcessing] = useState(false);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
-  const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    loadWalletData();
+  const loadTransactionsForWallet = useCallback(async (walletId: number) => {
+    try {
+      setLoadingTransactions(true);
+      const transactionsRes = await getTransactions(walletId, { limit: 50 });
+      setTransactions(transactionsRes.transactions || []);
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+    } finally {
+      setLoadingTransactions(false);
+    }
   }, []);
 
-  const loadWalletData = async () => {
+  const loadWalletData = useCallback(async () => {
     try {
       setLoading(true);
       let walletsRes = await getWallets();
@@ -67,19 +76,11 @@ export default function WalletScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadTransactionsForWallet]);
 
-  const loadTransactionsForWallet = async (walletId: number) => {
-    try {
-      setLoadingTransactions(true);
-      const transactionsRes = await getTransactions(walletId, { limit: 50 });
-      setTransactions(transactionsRes.transactions || []);
-    } catch (error) {
-      console.error('Error loading transactions:', error);
-    } finally {
-      setLoadingTransactions(false);
-    }
-  };
+  useEffect(() => {
+    loadWalletData();
+  }, [loadWalletData]);
 
   const onWalletScroll = (event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -88,6 +89,12 @@ export default function WalletScreen() {
       setCurrentWalletIndex(index);
       loadTransactionsForWallet(wallets[index].id);
     }
+  };
+
+  const resetModalFields = () => {
+    setAmount('');
+    setReference('');
+    setToWalletId('');
   };
 
   const handleTopUp = async () => {
@@ -111,8 +118,7 @@ export default function WalletScreen() {
       });
       Alert.alert('Success', 'Wallet topped up successfully');
       setShowTopUpModal(false);
-      setAmount('');
-      setReference('');
+      resetModalFields();
       await loadWalletData();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to top up wallet');
@@ -144,9 +150,7 @@ export default function WalletScreen() {
       });
       Alert.alert('Success', 'Transfer completed successfully');
       setShowTransferModal(false);
-      setAmount('');
-      setReference('');
-      setToWalletId('');
+      resetModalFields();
       await loadWalletData();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to transfer');
@@ -188,8 +192,7 @@ export default function WalletScreen() {
       });
       Alert.alert('Success', 'Withdrawal completed successfully');
       setShowWithdrawModal(false);
-      setAmount('');
-      setReference('');
+      resetModalFields();
       await loadWalletData();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to withdraw from wallet');
@@ -214,6 +217,20 @@ export default function WalletScreen() {
     return '📥';
   };
 
+  const getStatusVariant = (status?: string): 'success' | 'warning' | 'destructive' | 'outline' => {
+    if (!status) return 'outline';
+    const normalized = status.toLowerCase();
+    if (normalized === 'active') return 'success';
+    if (normalized === 'frozen' || normalized === 'pending') return 'warning';
+    if (normalized === 'closed') return 'destructive';
+    return 'outline';
+  };
+
+  const formatMoney = (currency: string | undefined, value: number | string | undefined) => {
+    const amountNum = Number(value || 0);
+    return `${currency || 'CNY'} ${amountNum.toFixed(2)}`;
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -225,59 +242,48 @@ export default function WalletScreen() {
   }
 
   const renderWalletCard = ({ item }: { item: any }) => (
-    <View style={[styles.balanceCard, { backgroundColor: colors.primary, width: CARD_WIDTH }]}>
-      <Text style={styles.balanceLabel}>{item.name || 'Wallet'}</Text>
-      {item.description && (
-        <Text style={styles.walletDescription}>{item.description}</Text>
-      )}
-      <Text style={styles.balanceAmount}>{item.currency || 'CNY'} {parseFloat(item.balance || '0').toFixed(2)}</Text>
-      <View style={styles.balanceActions}>
-        <Button
-          title="Top Up"
-          variant="secondary"
-          onPress={() => setShowTopUpModal(true)}
-          style={styles.balanceButton}
-        />
-        <Button
-          title="Withdraw"
-          variant="outline"
-          onPress={() => setShowWithdrawModal(true)}
-          style={[styles.balanceButton, { borderColor: '#FFF' }]}
-        />
+    <Card style={[styles.walletCard, { width: CARD_WIDTH, backgroundColor: colors.primary }]}>
+      <View style={styles.walletCardTop}>
+        <View>
+          <Text style={styles.walletLabel}>{item.name || 'Primary Wallet'}</Text>
+          {item.description ? <Text style={styles.walletDescription}>{item.description}</Text> : null}
+        </View>
+        <Badge label={(item.status || 'active').toUpperCase()} variant={getStatusVariant(item.status)} />
       </View>
-      <View style={[styles.balanceActions, { marginTop: spacing.sm }]}>
-        <Button
-          title="Transfer"
-          variant="outline"
-          onPress={() => setShowTransferModal(true)}
-          style={[styles.balanceButton, { borderColor: '#FFF' }]}
-        />
-        <Button
-          title="History"
-          variant="outline"
-          onPress={loadStatusHistory}
-          style={[styles.balanceButton, { borderColor: '#FFF' }]}
-        />
+
+      <Text style={styles.walletAmount}>{formatMoney(item.currency, item.balance)}</Text>
+
+      <View style={styles.walletMetaRow}>
+        <Text style={styles.walletMetaText}>Wallet ID: {item.id}</Text>
+        <Text style={styles.walletMetaText}>Type: {item.wallet_type_id || 'Default'}</Text>
       </View>
-    </View>
+    </Card>
   );
 
   const renderSkeletonCard = () => (
-    <View style={[styles.balanceCard, styles.skeletonCard, { backgroundColor: colors.surfaceSecondary, width: CARD_WIDTH }]}>
+    <View style={[styles.walletCard, styles.skeletonCard, { backgroundColor: colors.surfaceSecondary, width: CARD_WIDTH }]}>
       <View style={[styles.skeletonText, styles.skeletonLabel, { backgroundColor: colors.border }]} />
       <View style={[styles.skeletonText, styles.skeletonAmount, { backgroundColor: colors.border }]} />
-      <View style={styles.balanceActions}>
+      <View style={styles.walletActionsGrid}>
         <View style={[styles.skeletonButton, { backgroundColor: colors.border }]} />
         <View style={[styles.skeletonButton, { backgroundColor: colors.border }]} />
       </View>
     </View>
   );
 
+  const currentWallet = wallets[currentWalletIndex];
+  const totalBalance = wallets.reduce((acc, wallet) => acc + Number(wallet.balance || 0), 0);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Wallet Cards Slider */}
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Wallet</Text>
+        <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+          Manage balance, transfers, and transaction history.
+        </Text>
+      </View>
+
       <FlatList
-        ref={flatListRef}
         data={wallets}
         renderItem={renderWalletCard}
         keyExtractor={(item) => item.id.toString()}
@@ -290,8 +296,7 @@ export default function WalletScreen() {
         contentContainerStyle={styles.walletSlider}
         ListEmptyComponent={renderSkeletonCard}
       />
-      
-      {/* Wallet Indicator Dots */}
+
       {wallets.length > 1 && (
         <View style={styles.dotsContainer}>
           {wallets.map((_, index) => (
@@ -309,75 +314,97 @@ export default function WalletScreen() {
       <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing['2xl'] }}
+        showsVerticalScrollIndicator={false}
       >
+        <View style={styles.section}>
+          <View style={styles.walletActionsGrid}>
+            <Button title="Top Up" onPress={() => setShowTopUpModal(true)} style={styles.actionButton} />
+            <Button title="Withdraw" variant="outline" onPress={() => setShowWithdrawModal(true)} style={styles.actionButton} />
+          </View>
+          <View style={[styles.walletActionsGrid, { marginTop: spacing.sm }]}>
+            <Button title="Transfer" variant="outline" onPress={() => setShowTransferModal(true)} style={styles.actionButton} />
+            <Button title="Status History" variant="outline" onPress={loadStatusHistory} style={styles.actionButton} />
+          </View>
+        </View>
 
-        {/* Transactions */}
-        <View style={styles.transactionsSection}>
+        <View style={styles.section}>
+          <Card style={styles.summaryCard} variant="outlined">
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Wallet Balance</Text>
+              <Text style={[styles.summaryValue, { color: colors.text }]}>{formatMoney(currentWallet?.currency, totalBalance)}</Text>
+            </View>
+            <Divider />
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Transactions (Loaded)</Text>
+              <Text style={[styles.summaryValue, { color: colors.text }]}>{transactions.length}</Text>
+            </View>
+          </Card>
+        </View>
+
+        <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Recent Transactions
           </Text>
-
-          {loadingTransactions ? (
-            <View>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <View key={i}>
-                  <View style={styles.transactionItem}>
-                    <View style={[styles.skeletonIcon, { backgroundColor: colors.border }]} />
-                    <View style={styles.transactionInfo}>
-                      <View style={[styles.skeletonText, styles.skeletonTransactionDesc, { backgroundColor: colors.border }]} />
-                      <View style={[styles.skeletonText, styles.skeletonTransactionDate, { backgroundColor: colors.border }]} />
+          <Card style={styles.transactionsCard}>
+            {loadingTransactions ? (
+              <View>
+                {[1, 2, 3, 4].map((i) => (
+                  <View key={i}>
+                    <View style={styles.transactionItem}>
+                      <View style={[styles.skeletonIcon, { backgroundColor: colors.border }]} />
+                      <View style={styles.transactionInfo}>
+                        <View style={[styles.skeletonText, styles.skeletonTransactionDesc, { backgroundColor: colors.border }]} />
+                        <View style={[styles.skeletonText, styles.skeletonTransactionDate, { backgroundColor: colors.border }]} />
+                      </View>
+                      <View style={[styles.skeletonText, styles.skeletonTransactionAmount, { backgroundColor: colors.border }]} />
                     </View>
-                    <View style={[styles.skeletonText, styles.skeletonTransactionAmount, { backgroundColor: colors.border }]} />
+                    <Divider />
                   </View>
-                  <Divider />
-                </View>
-              ))}
-            </View>
-          ) : (
-            <>
-              {transactions.map((transaction) => (
-                <View key={transaction.id || transaction.ledger_uuid}>
-                  <TouchableOpacity style={styles.transactionItem}>
-                    <Text style={styles.transactionIcon}>
-                      {getTransactionIcon(transaction.direction, transaction.type)}
-                    </Text>
-                    <View style={styles.transactionInfo}>
-                      <Text style={[styles.transactionDesc, { color: colors.text }]}>
-                        {transaction.reference || transaction.type || 'Transaction'}
+                ))}
+              </View>
+            ) : (
+              <>
+                {transactions.map((transaction) => (
+                  <View key={transaction.id || transaction.ledger_uuid}>
+                    <TouchableOpacity style={styles.transactionItem}>
+                      <Text style={styles.transactionIcon}>
+                        {getTransactionIcon(transaction.direction, transaction.type)}
                       </Text>
-                      <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
-                        {formatDate(transaction.occurred_at || transaction.created_at)}
+                      <View style={styles.transactionInfo}>
+                        <Text style={[styles.transactionDesc, { color: colors.text }]}>
+                          {transaction.reference || transaction.type || 'Transaction'}
+                        </Text>
+                        <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
+                          {formatDate(transaction.occurred_at || transaction.created_at)}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.transactionAmount,
+                          {
+                            color: transaction.direction === 'credit' ? colors.success : colors.destructive,
+                          },
+                        ]}
+                      >
+                        {transaction.direction === 'credit' ? '+' : '-'}
+                        {formatMoney(transaction.currency || currentWallet?.currency, transaction.amount).replace(`${transaction.currency || currentWallet?.currency || 'CNY'} `, '')}
                       </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.transactionAmount,
-                        {
-                          color: transaction.direction === 'credit'
-                            ? '#22C55E'
-                            : colors.destructive,
-                        },
-                      ]}
-                    >
-                      {transaction.direction === 'credit' ? '+' : '-'}
-                      {transaction.currency || wallets[currentWalletIndex]?.currency || 'CNY'} {parseFloat(transaction.amount).toFixed(2)}
-                    </Text>
-                  </TouchableOpacity>
-                  <Divider />
-                </View>
-              ))}
+                    </TouchableOpacity>
+                    <Divider />
+                  </View>
+                ))}
 
-              {transactions.length === 0 && (
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No transactions yet
-                </Text>
-              )}
-            </>
-          )}
+                {transactions.length === 0 && (
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    No transactions available yet.
+                  </Text>
+                )}
+              </>
+            )}
+          </Card>
         </View>
       </ScrollView>
 
-      {/* Top Up Modal */}
       <Modal visible={showTopUpModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -402,8 +429,7 @@ export default function WalletScreen() {
                 style={[styles.modalButton, { backgroundColor: colors.surfaceSecondary }]}
                 onPress={() => {
                   setShowTopUpModal(false);
-                  setAmount('');
-                  setReference('');
+                  resetModalFields();
                 }}
               >
                 <Text style={{ color: colors.text }}>Cancel</Text>
@@ -424,7 +450,6 @@ export default function WalletScreen() {
         </View>
       </Modal>
 
-      {/* Withdraw Modal */}
       <Modal visible={showWithdrawModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -449,8 +474,7 @@ export default function WalletScreen() {
                 style={[styles.modalButton, { backgroundColor: colors.surfaceSecondary }]}
                 onPress={() => {
                   setShowWithdrawModal(false);
-                  setAmount('');
-                  setReference('');
+                  resetModalFields();
                 }}
               >
                 <Text style={{ color: colors.text }}>Cancel</Text>
@@ -471,7 +495,6 @@ export default function WalletScreen() {
         </View>
       </Modal>
 
-      {/* Transfer Modal */}
       <Modal visible={showTransferModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -504,9 +527,7 @@ export default function WalletScreen() {
                 style={[styles.modalButton, { backgroundColor: colors.surfaceSecondary }]}
                 onPress={() => {
                   setShowTransferModal(false);
-                  setAmount('');
-                  setReference('');
-                  setToWalletId('');
+                  resetModalFields();
                 }}
               >
                 <Text style={{ color: colors.text }}>Cancel</Text>
@@ -527,7 +548,6 @@ export default function WalletScreen() {
         </View>
       </Modal>
 
-      {/* Status History Modal */}
       <Modal visible={showHistoryModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card, maxHeight: '80%' }]}>
@@ -571,20 +591,60 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    paddingHorizontal: spacing.screenPadding,
+    paddingBottom: spacing.sm,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    marginTop: spacing.xs,
+  },
   walletSlider: {
     paddingHorizontal: spacing.screenPadding,
   },
-  balanceCard: {
+  walletCard: {
     marginVertical: spacing.md,
     padding: spacing.lg,
     borderRadius: spacing.md,
-    alignItems: 'center',
+  },
+  walletCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  walletLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    opacity: 0.85,
+    fontWeight: '600',
   },
   walletDescription: {
-    color: '#FFF',
+    color: '#FFFFFF',
     fontSize: 12,
     opacity: 0.7,
     marginTop: 4,
+  },
+  walletAmount: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    fontWeight: '700',
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  walletMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  walletMetaText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    opacity: 0.8,
   },
   dotsContainer: {
     flexDirection: 'row',
@@ -600,6 +660,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
+  },
+  section: {
+    paddingHorizontal: spacing.screenPadding,
+    marginBottom: spacing.md,
   },
   skeletonCard: {
     justifyContent: 'center',
@@ -617,11 +681,17 @@ const styles = StyleSheet.create({
     height: 36,
     marginVertical: spacing.md,
   },
+  walletActionsGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+  },
   skeletonButton: {
-    width: 100,
+    flex: 1,
     height: 40,
     borderRadius: spacing.sm,
-    marginHorizontal: spacing.sm,
   },
   skeletonIcon: {
     width: 24,
@@ -642,31 +712,28 @@ const styles = StyleSheet.create({
     width: 70,
     height: 16,
   },
-  balanceLabel: {
-    color: '#FFF',
-    fontSize: 14,
-    opacity: 0.8,
+  summaryCard: {
+    padding: spacing.md,
   },
-  balanceAmount: {
-    color: '#FFF',
-    fontSize: 36,
-    fontWeight: '700',
-    marginVertical: spacing.md,
-  },
-  balanceActions: {
+  summaryRow: {
     flexDirection: 'row',
-    marginTop: spacing.sm,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
   },
-  balanceButton: {
-    marginHorizontal: spacing.sm,
-    minWidth: 100,
+  summaryLabel: {
+    fontSize: 14,
   },
-  transactionsSection: {
-    padding: spacing.screenPadding,
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  transactionsCard: {
+    padding: spacing.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: spacing.md,
   },
   transactionItem: {
@@ -694,7 +761,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    marginTop: spacing.lg,
+    paddingVertical: spacing.lg,
   },
   center: {
     flex: 1,
@@ -713,8 +780,8 @@ const styles = StyleSheet.create({
     borderRadius: spacing.md,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: spacing.md,
   },
   modalInput: {

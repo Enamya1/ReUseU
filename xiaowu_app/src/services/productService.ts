@@ -158,7 +158,7 @@ export const markProductSold = async (productId: number): Promise<void> => {
  */
 export const updateProductImages = async (
   productId: number,
-  images: Array<{ uri: string; is_primary?: boolean }>
+  images: { uri: string; is_primary?: boolean }[]
 ): Promise<ProductImage[]> => {
   try {
     const formData = new FormData();

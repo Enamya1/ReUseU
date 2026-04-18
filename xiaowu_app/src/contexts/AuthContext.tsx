@@ -36,7 +36,7 @@ interface AuthContextType {
   adminLogin: (email: string, password: string) => Promise<boolean>;
   signup: (data: SignupData) => Promise<{ user?: User; message?: string; errors?: Record<string, string[]> }>;
   logout: () => Promise<void>;
-  updateProfile: (data: Partial<User> & { profile_picture?: string }) => Promise<boolean>;
+  updateProfile: (data: Partial<User> & { profile_picture?: unknown }) => Promise<boolean>;
   getUniversityOptions: (universityId?: number) => Promise<{ universities: University[]; dormitories: Dormitory[]; current?: { university_id?: number; dormitory_id?: number } }>;
   updateUniversitySettings: (data: { university_id: number; dormitory_id: number }) => Promise<boolean>;
   getMetaOptions: () => Promise<MetaOptionsResponse>;
@@ -89,19 +89,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const token = await getAccessToken();
         if (token) {
           setAccessToken(token);
-          // Note: We don't have a GET profile endpoint
-          // User will be set properly after login/signup
-          // For app restart, we derive a minimal user from stored data
-          setUser({
-            id: 0,
-            full_name: '',
-            username: '',
-            email: '',
-            role: 'user',
-            status: 'active',
-          });
+          setTokenType('Bearer');
+          try {
+            const currentUser = await authService.getCurrentUser();
+            setUser(currentUser);
+          } catch {
+            await authService.logout();
+            setUser(null);
+            setAccessToken(null);
+            setTokenType(null);
+          }
         }
-      } catch (error) {
+      } catch {
         // Token invalid or expired
         setUser(null);
         setAccessToken(null);
@@ -124,6 +123,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Derive user from email (matching web platform approach)
         const derivedUser = deriveUserFromEmail(email, 'user', response.account_completed);
         setUser(derivedUser);
+        try {
+          const currentUser = await authService.getCurrentUser();
+          setUser(currentUser);
+        } catch {
+          // Keep derived user if profile fetch fails temporarily.
+        }
         return true;
       }
       return false;
@@ -160,7 +165,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setTokenType(null);
   }, []);
 
-  const updateProfile = useCallback(async (data: Partial<User> & { profile_picture?: string }): Promise<boolean> => {
+  const updateProfile = useCallback(async (data: Partial<User> & { profile_picture?: unknown }): Promise<boolean> => {
     try {
       const updatedUser = await authService.updateProfile(data);
       setUser(updatedUser);
@@ -290,9 +295,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    // Note: We don't have a GET profile endpoint
-    // User data is updated through specific endpoints
-  }, []);
+    if (!accessToken) return;
+    const currentUser = await authService.getCurrentUser();
+    setUser(currentUser);
+  }, [accessToken]);
 
   const value: AuthContextType = {
     user,

@@ -5,10 +5,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, Dimensions, View, Animated, StyleSheet, Image, TouchableOpacity, GestureResponderEvent } from 'react-native';
-import { Tabs } from 'expo-router';
+import { Tabs , usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/contexts/ThemeContext';
-import { usePathname } from 'expo-router';
 import { SellDropdown } from '../../src/components/SellDropdown';
 import * as Haptics from 'expo-haptics';
 

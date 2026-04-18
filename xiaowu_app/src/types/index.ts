@@ -465,10 +465,10 @@ export interface ProductEngagement {
   clicks: number;
   favorites: number;
   messages: number;
-  last_visitors?: Array<{
+  last_visitors?: {
     id: number;
     username?: string;
     profile_picture?: string;
     visited_at?: string;
-  }>;
+  }[];
 }

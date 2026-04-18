@@ -123,7 +123,7 @@ export const FormRadio: React.FC<FormRadioProps> = ({
 };
 
 interface RadioGroupProps {
-  options: Array<{ value: string | number; label: string }>;
+  options: { value: string | number; label: string }[];
   value?: string | number;
   onChange: (value: string | number) => void;
   label?: string;

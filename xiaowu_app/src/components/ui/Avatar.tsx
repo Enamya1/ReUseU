@@ -129,7 +129,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 };
 
 interface AvatarGroupProps {
-  avatars: Array<{ source?: { uri: string }; name?: string }>;
+  avatars: { source?: { uri: string }; name?: string }[];
   max?: number;
   size?: AvatarSize;
   style?: ViewStyle;

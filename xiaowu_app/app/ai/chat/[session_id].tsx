@@ -11,13 +11,13 @@ type Message = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  products?: Array<{
+  products?: {
     id: number;
     title: string;
     price: number;
     currency: string;
     image: string;
-  }>;
+  }[];
 };
 
 export default function AIChatScreen() {

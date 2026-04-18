@@ -177,13 +177,13 @@ export const openWallet = async (walletId: number, reason?: string): Promise<Wal
  * Create atomic transaction
  */
 export const createAtomicTransaction = async (data: {
-  steps: Array<{
+  steps: {
     step_type: string;
     from_wallet_id?: number;
     to_wallet_id?: number;
     amount: number;
     currency: string;
-  }>;
+  }[];
   metadata?: any;
 }): Promise<any> => {
   try {

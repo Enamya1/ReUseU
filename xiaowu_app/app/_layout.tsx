@@ -134,6 +134,12 @@ function RootStack() {
             }}
           />
           <Stack.Screen
+            name="profile/edit"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
             name="my-listing-detail/[id]"
             options={{
               headerShown: true,

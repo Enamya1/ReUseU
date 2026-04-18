@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal, Keyboard } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Image,
+  Alert,
+  Modal,
+  Keyboard,
+} from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getMessages, sendMessage, transferMoney, createPaymentRequest, confirmPaymentRequest } from '@/src/services/messageService';
@@ -26,9 +40,7 @@ export default function ChatScreen() {
   const [currency, setCurrency] = useState('CNY');
   const [reference, setReference] = useState('');
   const [lastMessageId, setLastMessageId] = useState<number | null>(null);
-  const [isInputFocused, setIsInputFocused] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const scrollViewRef = useRef<any>(null);
 
   const loadMessages = useCallback(async (silent = false) => {
     if (!id || id === '0') return;
@@ -73,7 +85,7 @@ export default function ChatScreen() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [id, lastMessageId]); // Keep dependencies minimal
+  }, [id, lastMessageId]);
 
   useEffect(() => {
     if (id && id !== '0') {
@@ -83,7 +95,7 @@ export default function ChatScreen() {
     } else {
       setLoading(false);
     }
-  }, [id]); // Remove loadMessages from dependencies
+  }, [id]);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -139,6 +151,7 @@ export default function ChatScreen() {
         image_url: product.images?.[0]?.image_url || product.image_thumbnail_url,
       },
     };
+    (tempMessage as any).__localIsMe = true;
 
     setMessages(prev => [...prev, tempMessage]);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -189,6 +202,7 @@ export default function ChatScreen() {
       status: 'sent',
       created_at: new Date().toISOString(),
     };
+    (tempMessage as any).__localIsMe = true;
 
     setMessages(prev => [...prev, tempMessage]);
     setInputText('');
@@ -308,16 +322,52 @@ export default function ChatScreen() {
     );
   };
 
+  const resolveIsMyMessage = useCallback((item: Message): boolean => {
+    const toValidId = (value: unknown): number | null => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    };
+
+    const currentUserId = toValidId(user?.id);
+    const otherUserId = toValidId(conversation?.other_user?.id ?? receiverId);
+    const senderId = toValidId(
+      (item as any).sender_id ??
+      (item as any).senderId ??
+      (item as any).from_user_id ??
+      (item as any).user_id ??
+      (item as any).sender?.id ??
+      (item as any).from_user?.id
+    );
+
+    if ((item as any).__localIsMe === true) {
+      return true;
+    }
+
+    if (currentUserId !== null && senderId !== null) {
+      return senderId === currentUserId;
+    }
+
+    if (senderId !== null && otherUserId !== null) {
+      return senderId !== otherUserId;
+    }
+
+    if (user?.username && item.sender_username) {
+      return item.sender_username.toLowerCase() === user.username.toLowerCase();
+    }
+
+    return false;
+  }, [user?.id, user?.username, conversation?.other_user?.id, receiverId]);
+
   const renderMessage = useCallback(({ item }: { item: Message }) => {
-    const isMe = item.sender_id === user?.id;
+    const isMe = resolveIsMyMessage(item);
     const messageText = item.message_text || item.content || '';
 
     if (item.message_type === 'payment_request') {
       const isPending = item.payment_request_status === 'pending';
       const isReceiver = !isMe;
       return (
-        <View style={[styles.messageContainer, styles.systemMessage]}>
-          <View style={[styles.paymentBubble, { backgroundColor: isPending ? '#FFF3CD' : '#D4EDDA' }]}>
+        <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
+          <View style={styles.cardBubble}>
             <Text style={styles.paymentTitle}>💳 Payment Request</Text>
             <Text style={styles.paymentAmount}>
               {item.transfer_data?.currency || 'CNY'} {item.transfer_data?.amount || 0}
@@ -341,6 +391,9 @@ export default function ChatScreen() {
             )}
             {!isPending && <Text style={styles.paidText}>✓ Paid</Text>}
           </View>
+          <Text style={[styles.messageTime, isMe ? styles.myTime : styles.theirTime]}>
+            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
         </View>
       );
     }
@@ -348,8 +401,8 @@ export default function ChatScreen() {
     if (item.message_type === 'transfer' || item.message_type === 'payment_confirmation') {
       const title = item.message_type === 'transfer' ? '💸 Transfer' : '✅ Payment Confirmed';
       return (
-        <View style={[styles.messageContainer, styles.systemMessage]}>
-          <View style={[styles.paymentBubble, { backgroundColor: '#D1ECF1' }]}>
+        <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
+          <View style={styles.cardBubble}>
             <Text style={styles.paymentTitle}>{title}</Text>
             <Text style={styles.paymentAmount}>
               {item.transfer_data?.currency || 'CNY'} {item.transfer_data?.amount || 0}
@@ -364,6 +417,9 @@ export default function ChatScreen() {
               {isMe ? 'You sent' : `From ${item.sender_username || 'User'}`}
             </Text>
           </View>
+          <Text style={[styles.messageTime, isMe ? styles.myTime : styles.theirTime]}>
+            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
         </View>
       );
     }
@@ -371,16 +427,16 @@ export default function ChatScreen() {
     if (item.message_type === 'product_mention' && item.product) {
       console.log('Rendering product mention:', item.product);
       const productImageUrl = item.product.image_url || item.product?.images?.[0]?.image_url;
-      
+
       return (
-        <View style={[styles.messageContainer, styles.systemMessage]}>
+        <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
           <TouchableOpacity
             style={styles.productBubble}
             onPress={() => router.push(`/product/${item.product?.id}`)}
           >
             {productImageUrl ? (
-              <Image 
-                source={{ uri: normalizeImageUrl(productImageUrl) }} 
+              <Image
+                source={{ uri: normalizeImageUrl(productImageUrl) }}
                 style={styles.productImage}
                 resizeMode="cover"
                 onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
@@ -397,13 +453,16 @@ export default function ChatScreen() {
               </Text>
             </View>
           </TouchableOpacity>
+          <Text style={[styles.messageTime, isMe ? styles.myTime : styles.theirTime]}>
+            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
         </View>
       );
     }
 
     return (
       <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
-        <View style={[styles.messageBubble, { backgroundColor: isMe ? '#0066FF' : '#F0F0F0' }]}>
+        <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
           {item.image_url && (
             <Image source={{ uri: normalizeImageUrl(item.image_url) }} style={styles.messageImage} />
           )}
@@ -413,12 +472,12 @@ export default function ChatScreen() {
             </Text>
           )}
         </View>
-        <Text style={styles.messageTime}>
+        <Text style={[styles.messageTime, isMe ? styles.myTime : styles.theirTime]}>
           {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
     );
-  }, [user?.id, handleConfirmPayment]);
+  }, [resolveIsMyMessage, handleConfirmPayment]);
 
   if (loading) {
     return (
@@ -438,28 +497,12 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{receiverName || conversation?.other_user?.username || 'Chat'}</Text>
-        <TouchableOpacity onPress={() => setShowActions(!showActions)} style={styles.moreButton}>
-          <Ionicons name="ellipsis-vertical" size={24} color="#000" />
-        </TouchableOpacity>
-      </View>
-
-      {showActions && (
-        <View style={styles.actionsMenu}>
-          <TouchableOpacity style={styles.actionItem} onPress={() => { setShowTransferModal(true); setShowActions(false); }}>
-            <Ionicons name="cash-outline" size={20} color="#0066FF" />
-            <Text style={styles.actionText}>Send Money</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionItem} onPress={() => { setShowPaymentModal(true); setShowActions(false); }}>
-            <Ionicons name="card-outline" size={20} color="#0066FF" />
-            <Text style={styles.actionText}>Request Payment</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionItem} onPress={() => { loadUserProducts(); setShowProductModal(true); setShowActions(false); }}>
-            <Ionicons name="pricetag-outline" size={20} color="#0066FF" />
-            <Text style={styles.actionText}>Mention Product</Text>
-          </TouchableOpacity>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle}>{receiverName || conversation?.other_user?.username || 'Chat'}</Text>
+          <Text style={styles.headerSubtitle}>Online · Payments</Text>
         </View>
-      )}
+        <View style={styles.headerSpacer} />
+      </View>
 
       <FlatList
         ref={flatListRef}
@@ -472,6 +515,7 @@ export default function ChatScreen() {
         maxToRenderPerBatch={10}
         updateCellsBatchingPeriod={50}
         windowSize={21}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="chatbubbles-outline" size={64} color="#CCC" />
@@ -480,7 +524,27 @@ export default function ChatScreen() {
         }
       />
 
+      {showActions && (
+        <View style={styles.actionsMenuFloating}>
+          <TouchableOpacity style={styles.actionItem} onPress={() => { setShowTransferModal(true); setShowActions(false); }}>
+            <Ionicons name="cash-outline" size={20} color="#000" />
+            <Text style={styles.actionText}>Send Money</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionItem} onPress={() => { setShowPaymentModal(true); setShowActions(false); }}>
+            <Ionicons name="card-outline" size={20} color="#000" />
+            <Text style={styles.actionText}>Request Payment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionItem} onPress={() => { loadUserProducts(); setShowProductModal(true); setShowActions(false); }}>
+            <Ionicons name="pricetag-outline" size={20} color="#000" />
+            <Text style={styles.actionText}>Mention Product</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.inputContainer}>
+        <TouchableOpacity style={styles.attachButton} onPress={() => setShowActions((prev) => !prev)}>
+          <Ionicons name="add" size={24} color="#000" />
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
           value={inputText}
@@ -489,10 +553,10 @@ export default function ChatScreen() {
           multiline
           maxLength={2000}
           onFocus={() => {
-            setIsInputFocused(true);
+            setShowActions(false);
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300);
           }}
-          onBlur={() => setIsInputFocused(false)}
+          onBlur={() => undefined}
         />
         <TouchableOpacity
           style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
@@ -592,41 +656,108 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
-  backButton: { padding: 8 },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', textAlign: 'center' },
-  moreButton: { padding: 8 },
-  actionsMenu: { backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E0E0E0', padding: 8 },
-  actionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
-  actionText: { fontSize: 15, color: '#0066FF' },
-  messageList: { padding: 16, flexGrow: 1 },
-  messageContainer: { marginBottom: 12, maxWidth: '80%' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  backButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
+  headerInfo: { flex: 1, marginLeft: 8 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#000' },
+  headerSubtitle: { fontSize: 13, color: '#000', opacity: 0.6, marginTop: 2 },
+  headerSpacer: { width: 32 },
+  actionsMenuFloating: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 74,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingVertical: 6,
+    zIndex: 10,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 8,
+  },
+  actionItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11, gap: 10 },
+  actionText: { fontSize: 15, color: '#000', fontWeight: '600' },
+  messageList: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 8, flexGrow: 1 },
+  messageContainer: { marginBottom: 12, maxWidth: '85%' },
   myMessage: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   theirMessage: { alignSelf: 'flex-start', alignItems: 'flex-start' },
-  systemMessage: { alignSelf: 'center', maxWidth: '90%' },
-  messageBubble: { padding: 12, borderRadius: 16, maxWidth: '100%' },
+  messageBubble: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 20, maxWidth: '100%' },
+  myBubble: { backgroundColor: '#000', borderBottomRightRadius: 6 },
+  theirBubble: { backgroundColor: '#F2F2F2', borderBottomLeftRadius: 6 },
   messageText: { fontSize: 15, lineHeight: 20 },
   messageImage: { width: 200, height: 200, borderRadius: 8, marginBottom: 8 },
-  messageTime: { fontSize: 11, color: '#999', marginTop: 4 },
-  paymentBubble: { padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#DDD', alignItems: 'center' },
-  paymentTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
-  paymentAmount: { fontSize: 20, fontWeight: 'bold', color: '#0066FF', marginBottom: 4 },
-  paymentRef: { fontSize: 12, color: '#666', marginBottom: 8, textAlign: 'center' },
-  payButton: { backgroundColor: '#0066FF', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8, marginTop: 8 },
-  payButtonText: { color: '#FFF', fontWeight: '600' },
+  messageTime: { fontSize: 11, color: '#000', opacity: 0.5, marginTop: 4 },
+  myTime: { marginRight: 8, marginLeft: 0 },
+  theirTime: { marginLeft: 8, marginRight: 0 },
+  cardBubble: {
+    backgroundColor: '#F2F2F2',
+    borderRadius: 16,
+    padding: 14,
+    width: 260,
+  },
+  paymentTitle: { fontSize: 15, fontWeight: '700', marginBottom: 8, color: '#000' },
+  paymentAmount: { fontSize: 24, fontWeight: '700', color: '#000', marginBottom: 8 },
+  paymentRef: { fontSize: 13, color: '#000', opacity: 0.7, marginBottom: 6 },
+  payButton: {
+    backgroundColor: '#000',
+    borderRadius: 30,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  payButtonText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
   paidText: { color: '#22C55E', fontWeight: '600', marginTop: 8 },
   pendingText: { color: '#FF9800', fontWeight: '600', marginTop: 8 },
-  transferFrom: { fontSize: 11, color: '#888', marginTop: 4 },
-  productBubble: { backgroundColor: '#FFF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#DDD', overflow: 'hidden' },
-  productImage: { width: '100%', height: 150, borderRadius: 8, marginBottom: 8 },
-  productInfo: { paddingHorizontal: 4 },
-  productTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  productPrice: { fontSize: 16, fontWeight: 'bold', color: '#0066FF' },
-  inputContainer: { flexDirection: 'row', padding: 12, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E0E0E0' },
-  input: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8, maxHeight: 100 },
-  sendButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0066FF', justifyContent: 'center', alignItems: 'center' },
+  transferFrom: { fontSize: 11, color: '#000', opacity: 0.6, marginTop: 6 },
+  productBubble: { backgroundColor: '#F2F2F2', borderRadius: 16, padding: 0, overflow: 'hidden', width: 260 },
+  productImage: { width: '100%', height: 120, backgroundColor: '#E5E5E5' },
+  productInfo: { padding: 12 },
+  productTitle: { fontSize: 14, fontWeight: '700', marginBottom: 4, color: '#000' },
+  productPrice: { fontSize: 16, fontWeight: '700', color: '#000' },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    gap: 8,
+  },
+  attachButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F2F2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#F2F2F2',
+    borderRadius: 30,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    fontSize: 15,
+    color: '#000',
+    maxHeight: 100,
+  },
+  sendButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
   sendButtonDisabled: { backgroundColor: '#CCC' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
   emptyText: { marginTop: 16, fontSize: 16, color: '#999' },

@@ -211,6 +211,12 @@ export default function ProfileScreen() {
             </Text>
             <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
               <MenuItem
+                icon="👤"
+                label="Edit Profile"
+                onPress={() => router.push('/profile/edit')}
+              />
+              <Divider />
+              <MenuItem
                 icon="📦"
                 label="My Listings"
                 onPress={() => router.push('/my-listings')}
