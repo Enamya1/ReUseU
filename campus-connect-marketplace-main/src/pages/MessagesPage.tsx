@@ -34,6 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { toast } from '@/hooks/use-toast';
 
 type MessageAttachment = {
@@ -214,6 +215,7 @@ const MessagesPage: React.FC = () => {
     getMyProductCards,
     getProductDetail,
   } = useAuth();
+  const { t } = useTranslation();
 
   const receiverId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -543,8 +545,8 @@ const MessagesPage: React.FC = () => {
         const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
         const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
         toast({
-          title: 'Unable to load messages',
-          description: firstError || message || 'Please try again.',
+          title: t('messages.unableToLoadMessages'),
+          description: firstError || message || t('messages.tryAgain'),
         });
       } finally {
         if (!cancelled) {
@@ -586,8 +588,8 @@ const MessagesPage: React.FC = () => {
         const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
         const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
         toast({
-          title: 'Unable to load products',
-          description: firstError || message || 'Please try again.',
+          title: t('messages.unableToLoadProducts'),
+          description: firstError || message || t('messages.tryAgain'),
         });
       } finally {
         if (!cancelled) setIsLoadingProducts(false);
@@ -738,8 +740,8 @@ const MessagesPage: React.FC = () => {
         const errors = (error as { errors?: Record<string, string[]> } | undefined)?.errors;
         const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
         toast({
-          title: 'Unable to load contacts',
-          description: firstError || message || 'Please try again.',
+          title: t('messages.unableToLoadContacts'),
+          description: firstError || message || t('messages.tryAgain'),
         });
       }
     };
@@ -813,16 +815,16 @@ const MessagesPage: React.FC = () => {
     if (!messageInput.trim() && attachments.length === 0) return;
     if (!isAuthenticated) {
       toast({
-        title: 'Login required',
-        description: 'Please log in to send a message.',
+        title: t('messages.loginRequired'),
+        description: t('messages.loginToMention'),
       });
       navigate('/login');
       return;
     }
     if (attachments.length > 0) {
       toast({
-        title: 'Attachments not supported yet',
-        description: 'Please send text messages only.',
+        title: t('messages.attachmentsNotSupported'),
+        description: t('messages.textOnly'),
       });
       return;
     }
@@ -831,8 +833,8 @@ const MessagesPage: React.FC = () => {
     const receiverIdValue = Number(selectedThread.id);
     if (!Number.isFinite(receiverIdValue)) {
       toast({
-        title: 'Unable to send message',
-        description: 'Missing receiver information.',
+        title: t('messages.unableToSend'),
+        description: t('messages.missingReceiver'),
       });
       return;
     }
@@ -1398,7 +1400,7 @@ const MessagesPage: React.FC = () => {
             </div>
             <div className="mt-4 flex-1 overflow-y-auto">
               {filteredThreads.length === 0 ? (
-                <div className="px-6 py-10 text-center text-sm italic text-white/60">no users found</div>
+                <div className="px-6 py-10 text-center text-sm italic text-white/60">{t('messages.noContacts')}</div>
               ) : (
                 filteredThreads.map((thread) => {
                   const isActive = thread.id === selectedThreadId;
@@ -1441,7 +1443,7 @@ const MessagesPage: React.FC = () => {
                     </AvatarFallback>
                   </Avatar>
                 ) : null}
-                <span>{selectedThread ? selectedThread.name : 'select a contact'}</span>
+                <span>{selectedThread ? selectedThread.name : t('messages.selectContact')}</span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild disabled={!selectedThread}>
@@ -1474,7 +1476,7 @@ const MessagesPage: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs text-white/70">Select a contact to view details.</div>
+                    <div className="text-xs text-white/70">{t('messages.selectContactDetails')}</div>
                   )}
                   <DropdownMenuSeparator className="my-3 bg-white/10" />
                   <DropdownMenuItem
@@ -1485,32 +1487,32 @@ const MessagesPage: React.FC = () => {
                     className="cursor-pointer text-sm text-white/80 focus:bg-white/10 focus:text-white"
                     disabled={!selectedThread}
                   >
-                    Search history
+                    {t('messages.searchInConversation')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={handleToggleMute}
                     className="cursor-pointer text-sm text-white/80 focus:bg-white/10 focus:text-white"
                     disabled={!selectedThread}
                   >
-                    {isMuted ? 'Unmute notifications' : 'Mute notifications'}
+                    {isMuted ? t('messages.unmuteThread') : t('messages.muteThread')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={handleTogglePin}
                     className="cursor-pointer text-sm text-white/80 focus:bg-white/10 focus:text-white"
                     disabled={!selectedThread}
                   >
-                    {isPinned ? 'Unpin from top' : 'Stick on top'}
+                    {isPinned ? t('messages.unpinThread') : t('messages.pinThread')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="my-3 bg-white/10" />
                   <DropdownMenuItem
                     className="cursor-pointer text-sm text-red-300 focus:bg-red-500/15 focus:text-red-200"
                     disabled={!selectedThread}
                   >
-                    Block user
+                    {t('messages.blockUser')}
                   </DropdownMenuItem>
                   {showSearchHistory ? (
                     <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-white/80">
-                      <div className="text-xs font-semibold tracking-[0.12em] text-white/60">SEARCH IN CHAT</div>
+                      <div className="text-xs font-semibold tracking-[0.12em] text-white/60">{t('messages.searchInConversation').toUpperCase()}</div>
                       <div className="mt-2 flex items-center gap-2">
                         <Input
                           value={searchQuery}
@@ -1521,7 +1523,7 @@ const MessagesPage: React.FC = () => {
                               handleSearchInThread();
                             }
                           }}
-                          placeholder="Type to search..."
+                          placeholder={t('messages.searchInConversation')}
                           className="h-9 rounded-lg border-white/20 bg-white/5 text-xs text-white placeholder:text-white/40 focus-visible:ring-0 focus-visible:ring-offset-0"
                         />
                         <Button
@@ -1531,36 +1533,39 @@ const MessagesPage: React.FC = () => {
                           onClick={handleSearchInThread}
                           className="h-9 border-white/20 bg-white/5 text-xs text-white hover:bg-white/10"
                         >
-                          Search
+                          {t('messages.search')}
                         </Button>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs text-white/60">
                         <span>
                           {searchMatches.length > 0
-                            ? `${currentMatchIndex + 1} / ${searchMatches.length} matches`
-                            : 'No matches'}
+                            ? `${currentMatchIndex + 1} / ${searchMatches.length} ${t('messages.matches')}`
+                            : t('messages.noResultsFound')}
                         </span>
                         <div className="flex items-center gap-1">
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
-                            onClick={handlePreviousMatch}
-                            disabled={searchMatches.length < 2}
-                            className="h-7 w-7 text-white/70 hover:text-white"
+                            onClick={handlePrevMatch}
+                            disabled={searchMatches.length === 0}
+                            className="h-6 w-6 text-white/70 hover:text-white"
                           >
-                            <ChevronUp className="h-4 w-4" />
+                            <ChevronUp className="h-3 w-3" />
                           </Button>
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
                             onClick={handleNextMatch}
-                            disabled={searchMatches.length < 2}
-                            className="h-7 w-7 text-white/70 hover:text-white"
+                            disabled={searchMatches.length === 0}
+                            className="h-6 w-6 text-white/70 hover:text-white"
                           >
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-3 w-3" />
                           </Button>
+                          <span className="ml-1 text-[10px] uppercase tracking-wider text-white/40">
+                            {t('messages.previousMatch')} / {t('messages.nextMatch')}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1633,7 +1638,7 @@ const MessagesPage: React.FC = () => {
                           <div className="flex-1">
                             <div className="flex items-center justify-between gap-2">
                               <span className={cn('text-xs font-semibold', isMe ? 'text-slate-200' : 'text-sky-200')}>
-                                {isMe ? 'Payment request sent' : 'Payment request'}
+                                {isMe ? t('messages.paymentRequestSent') : t('messages.paymentRequest')}
                               </span>
                               <Badge
                                 className={cn(
@@ -1662,13 +1667,13 @@ const MessagesPage: React.FC = () => {
                               {expiresAt ? (
                                 <>
                                   <span>•</span>
-                                  <span>Expires {expiresAt.toLocaleString()}</span>
+                                  <span>{t('messages.expires')} {expiresAt.toLocaleString()}</span>
                                 </>
                               ) : null}
                             </div>
                             {!isMe ? (
                               <div className="mt-2 text-[11px] text-white/70">
-                                {canConfirm ? 'Tap to confirm payment' : 'Payment request status updated'}
+                                {canConfirm ? t('messages.tapToConfirm') : t('messages.paymentStatusUpdated')}
                               </div>
                             ) : null}
                           </div>
@@ -1732,7 +1737,7 @@ const MessagesPage: React.FC = () => {
                             </div>
                             <div className="flex-1">
                               <div className={cn('text-xs font-semibold', isMe ? 'text-violet-200' : 'text-fuchsia-200')}>
-                                Payment confirmed
+                                {t('messages.paymentConfirmed')}
                               </div>
                               <div className="mt-1 text-xl font-bold text-white">
                                 {formatCurrency(confirmation.amount, confirmation.currency)}
@@ -1805,7 +1810,7 @@ const MessagesPage: React.FC = () => {
                                   </span>
                                 ) : (
                                   <span className="text-xs font-semibold text-white/80">
-                                    {isMe ? 'Product mentioned' : 'Product mention'}
+                                    {isMe ? t('messages.productMentioned') : t('messages.productMention')}
                                   </span>
                                 )}
                                 <span className="text-[11px] text-white/60">{message.time}</span>
@@ -1813,7 +1818,7 @@ const MessagesPage: React.FC = () => {
                               <div className="line-clamp-2 text-xs font-medium leading-tight text-white/95">{productTitle}</div>
                               {message.text ? <div className="text-[11px] text-white/70">{message.text}</div> : null}
                               <div className="flex items-center justify-between text-[11px] text-white/50">
-                                <span>Open product details</span>
+                                <span>{t('messages.openProductDetails')}</span>
                                 <span className="flex items-center gap-1">
                                   {statusIcon}
                                   <span className="capitalize">{messageStatus}</span>
@@ -1856,7 +1861,7 @@ const MessagesPage: React.FC = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className={cn('text-xs font-semibold', isMe ? 'text-cyan-200' : 'text-blue-200')}>
-                                  {isSender ? 'You sent' : `${sender_username || 'User'} sent`}
+                                  {isSender ? t('messages.youSent') : `${sender_username || t('messages.user')} ${t('messages.sent')}`}
                                 </span>
                               </div>
                               <div className="mt-1 text-xl font-bold text-white">
@@ -1933,7 +1938,7 @@ const MessagesPage: React.FC = () => {
                 })
               ) : (
                 <div className="mt-10 rounded-[28px] bg-black/15 px-6 py-5 text-center text-sm text-white/70">
-                  ◀︎ choose a friend from the sidebar
+                  {t('messages.chooseFriend')}
                 </div>
               )}
             </div>
@@ -1967,72 +1972,72 @@ const MessagesPage: React.FC = () => {
                 </Button>
                 {attachOpen ? (
                   <div className="absolute bottom-14 left-0 z-20 w-[220px] rounded-2xl border border-white/10 bg-black/60 py-2 shadow-2xl backdrop-blur-xl">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        imageInputRef.current?.click();
-                        setAttachOpen(false);
-                      }}
-                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
-                    >
-                      <ImagePlus className="h-4 w-4" />
-                      Image
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        fileInputRef.current?.click();
-                        setAttachOpen(false);
-                      }}
-                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
-                    >
-                      <FileText className="h-4 w-4" />
-                      File
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowTransferDialog(true);
-                        setAttachOpen(false);
-                      }}
-                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
-                    >
-                      <ArrowRightLeft className="h-4 w-4" />
-                      Transfer money
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleOpenProductMention();
-                        setAttachOpen(false);
-                      }}
-                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
-                    >
-                      <Package className="h-4 w-4" />
-                      Mention product
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleOpenPaymentRequest();
-                        setAttachOpen(false);
-                      }}
-                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
-                    >
-                      <DollarSign className="h-4 w-4" />
-                      Request payment
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMeetingDialog(true);
-                        setAttachOpen(false);
-                      }}
-                      className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
-                    >
-                      <MapPin className="h-4 w-4" />
-                      Set meeting
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          imageInputRef.current?.click();
+                          setAttachOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                      >
+                        <ImagePlus className="h-4 w-4" />
+                        {t('messages.image')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fileInputRef.current?.click();
+                          setAttachOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                      >
+                        <FileText className="h-4 w-4" />
+                        {t('messages.file')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTransferDialog(true);
+                          setAttachOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                      >
+                        <ArrowRightLeft className="h-4 w-4" />
+                        {t('messages.transferMoney')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleOpenProductMention();
+                          setAttachOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                      >
+                        <Package className="h-4 w-4" />
+                        {t('messages.mentionProduct')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleOpenPaymentRequest();
+                          setAttachOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                      >
+                        <DollarSign className="h-4 w-4" />
+                        {t('messages.requestPayment')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMeetingDialog(true);
+                          setAttachOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-5 py-3 text-sm text-white/90 hover:bg-white/5"
+                      >
+                        <MapPin className="h-4 w-4" />
+                        {t('messages.setMeeting')}
+                      </button>
                   </div>
                 ) : null}
               </div>
@@ -2040,7 +2045,7 @@ const MessagesPage: React.FC = () => {
               <Input
                 value={messageInput}
                 onChange={(event) => setMessageInput(event.target.value)}
-                placeholder="type a message..."
+                placeholder={t('messages.typeMessage')}
                 maxLength={2000}
                 className="h-12 flex-1 rounded-full border-white/20 bg-white/5 px-6 text-sm text-white placeholder:text-white/50 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
@@ -2051,7 +2056,7 @@ const MessagesPage: React.FC = () => {
               >
                 <span className="flex items-center gap-2">
                   <Send className="h-4 w-4" />
-                  send
+                  {t('messages.send')}
                 </span>
               </Button>
             </div>
@@ -2071,14 +2076,14 @@ const MessagesPage: React.FC = () => {
         <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
           <DialogContent className="bg-background sm:rounded-lg">
             <DialogHeader>
-              <DialogTitle>Transfer Money</DialogTitle>
+              <DialogTitle>{t('messages.transferMoney')}</DialogTitle>
               <DialogDescription>
-                Send money to {selectedThread?.name || 'this user'}. The amount will be transferred from your wallet to theirs.
+                {t('messages.transferDescription', { user: selectedThread?.name || t('messages.thisUser') })}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="transfer-amount">Amount</Label>
+                <Label htmlFor="transfer-amount">{t('messages.paymentRequestAmount')}</Label>
                 <Input
                   id="transfer-amount"
                   type="number"
@@ -2091,10 +2096,10 @@ const MessagesPage: React.FC = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="transfer-currency">Currency</Label>
+                <Label htmlFor="transfer-currency">{t('messages.paymentRequestCurrency')}</Label>
                 <Select value={transferCurrency} onValueChange={setTransferCurrency}>
                   <SelectTrigger className="w-full" id="transfer-currency">
-                    <SelectValue placeholder="Select a currency" />
+                    <SelectValue placeholder={t('messages.selectCurrency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {POPULAR_CURRENCIES.map((currency) => (
@@ -2106,12 +2111,12 @@ const MessagesPage: React.FC = () => {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="transfer-reference">Reference (optional)</Label>
+                <Label htmlFor="transfer-reference">{t('messages.reference')} ({t('common.optional')})</Label>
                 <Input
                   id="transfer-reference"
                   type="text"
                   maxLength={255}
-                  placeholder="Payment for books"
+                  placeholder={t('messages.referencePlaceholder')}
                   value={transferReference}
                   onChange={(e) => setTransferReference(e.target.value)}
                   className="w-full"
@@ -2130,14 +2135,14 @@ const MessagesPage: React.FC = () => {
                 }}
                 disabled={isTransferring}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="button"
                 onClick={handleTransfer}
                 disabled={isTransferring || !transferAmount || !transferCurrency}
               >
-                {isTransferring ? 'Transferring...' : 'Transfer'}
+                {isTransferring ? t('messages.transferring') : t('messages.transfer')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -2146,22 +2151,22 @@ const MessagesPage: React.FC = () => {
         <Dialog open={showProductMentionDialog} onOpenChange={setShowProductMentionDialog}>
           <DialogContent className="bg-background sm:rounded-lg">
             <DialogHeader>
-              <DialogTitle>Mention Product</DialogTitle>
+              <DialogTitle>{t('messages.mentionProduct')}</DialogTitle>
               <DialogDescription>
-                Share one of your listings with {selectedThread?.name || 'this user'}.
+                {t('messages.mentionDescription', { user: selectedThread?.name || t('messages.thisUser') })}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label>Product</Label>
+                <Label>{t('messages.selectProduct')}</Label>
                 <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
                   {isLoadingProducts ? (
                     <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
-                      Loading your products...
+                      {t('messages.loadingProducts')}
                     </div>
                   ) : myProducts.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-3 text-sm text-white/70">
-                      No products available to mention.
+                      {t('messages.noProducts')}
                     </div>
                   ) : (
                     myProducts.map((product) => {
@@ -2207,14 +2212,14 @@ const MessagesPage: React.FC = () => {
                 onClick={() => setShowProductMentionDialog(false)}
                 disabled={isSendingProductMention}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="button"
                 onClick={handleSendProductMention}
                 disabled={isSendingProductMention || myProducts.length === 0 || productMentionProductId === null}
               >
-                {isSendingProductMention ? 'Sending...' : 'Send Product Mention'}
+                {isSendingProductMention ? t('messages.sending') : t('messages.sendProductMention')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -2223,22 +2228,22 @@ const MessagesPage: React.FC = () => {
         <Dialog open={showPaymentRequestDialog} onOpenChange={setShowPaymentRequestDialog}>
           <DialogContent className="bg-background sm:rounded-lg">
             <DialogHeader>
-              <DialogTitle>Request Payment</DialogTitle>
+              <DialogTitle>{t('messages.requestPayment')}</DialogTitle>
               <DialogDescription>
-                Request payment from {selectedThread?.name || 'this user'} for one of your listings.
+                {t('messages.requestPaymentDescription', { user: selectedThread?.name || t('messages.thisUser') })}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label>Product</Label>
+                <Label>{t('messages.selectProduct')}</Label>
                 <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
                   {isLoadingProducts ? (
                     <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
-                      Loading your products...
+                      {t('messages.loadingProducts')}
                     </div>
                   ) : myProducts.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-3 text-sm text-white/70">
-                      No products available for payment requests.
+                      {t('messages.noProducts')}
                     </div>
                   ) : (
                     myProducts.map((product) => {
@@ -2270,14 +2275,14 @@ const MessagesPage: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                        </label>
+                      </label>
                       );
                     })
                   )}
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="payment-request-amount">Amount</Label>
+                <Label htmlFor="payment-request-amount">{t('messages.paymentRequestAmount')}</Label>
                 <Input
                   id="payment-request-amount"
                   type="number"
@@ -2290,10 +2295,10 @@ const MessagesPage: React.FC = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="payment-request-currency">Currency</Label>
+                <Label htmlFor="payment-request-currency">{t('messages.paymentRequestCurrency')}</Label>
                 <Select value={paymentRequestCurrency} onValueChange={setPaymentRequestCurrency}>
                   <SelectTrigger className="w-full" id="payment-request-currency">
-                    <SelectValue placeholder="Select a currency" />
+                    <SelectValue placeholder={t('messages.selectCurrency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {POPULAR_CURRENCIES.map((currency) => (
@@ -2305,18 +2310,18 @@ const MessagesPage: React.FC = () => {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="payment-request-message">Message (optional)</Label>
+                <Label htmlFor="payment-request-message">{t('messages.paymentRequestMessage')}</Label>
                 <Textarea
                   id="payment-request-message"
                   maxLength={1000}
-                  placeholder="Add a note for this request"
+                  placeholder={t('messages.addNote')}
                   value={paymentRequestMessage}
                   onChange={(e) => setPaymentRequestMessage(e.target.value)}
                   className="min-h-[90px] w-full"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="payment-request-expires">Expires in hours (1-720)</Label>
+                <Label htmlFor="payment-request-expires">{t('messages.paymentRequestExpires')}</Label>
                 <Input
                   id="payment-request-expires"
                   type="number"
@@ -2342,14 +2347,14 @@ const MessagesPage: React.FC = () => {
                 }}
                 disabled={isPaymentRequesting}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="button"
                 onClick={handlePaymentRequest}
                 disabled={isPaymentRequesting || !paymentRequestAmount || !paymentRequestCurrency}
               >
-                {isPaymentRequesting ? 'Requesting...' : 'Request Payment'}
+                {isPaymentRequesting ? t('messages.requesting') : t('messages.requestPayment')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -2364,14 +2369,14 @@ const MessagesPage: React.FC = () => {
         >
           <DialogContent className="bg-background sm:rounded-lg">
             <DialogHeader>
-              <DialogTitle>Confirm Payment</DialogTitle>
+              <DialogTitle>{t('messages.confirmPayment')}</DialogTitle>
               <DialogDescription>
-                Review the payment request details before confirming.
+                {t('messages.confirmPaymentDescription')}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <div className="text-sm font-semibold text-white/90">Amount</div>
+                <div className="text-sm font-semibold text-white/90">{t('messages.paymentRequestAmount')}</div>
                 <div className="mt-1 text-2xl font-bold text-white">
                   {activePaymentRequest ? formatCurrency(activePaymentRequest.amount, activePaymentRequest.currency) : '—'}
                 </div>
@@ -2381,20 +2386,20 @@ const MessagesPage: React.FC = () => {
                   </div>
                 ) : null}
                 {activePaymentRequest?.reference ? (
-                  <div className="mt-2 text-xs text-white/70">Reference: {activePaymentRequest.reference}</div>
+                  <div className="mt-2 text-xs text-white/70">{t('messages.reference')}: {activePaymentRequest.reference}</div>
                 ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/60">
                   <Badge className="border-0 bg-white/10 text-white/80">
                     {paymentConfirmStatus}
                   </Badge>
                   {paymentConfirmExpiresAt ? (
-                    <span>Expires {paymentConfirmExpiresAt.toLocaleString()}</span>
+                    <span>{t('messages.expires')} {paymentConfirmExpiresAt.toLocaleString()}</span>
                   ) : null}
                 </div>
               </div>
               {paymentConfirmExpired ? (
                 <div className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-xs text-red-100">
-                  This payment request has expired.
+                  {t('messages.paymentExpired')}
                 </div>
               ) : null}
             </div>
@@ -2408,14 +2413,14 @@ const MessagesPage: React.FC = () => {
                 }}
                 disabled={isConfirmingPayment}
               >
-                Close
+                {t('common.close')}
               </Button>
               <Button
                 type="button"
                 onClick={handleConfirmPaymentRequest}
                 disabled={!canConfirmPayment || isConfirmingPayment}
               >
-                {isConfirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+                {isConfirmingPayment ? t('messages.confirming') : t('messages.confirmPayment')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -2424,23 +2429,23 @@ const MessagesPage: React.FC = () => {
         <Dialog open={showMeetingDialog} onOpenChange={setShowMeetingDialog}>
           <DialogContent className="bg-background sm:rounded-lg">
             <DialogHeader>
-              <DialogTitle>Set Meeting</DialogTitle>
+              <DialogTitle>{t('messages.setMeeting')}</DialogTitle>
               <DialogDescription>
-                Propose a meeting location and time for {selectedThread?.name || 'this user'}.
+                {t('messages.meetingDescription', { user: selectedThread?.name || t('messages.thisUser') })}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="meeting-location">Location</Label>
+                <Label htmlFor="meeting-location">{t('messages.meetingLocation')}</Label>
                 <Input
                   id="meeting-location"
-                  placeholder="Library entrance, Building A"
+                  placeholder={t('messages.meetingLocationPlaceholder')}
                   value={meetingLocation}
                   onChange={(e) => setMeetingLocation(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="meeting-date">Date</Label>
+                <Label htmlFor="meeting-date">{t('messages.meetingDate')}</Label>
                 <Input
                   id="meeting-date"
                   type="date"
@@ -2449,7 +2454,7 @@ const MessagesPage: React.FC = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="meeting-time">Time</Label>
+                <Label htmlFor="meeting-time">{t('messages.meetingTime')}</Label>
                 <Input
                   id="meeting-time"
                   type="time"
@@ -2458,11 +2463,11 @@ const MessagesPage: React.FC = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="meeting-note">Note (optional)</Label>
+                <Label htmlFor="meeting-note">{t('messages.meetingNote')} ({t('common.optional')})</Label>
                 <Textarea
                   id="meeting-note"
                   maxLength={300}
-                  placeholder="Add any details"
+                  placeholder={t('messages.addDetails')}
                   value={meetingNote}
                   onChange={(e) => setMeetingNote(e.target.value)}
                   className="min-h-[80px]"
@@ -2482,14 +2487,14 @@ const MessagesPage: React.FC = () => {
                 }}
                 disabled={isSendingMeeting}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="button"
                 onClick={handleMeetingRequest}
                 disabled={isSendingMeeting || !meetingLocation.trim() || !meetingDate || !meetingTime}
               >
-                {isSendingMeeting ? 'Sending...' : 'Send Request'}
+                {isSendingMeeting ? t('messages.sending') : t('messages.sendRequest')}
               </Button>
             </DialogFooter>
           </DialogContent>

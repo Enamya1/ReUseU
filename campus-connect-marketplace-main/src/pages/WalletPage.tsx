@@ -69,6 +69,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from 'react-i18next';
 import CurrencySelector from '@/components/currency/CurrencySelector';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -76,6 +77,7 @@ import { apiUrl } from '@/lib/api';
 
 const WalletPage = () => {
   const { user, accessToken, tokenType, refreshBalance } = useAuth();
+  const { t } = useTranslation();
   const { formatWithSelectedCurrency, selectedCurrency, setSelectedCurrency, convertPrice, currencies } = useCurrency();
   
   const [wallets, setWallets] = useState<WalletType[]>([]);
@@ -638,10 +640,10 @@ const WalletPage = () => {
       <MainLayout showFooter={false}>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
           <ShieldAlert className="w-16 h-16 text-muted-foreground mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-          <p className="text-muted-foreground mb-6">Please log in to manage your wallets.</p>
+          <h1 className="text-2xl font-bold mb-2">{t('wallet.accessDenied')}</h1>
+          <p className="text-muted-foreground mb-6">{t('wallet.accessDeniedDesc')}</p>
           <Button asChild>
-            <a href="/login">Log In</a>
+            <a href="/login">{t('wallet.login')}</a>
           </Button>
         </div>
       </MainLayout>
@@ -653,93 +655,93 @@ const WalletPage = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Wallet Management</h1>
-            <p className="text-muted-foreground">Manage your funds, transfers, and transaction history.</p>
+            <h1 className="text-3xl font-bold tracking-tight">{t('wallet.title')}</h1>
+            <p className="text-muted-foreground">{t('wallet.subtitle')}</p>
           </div>
           
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Create New Wallet
-              </Button>
+                <Button className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  {t('wallet.createNew')}
+                </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Wallet</DialogTitle>
-                <DialogDescription>
-                  Enter the details for your new wallet.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Wallet Type</Label>
-                  <RadioGroup 
-                    value={newWalletTypeId} 
-                    onValueChange={setNewWalletTypeId}
-                    className="flex gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="1" id="type-default" />
-                      <Label htmlFor="type-default" className="cursor-pointer">Default</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="2" id="type-escrow" />
-                      <Label htmlFor="type-escrow" className="cursor-pointer">Escrow</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium">Wallet Name</Label>
-                  <Input 
-                    id="name"
-                    placeholder="e.g. My Savings, Daily Expenses" 
-                    value={newWalletName}
-                    onChange={(e) => setNewWalletName(e.target.value)}
-                    maxLength={120}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-sm font-medium">Description (Optional)</Label>
-                  <Input 
-                    id="description"
-                    placeholder="What is this wallet for?" 
-                    value={newWalletDescription}
-                    onChange={(e) => setNewWalletDescription(e.target.value)}
-                    maxLength={500}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <DialogHeader>
+                  <DialogTitle>{t('wallet.createDialogTitle')}</DialogTitle>
+                  <DialogDescription>
+                    {t('wallet.createDialogDesc')}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="currency" className="text-sm font-medium">Currency</Label>
+                    <Label className="text-sm font-medium">{t('wallet.walletType')}</Label>
+                    <RadioGroup 
+                      value={newWalletTypeId} 
+                      onValueChange={setNewWalletTypeId}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="1" id="type-default" />
+                        <Label htmlFor="type-default" className="cursor-pointer">{t('wallet.typeDefault')}</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="2" id="type-escrow" />
+                        <Label htmlFor="type-escrow" className="cursor-pointer">{t('wallet.typeEscrow')}</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium">{t('wallet.walletName')}</Label>
                     <Input 
-                      id="currency"
-                      value={newWalletCurrency}
-                      onChange={(e) => setNewWalletCurrency(e.target.value.toUpperCase())}
-                      maxLength={3}
-                      placeholder="CNY"
+                      id="name"
+                      placeholder={t('wallet.walletNamePlaceholder')} 
+                      value={newWalletName}
+                      onChange={(e) => setNewWalletName(e.target.value)}
+                      maxLength={120}
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="balance" className="text-sm font-medium">Initial Balance</Label>
+                    <Label htmlFor="description" className="text-sm font-medium">{t('wallet.description')}</Label>
                     <Input 
-                      id="balance"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newWalletInitialBalance}
-                      onChange={(e) => setNewWalletInitialBalance(e.target.value)}
+                      id="description"
+                      placeholder={t('wallet.descriptionPlaceholder')} 
+                      value={newWalletDescription}
+                      onChange={(e) => setNewWalletDescription(e.target.value)}
+                      maxLength={500}
                     />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="currency" className="text-sm font-medium">{t('wallet.currency')}</Label>
+                      <Input 
+                        id="currency"
+                        value={newWalletCurrency}
+                        onChange={(e) => setNewWalletCurrency(e.target.value.toUpperCase())}
+                        maxLength={3}
+                        placeholder="CNY"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="balance" className="text-sm font-medium">{t('wallet.initialBalance')}</Label>
+                      <Input 
+                        id="balance"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newWalletInitialBalance}
+                        onChange={(e) => setNewWalletInitialBalance(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreateWallet} disabled={isLoading}>Create Wallet</Button>
-              </DialogFooter>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>{t('wallet.cancel')}</Button>
+                  <Button onClick={handleCreateWallet} disabled={isLoading}>{t('wallet.create')}</Button>
+                </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
@@ -978,8 +980,8 @@ const WalletPage = () => {
                             </div>
                           </div>
                           <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsTransferDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleTransfer} disabled={isLoading}>Send Funds</Button>
+                            <Button variant="outline" onClick={() => setIsTransferDialogOpen(false)}>{t('wallet.cancel')}</Button>
+                            <Button onClick={handleTransfer} disabled={isLoading}>{t('wallet.sendFunds')}</Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
@@ -1090,29 +1092,29 @@ const WalletPage = () => {
                   <TabsList className="grid w-full grid-cols-2 mb-4">
                     <TabsTrigger value="transactions" className="gap-2">
                       <History className="w-4 h-4" />
-                      Transactions
+                      {t('wallet.transactions')}
                     </TabsTrigger>
                     <TabsTrigger value="status" className="gap-2">
                       <ShieldAlert className="w-4 h-4" />
-                      Status History
+                      {t('wallet.statusHistory')}
                     </TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="transactions">
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Transaction History</CardTitle>
-                        <CardDescription>Your recent chronological activity</CardDescription>
+                        <CardTitle className="text-base">{t('wallet.transactionHistory')}</CardTitle>
+                        <CardDescription>{t('wallet.yourRecentActivity')}</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Type</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Description</TableHead>
-                              <TableHead className="text-right">Amount</TableHead>
-                              <TableHead className="text-right">Status</TableHead>
+                              <TableHead>{t('wallet.type')}</TableHead>
+                              <TableHead>{t('wallet.date')}</TableHead>
+                              <TableHead>{t('wallet.description')}</TableHead>
+                              <TableHead className="text-right">{t('wallet.amount')}</TableHead>
+                              <TableHead className="text-right">{t('wallet.status')}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1148,9 +1150,9 @@ const WalletPage = () => {
                               ))
                             ) : (
                               <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                  No transactions found for this wallet.
-                                </TableCell>
+<TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+  {t('wallet.noTransactions')}
+</TableCell>
                               </TableRow>
                             )}
                           </TableBody>
@@ -1162,26 +1164,56 @@ const WalletPage = () => {
                   <TabsContent value="status">
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Status Lifecycle</CardTitle>
-                        <CardDescription>Historical changes to wallet status</CardDescription>
+<CardTitle className="text-base">{t('wallet.statusLifecycle')}</CardTitle>
+<CardDescription>{t('wallet.statusHistoryDesc')}</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
-                          {walletStatusHistory.length > 0 ? (
-                            walletStatusHistory.map((history) => (
-                              <div key={history.id} className="flex gap-4 p-4 rounded-lg bg-muted/30">
-                                <div className="mt-1">
-                                  {history.new_status === 'frozen' ? (
-                                    <Lock className="w-5 h-5 text-orange-500" />
-                                  ) : (
-                                    <Unlock className="w-5 h-5 text-green-500" />
-                                  )}
+{walletStatusHistory.length > 0 ? (
+  walletStatusHistory.map((history) => (
+    <div key={history.id} className="flex gap-4 p-4 rounded-lg bg-muted/30">
+      <div className="mt-1">
+        {history.new_status === 'frozen' ? (
+          <Lock className="w-5 h-5 text-orange-500" />
+        ) : (
+          <Unlock className="w-5 h-5 text-green-500" />
+        )}
+      </div>
+      <div className="flex-1">
+        <div className="flex justify-between items-start mb-1">
+          <div className="font-medium">
+            {t('wallet.statusChangedTo', { status: t(`wallet.${history.new_status}`) })}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {format(new Date(history.created_at), 'MMM d, yyyy HH:mm')}
+          </div>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {t('wallet.reason')}: {history.reason}
+        </div>
+        <div className="text-[10px] mt-2 text-muted-foreground uppercase tracking-wider">
+          {t('wallet.changedBy')}: User #{history.changed_by}
+        </div>
+      </div>
+    </div>
+  ))
+) : (
+  <div className="p-8 text-center text-muted-foreground rounded-lg">
+    {t('wallet.noStatusChanges')}
+  </div>
+)}
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex justify-between items-start mb-1">
-                                    <div className="font-medium">
-                                      Status changed to <span className="capitalize">{history.new_status}</span>
-                                    </div>
+<div className="font-medium">
+  {t('wallet.statusChangedTo', { status: t(`wallet.${history.new_status}`) })}
+</div>
+<div className="text-sm text-muted-foreground">
+  {t('wallet.reason')}: {history.reason}
+</div>
+<div className="text-[10px] mt-2 text-muted-foreground uppercase tracking-wider">
+  {t('wallet.changedBy')}: User #{history.changed_by}
+</div>
                                     <div className="text-xs text-muted-foreground">
                                       {format(new Date(history.created_at), 'MMM d, yyyy HH:mm')}
                                     </div>
@@ -1206,12 +1238,12 @@ const WalletPage = () => {
                   </TabsContent>
                 </Tabs>
               </>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[400px] rounded-xl bg-muted/20">
-                <Wallet className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground">Select a wallet to view details and perform actions.</p>
-              </div>
-            )}
+) : (
+  <div className="flex flex-col items-center justify-center h-[400px] rounded-xl bg-muted/20">
+    <Wallet className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
+    <p className="text-muted-foreground">{t('wallet.selectWallet')}</p>
+  </div>
+)}
           </div>
         </div>
       </div>

@@ -251,7 +251,7 @@ export default function HomeScreen() {
           >
             <View style={styles.searchRow}>
               {!isSearchExpanded && (
-                <Text style={styles.logoText}>ReUseU</Text>
+                <Text style={styles.logoText}>校物圈</Text>
               )}
               
               {isSearchExpanded ? (
